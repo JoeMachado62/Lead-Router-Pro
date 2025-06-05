@@ -1,0 +1,105 @@
+Field Name,Object,Folder,Unique Key,Created On
+Company Name,Company,Company Info,{{ business.name }},5/30/2025 at 4:11 PM
+Phone,Company,Company Info,{{ business.phone }},5/30/2025 at 4:11 PM
+Email,Company,Company Info,{{ business.email }},5/30/2025 at 4:11 PM
+Website,Company,Company Info,{{ business.website }},5/30/2025 at 4:11 PM
+Address,Company,Company Info,{{ business.address }},5/30/2025 at 4:11 PM
+State,Company,Company Info,{{ business.state }},5/30/2025 at 4:11 PM
+City,Company,Company Info,{{ business.city }},5/30/2025 at 4:11 PM
+Description,Company,Company Info,{{ business.description }},5/30/2025 at 4:11 PM
+Postal Code,Company,Company Info,{{ business.postalcode }},5/30/2025 at 4:11 PM
+Country,Company,Company Info,{{ business.country }},5/30/2025 at 4:11 PM
+Business Name,Contact,General Info,{{ contact.company_name }},5/28/2025 at 2:43 PM
+Street Address,Contact,General Info,{{ contact.address1 }},5/28/2025 at 2:43 PM
+City,Contact,General Info,{{ contact.city }},5/28/2025 at 2:43 PM
+Country,Contact,General Info,{{ contact.country }},5/28/2025 at 2:43 PM
+State,Contact,General Info,{{ contact.state }},5/28/2025 at 2:43 PM
+Postal Code,Contact,General Info,{{ contact.postal_code }},5/28/2025 at 2:43 PM
+Website,Contact,General Info,{{ contact.website }},5/28/2025 at 2:43 PM
+Time Zone,Contact,General Info,{{ contact.timezone }},5/28/2025 at 2:43 PM
+First Name,Contact,Contact,{{ contact.first_name }},5/28/2025 at 2:43 PM
+Last Name,Contact,Contact,{{ contact.last_name }},5/28/2025 at 2:43 PM
+Email,Contact,Contact,{{ contact.email }},5/28/2025 at 2:43 PM
+Phone,Contact,Contact,{{ contact.phone }},5/28/2025 at 2:43 PM
+Contact Status,Contact,Contact,{{ contact.contact_status }},5/28/2025 at 2:43 PM
+Date Of Birth,Contact,Contact,{{ contact.date_of_birth }},5/28/2025 at 2:43 PM
+Contact Source,Contact,Contact,{{ contact.source }},5/28/2025 at 2:43 PM
+Contact Type,Contact,Contact,{{ contact.type }},5/28/2025 at 2:43 PM
+Opportunity Name,Opportunity,Opportunity Details,{{ opportunity.name }},5/28/2025 at 2:43 PM
+Pipeline,Opportunity,Opportunity Details,{{ opportunity.pipeline_id }},5/28/2025 at 2:43 PM
+Stage,Opportunity,Opportunity Details,{{ opportunity.pipeline_stage_id }},5/28/2025 at 2:43 PM
+Status,Opportunity,Opportunity Details,{{ opportunity.status }},5/28/2025 at 2:43 PM
+Lead Value,Opportunity,Opportunity Details,{{ opportunity.monetary_value }},5/28/2025 at 2:43 PM
+Opportunity Owner,Opportunity,Opportunity Details,{{ opportunity.assigned_to }},5/28/2025 at 2:43 PM
+Opportunity Source,Opportunity,Opportunity Details,{{ opportunity.source }},5/28/2025 at 2:43 PM
+Lost Reason,Opportunity,Opportunity Details,{{ opportunity.lost_reason }},5/28/2025 at 2:43 PM
+How Would You Rate Us?,Contact,Additional Info,{{ contact.how_would_you_rate_us }},5/28/2025 at 2:43 PM
+Your Feedback,Contact,Additional Info,{{ contact.your_feedback }},5/28/2025 at 2:43 PM
+Website Form - Additional Information,Contact,Additional Info,{{ contact.messagemore_information }},5/28/2025 at 2:43 PM
+Appointment Status,Contact,Additional Info,{{ contact.appointment_status }},5/28/2025 at 2:43 PM
+Follow Up Date,Contact,Additional Info,{{ contact.follow_up_in }},5/28/2025 at 2:43 PM
+Estimate,Contact,Additional Info,{{ contact.estimate }},5/28/2025 at 2:43 PM
+Cancellation Reason,Contact,Additional Info,{{ contact.cancellation_reason }},5/28/2025 at 2:43 PM
+Debug Test Field,Contact,Additional Info,{{ contact.debug_test_field }},5/31/2025 at 5:49 PM
+Specific Service Needed,Contact,Additional Info,{{ contact.specific_service_needed }},5/31/2025 at 5:56 PM
+Zip Code of Service,Contact,Additional Info,{{ contact.zip_code_of_service }},5/31/2025 at 5:56 PM
+Vessel Year,Contact,Additional Info,{{ contact.vessel_year }},5/31/2025 at 5:56 PM
+Vessel Make,Contact,Additional Info,{{ contact.vessel_make }},5/31/2025 at 5:56 PM
+Vessel Model,Contact,Additional Info,{{ contact.vessel_model }},5/31/2025 at 5:56 PM
+Vessel Length (ft),Contact,Additional Info,{{ contact.vessel_length_ft }},5/31/2025 at 5:56 PM
+# Guests / Crew,Contact,Additional Info,{{ contact._guests__crew }},5/31/2025 at 5:56 PM
+Budget Range,Contact,Additional Info,{{ contact.budget_range }},5/31/2025 at 5:56 PM
+Policy Start Date,Contact,Additional Info,{{ contact.policy_start_date }},5/31/2025 at 5:56 PM
+Rental Duration,Contact,Additional Info,{{ contact.rental_duration }},5/31/2025 at 5:56 PM
+Special Requests / Notes,Contact,Additional Info,{{ contact.special_requests__notes }},5/31/2025 at 5:56 PM
+Street / City / State / Zip,Contact,Additional Info,{{ contact.street__city__state__zip }},5/31/2025 at 5:56 PM
+DBA,Contact,Additional Info,{{ contact.dba }},5/31/2025 at 5:56 PM
+Service Zip Codes,Contact,Additional Info,{{ contact.service_zip_codes }},5/31/2025 at 5:57 PM
+About Your Company,Contact,Additional Info,{{ contact.about_your_company }},5/31/2025 at 5:57 PM
+Reviews / Google Profile URL,Contact,Additional Info,{{ contact.reviews__google_profile_url }},5/31/2025 at 5:57 PM
+Website URL,Contact,Additional Info,{{ contact.website_url }},5/31/2025 at 5:57 PM
+Licences / Certifications,Contact,Additional Info,{{ contact.licences__certifications }},5/31/2025 at 5:57 PM
+Years in Business,Contact,Additional Info,{{ contact.years_in_business }},5/31/2025 at 5:57 PM
+GHL User ID,Contact,Additional Info,{{ contact.ghl_user_id }},5/31/2025 at 5:57 PM
+Last Lead Assigned,Contact,Additional Info,{{ contact.last_lead_assigned }},5/31/2025 at 5:57 PM
+Lead Close %,Contact,Additional Info,{{ contact.lead_close_ }},5/31/2025 at 5:57 PM
+Provider Signup Date,Contact,Additional Info,{{ contact.provider_signup_date }},5/31/2025 at 5:57 PM
+Vendor Company Name,Contact,Additional Info,{{ contact.vendor_company_name }},5/31/2025 at 6:25 PM
+Preferred Contact Method,Contact,Additional Info,{{ contact.preferred_contact_method }},5/31/2025 at 7:04 PM
+Service Category,Contact,Additional Info,{{ contact.service_category }},5/31/2025 at 7:04 PM
+Vessel Location / Slip,Contact,Additional Info,{{ contact.vessel_location__slip }},5/31/2025 at 7:04 PM
+Desired Timeline,Contact,Additional Info,{{ contact.desired_timeline }},5/31/2025 at 7:04 PM
+Purchased Yet?,Contact,Additional Info,{{ contact.purchased_yet }},5/31/2025 at 7:04 PM
+Need Emergency Tow?,Contact,Additional Info,{{ contact.need_emergency_tow }},5/31/2025 at 7:05 PM
+Training / Education Type,Contact,Additional Info,{{ contact.training__education_type }},5/31/2025 at 7:05 PM
+Primary Service Category,Contact,Additional Info,{{ contact.primary_service_category }},5/31/2025 at 7:05 PM
+Services Provided,Contact,Additional Info,{{ contact.services_provided }},5/31/2025 at 7:05 PM
+Taking New Work?,Contact,Additional Info,{{ contact.taking_new_work }},5/31/2025 at 7:05 PM
+Insurance Coverage?,Contact,Additional Info,{{ contact.insurance_coverage }},5/31/2025 at 7:05 PM
+Vendor Preferred Contact Method,Contact,Additional Info,{{ contact.vendor_preferred_contact_method }},5/31/2025 at 7:17 PM
+Referred By,Contact,Referrals & Reviews,{{ contact.referred_by }},5/28/2025 at 2:43 PM
+Referred Others?,Contact,Referrals & Reviews,{{ contact.referred_others }},5/28/2025 at 2:43 PM
+Referrals Given,Contact,Referrals & Reviews,{{ contact.referrals_given }},5/28/2025 at 2:43 PM
+Provided a Review?,Contact,Referrals & Reviews,{{ contact.provided_a_review }},5/28/2025 at 2:43 PM
+Where can we improve?,Contact,Referrals & Reviews,{{ contact.where_can_we_improve }},5/28/2025 at 2:43 PM
+Review: How was your experience with us? (RATING),Contact,Referrals & Reviews,{{ contact.how_was_your_experience_with_us }},5/28/2025 at 2:43 PM
+Liked About Services,Contact,Referrals & Reviews,{{ contact.liked_about_services }},5/28/2025 at 2:43 PM
+Nurture Year,Contact,Placeholders - Do NOT Update,{{ contact.nurture_year }},5/28/2025 at 2:43 PM
+Customer Replied Alert,Contact,Placeholders - Do NOT Update,{{ contact.customer_replied_alert }},5/28/2025 at 2:43 PM
+New Years Day,Contact,Placeholders - Do NOT Update,{{ contact.new_years_day }},5/28/2025 at 2:43 PM
+Valentines Day,Contact,Placeholders - Do NOT Update,{{ contact.valentines_day }},5/28/2025 at 2:43 PM
+St Pattys Day,Contact,Placeholders - Do NOT Update,{{ contact.st_pattys_day }},5/28/2025 at 2:43 PM
+4th of July,Contact,Placeholders - Do NOT Update,{{ contact.4th_of_july }},5/28/2025 at 2:43 PM
+Most Recent Call Status,Contact,Call/Appt Info,{{ contact.most_recent_call_status }},5/28/2025 at 2:43 PM
+Call Note: (These are from the lead when they schedule a call on the calendar),Contact,Call/Appt Info,{{ contact.appointment_notes }},5/28/2025 at 2:43 PM
+Call Note: Conversation Recap Notes (THESE ARE EMAILED TO CLIENT),Contact,Call/Appt Info,{{ contact.conversation_recap_notes_these_are_emailed_to_client }},5/28/2025 at 2:43 PM
+Call Note: INTERNAL NOTES: (NOT SENT TO CLIENT),Contact,Call/Appt Info,{{ contact.internal_notes_not_sent_to_client }},5/28/2025 at 2:43 PM
+Call Note: Send Conversation Recap Email?,Contact,Call/Appt Info,{{ contact.send_conversation_recap_email }},5/28/2025 at 2:43 PM
+Is this an Estimate or Actual Amount Paid?,Contact,Call/Appt Info,{{ contact.is_this_an_estimate_or_actual_amount_paid }},5/28/2025 at 2:43 PM
+Response,Contact,AI Chat Bot,{{ contact.response }},5/28/2025 at 2:43 PM
+Calendar ID,Contact,AI Chat Bot,{{ contact.calendar_id }},5/28/2025 at 2:43 PM
+AI Status,Contact,AI Chat Bot,{{ contact.bot_status }},5/28/2025 at 2:43 PM
+Response Channel,Contact,AI Chat Bot,{{ contact.response_channel }},5/28/2025 at 2:43 PM
+OpenAI Prompt,Contact,AI Chat Bot,{{ contact.openai_prompt }},5/28/2025 at 2:43 PM
+Intro Message,Contact,AI Chat Bot,{{ contact.intro_message }},5/28/2025 at 2:43 PM
+Message Body,Contact,AI Chat Bot,{{ contact.message_body }},5/28/2025 at 2:43 PM

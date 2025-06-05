@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  # Main API application
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@db:5432/smartleadrouter
+      - REDIS_URL=redis://redis:6379
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ENVIRONMENT=development
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - .:/app
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+
+  # PostgreSQL database
+  db:
+    image: postgres:15
+    environment:
+      - POSTGRES_DB=smartleadrouter
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # Redis for caching and sessions
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  # Legacy Flask webhook server (for backward compatibility)
+  flask-webhook:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - GHL_PRIVATE_TOKEN=${GHL_PRIVATE_TOKEN}
+      - GHL_LOCATION_ID=${GHL_LOCATION_ID}
+    command: ["python", "webhook_server.py"]
+    volumes:
+      - .:/app
+
+volumes:
+  postgres_data:
+  redis_data:
