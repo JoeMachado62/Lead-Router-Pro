@@ -3,43 +3,43 @@
 2,Last Name,Built?in (Contact),text,{{ contact.last_name }},Already exists – do NOT create
 3,Contact Email,Built?in (Contact),Phone,{{ contact.email }},Already exists – do NOT create
 4,Contact Phone #,Built?in (Contact),Email,{{ contact.phone }},Already exists – do NOT create
-5,Preferred Contact Method,Using Text field for Dropdown (Single),"""Text"", ""Phone"", ""Email"", ""Any""",{{ contact.contact.preferred_contact_method }},Email / Phone / Text / Any
-6,Service Category,Using Text field for Dropdown (Single),"""Boat Maintenance Category"", ""Boat Hauling and Yacht Delivery Category"", ""Boat and Yacht Repair Category"", ""Buying or Selling a Boat Category"", ""Engines and Generators Category"", ""Marine Systems Category"", ""Docks, Seawalls and Lifts Category"", ""Boat Towing Category"", ""Boat Charters and Rentals Category"", ""Boater Resources Category"", ""Fuel Delivery Category"", ""Waterfront Property Category"", ""Maritime Education and Training Category"", ""Dock and Slip Rental Category"", ""Yacht Management Category"", ""Wholesale or Dealer Product Pricing Category""",{{ contact.contact.service_category }},16 fixed categories
-7,Specific Service Needed,Single Line,text field ,{{ contact.contact.specific_service_needed }},Free text from form option
-8,Zip Code of Service,Number,Number ,{{ contact.contact.zip_code_of_service }},5?digit ZIP
-9,Vessel Year,Number,Number ,{{ contact.contact.vessel_year }},
-10,Vessel Make,Single Line,text field ,{{ contact.contact.vessel_make }},
-11,Vessel Model,Single Line,text field ,{{ contact.contact.vessel_model }},
-12,Vessel Length (ft),Number,Number ,{{ contact.contact.vessel_length_ft }},
-13,Vessel Location / Slip,Using Text field for Dropdown (Single),"""Marina"", ""Private Dock"", ""Shipyard"", ""On a Trailer""",{{ contact.contact.vessel_location__slip }},
-14,# Guests / Crew,Number,Number ,{{ contact.contact._guests__crew }},
-15,Desired Timeline,Using Text field for Dropdown (Single),""" ASAP"", ""1-2 Weeks"", ""1-2 Months"", ""Not Sure/Just Inquiring""",{{ contact.contact.desired_timeline }},ASAP / 1?2 wk / etc.
-16,Budget Range,Single Line,Number ,{{ contact.contact.budget_range }},
-17,Purchased Yet?,Using Text field for Dropdown (Single),"""I Just Bought the Vessel"", ""New Vessel Policy"", ""Looking For Quotes Before Purchasing Vessel""",{{ contact.contact.purchased_yet }},
-18,Policy Start Date,Date Picker,Date Picker,{{ contact.contact.policy_start_date }},
-19,Need Emergency Tow?,Using Text field for Dropdown (Single),"""Emergency Tow"", ""Tow Membership"" ",{{ contact.contact.need_emergency_tow }},
-20,Rental Duration,Number,number (hours),{{ contact.contact.rental_duration }},Numeric value; unit implied
-21,Training / Education Type,Using Text field for Dropdown (Single),"""Yacht"", ""Sailboat or Catamaran On Water Training"", ""Interested In Buying a Boat/Insurance Signoff"", ""Maritime Academy"", ""Sailing Schools"", ""Captains License""",{{ contact.contact.training__education_type }},
-22,Special Requests / Notes,Multi Line,Text,{{ contact.contact.special_requests__notes }},
-23,Company Name,Single Line,text,{{ contact.contact.vendor_company_name }},
-24,Street / City / State / Zip,Multi Line,text,{{ contact.contact.street__city__state__zip }},Full address
-25,DBA,Single Line,?   not in website ,{{ contact.contact.dba }},
-26,Primary Service Category,Using Text field for Dropdown (Single),"""Boat and Yacht Repair"", ""Boat Charters and Rentals"", ""Boat Hauling and Yacht Delivery"", "" Boat Maintenance"", ""Boat Towing"", ""Boater Resources"", ""Buying or Selling a Boat"", ""Dock and Slip Rental"", ""Docks"", ""Seawalls and Lifts"", ""Engines and Generators"", ""Fuel Delivery"", ""Marine Systems"", ""Maritime Education and Training"", ""Waterfront Property"", ""Yacht Management"", ""Other""",{{ contact.contact.primary_service_category }},
-27,Services Provided,Using Text Multi-Line field for Dropdown (Multiple),"Boat and Yacht Repair, Boat Charters and Rentals, Boat Hauling and Yacht Delivery, Boat Maintenance, Boat Towing, Boater Resources, Buying or Selling a Boat, Dock and Slip Rental, Docks, Seawalls and Lifts, Engines and Generators, Fuel Delivery, Marine Systems, Maritime Education and Training, Waterfront Property, Yacht Management, Other)",{{ contact.contact.services_provided }},
-28,Service Zip Codes,Multi Line,??  not in website ,{{ contact.contact.service_zip_codes }},Comma or list of ZIPs
-29,About Your Company,Multi Line,Text,{{ contact.contact.about_your_company }},
-30,Reviews / Google Profile URL,Single Line,Text,{{ contact.contact.reviews__google_profile_url }},
-31,Taking New Work?,Checkbox,Text No check box??  ,{{ contact.contact.taking_new_work }},
+5,Preferred Contact Method,Using Text field for Dropdown (Single),"""Text"", ""Phone"", ""Email"", ""Any""",{{ contact.preferred_contact_method }},Email / Phone / Text / Any
+6,Service Category,Using Text field for Dropdown (Single),"""Boat Maintenance Category"", ""Boat Hauling and Yacht Delivery Category"", ""Boat and Yacht Repair Category"", ""Buying or Selling a Boat Category"", ""Engines and Generators Category"", ""Marine Systems Category"", ""Docks, Seawalls and Lifts Category"", ""Boat Towing Category"", ""Boat Charters and Rentals Category"", ""Boater Resources Category"", ""Fuel Delivery Category"", ""Waterfront Property Category"", ""Maritime Education and Training Category"", ""Dock and Slip Rental Category"", ""Yacht Management Category"", ""Wholesale or Dealer Product Pricing Category""",{{ contact.service_category }},16 fixed categories
+7,Specific Service Needed,Single Line,text field ,{{ contact.specific_service_needed }},Free text from form option
+8,Zip Code of Service,Number,Number ,{{ contact.zip_code_of_service }},5?digit ZIP
+9,Vessel Year,Number,Number ,{{ contact.vessel_year }},
+10,Vessel Make,Single Line,text field ,{{ contact.vessel_make }},
+11,Vessel Model,Single Line,text field ,{{ contact.vessel_model }},
+12,Vessel Length (ft),Number,Number ,{{ contact.vessel_length_ft }},
+13,Vessel Location / Slip,Using Text field for Dropdown (Single),"""Marina"", ""Private Dock"", ""Shipyard"", ""On a Trailer""",{{ contact.vessel_location__slip }},
+14,# Guests / Crew,Number,Number ,{{ contact._guests__crew }},
+15,Desired Timeline,Using Text field for Dropdown (Single),""" ASAP"", ""1-2 Weeks"", ""1-2 Months"", ""Not Sure/Just Inquiring""",{{ contact.desired_timeline }},ASAP / 1?2 wk / etc.
+16,Budget Range,Single Line,Number ,{{ contact.budget_range }},
+17,Purchased Yet?,Using Text field for Dropdown (Single),"""I Just Bought the Vessel"", ""New Vessel Policy"", ""Looking For Quotes Before Purchasing Vessel""",{{ contact.purchased_yet }},
+18,Policy Start Date,Date Picker,Date Picker,{{ contact.policy_start_date }},
+19,Need Emergency Tow?,Using Text field for Dropdown (Single),"""Emergency Tow"", ""Tow Membership"" ",{{ contact.need_emergency_tow }},
+20,Rental Duration,Number,number (hours),{{ contact.rental_duration }},Numeric value; unit implied
+21,Training / Education Type,Using Text field for Dropdown (Single),"""Yacht"", ""Sailboat or Catamaran On Water Training"", ""Interested In Buying a Boat/Insurance Signoff"", ""Maritime Academy"", ""Sailing Schools"", ""Captains License""",{{ contact.training__education_type }},
+22,Special Requests / Notes,Multi Line,Text,{{ contact.special_requests__notes }},
+23,Company Name,Single Line,text,{{ contact.vendor_company_name }},
+24,Street / City / State / Zip,Multi Line,text,{{ contact.street__city__state__zip }},Full address
+25,DBA,Single Line,?   not in website ,{{ contact.dba }},
+26,Primary Service Category,Using Text field for Dropdown (Single),"""Boat and Yacht Repair"", ""Boat Charters and Rentals"", ""Boat Hauling and Yacht Delivery"", "" Boat Maintenance"", ""Boat Towing"", ""Boater Resources"", ""Buying or Selling a Boat"", ""Dock and Slip Rental"", ""Docks"", ""Seawalls and Lifts"", ""Engines and Generators"", ""Fuel Delivery"", ""Marine Systems"", ""Maritime Education and Training"", ""Waterfront Property"", ""Yacht Management"", ""Other""",{{ contact.primary_service_category }},
+27,Services Provided,Using Text Multi-Line field for Dropdown (Multiple),"Boat and Yacht Repair, Boat Charters and Rentals, Boat Hauling and Yacht Delivery, Boat Maintenance, Boat Towing, Boater Resources, Buying or Selling a Boat, Dock and Slip Rental, Docks, Seawalls and Lifts, Engines and Generators, Fuel Delivery, Marine Systems, Maritime Education and Training, Waterfront Property, Yacht Management, Other)",{{ contact.services_provided }},
+28,Service Zip Codes,Multi Line,??  not in website ,{{ contact.service_zip_codes }},Comma or list of ZIPs
+29,About Your Company,Multi Line,Text,{{ contact.about_your_company }},
+30,Reviews / Google Profile URL,Single Line,Text,{{ contact.reviews__google_profile_url }},
+31,Taking New Work?,Checkbox,Text No check box??  ,{{ contact.taking_new_work }},
 32,Contact First Name,Built?in (Contact),,{{ contact.first_name }},Already exists – do NOT create
 33,Contact Last Name,Built?in (Contact),,{{ contact.last_name }},Already exists – do NOT create
 34,Contact Email,Built?in (Contact),,{{ contact.email }},Already exists – do NOT create
 35,Contact Phone #,Built?in (Contact),,{{ contact.phone }},Already exists – do NOT create
-36,Preferred Contact Method,Using Text field for Dropdown (Single),"""Text"", ""Phone Call"", ""Email"", ""Any Option""",{{ contact.contact.vendor_preferred_contact_method }},
-37,Website URL,Text - Single Line,Text,{{ contact.contact.website_url }},
-38,Licences / Certifications,Text - Multi Line,String,{{ contact.contact.licences__certifications }},
-39,Insurance Coverage?,Text - Single Line,"""yes"", ""no""",{{ contact.contact.insurance_coverage }},
-40,Years in Business,Number,Number,{{ contact.contact.years_in_business }},
-41,GHL User ID,Text - Single Line,Sub Account User ID,{{ contact.contact.ghl_user_id }},Automation?written
-42,Last Lead Assigned,Date Picker,"MM/DD/YYY : HH:MM:SS (Date Time Stamp""",{{ contact.contact.last_lead_assigned }},ISO date
-43,Lead Close %,Number,##%,{{ contact.contact.lead_close_ }},
-44,Provider Signup Date,Date Picker,"MM/DD/YYY : HH:MM:SS (Date Time Stamp""",{{ contact.contact.provider_signup_date }},
+36,Preferred Contact Method,Using Text field for Dropdown (Single),"""Text"", ""Phone Call"", ""Email"", ""Any Option""",{{ contact.vendor_preferred_contact_method }},
+37,Website URL,Text - Single Line,Text,{{ contact.website_url }},
+38,Licences / Certifications,Text - Multi Line,String,{{ contact.licences__certifications }},
+39,Insurance Coverage?,Text - Single Line,"""yes"", ""no""",{{ contact.insurance_coverage }},
+40,Years in Business,Number,Number,{{ contact.years_in_business }},
+41,GHL User ID,Text - Single Line,Sub Account User ID,{{ contact.ghl_user_id }},Automation?written
+42,Last Lead Assigned,Date Picker,"MM/DD/YYY : HH:MM:SS (Date Time Stamp""",{{ contact.last_lead_assigned }},ISO date
+43,Lead Close %,Number,##%,{{ contact.lead_close_ }},
+44,Provider Signup Date,Date Picker,"MM/DD/YYY : HH:MM:SS (Date Time Stamp""",{{ contact.provider_signup_date }},

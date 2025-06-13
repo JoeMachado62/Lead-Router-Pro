@@ -2,68 +2,88 @@ import os
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
+# This should be the first thing that runs when the module is imported.
 load_dotenv()
 
 class Config:
-    """Configuration class for the lead router application"""
+    """Base configuration class. Contains settings common to all environments."""
     
-    # GHL API Configuration
-    GHL_API_KEY = os.getenv('GHL_API_KEY', os.getenv('GHL-API_KEY', ''))  # Support both formats
-    GHL_PRIVATE_TOKEN = os.getenv('GHL_PRIVATE_TOKEN', 'pit-c361d89c-d943-4812-9839-8e3223c2f31a')
-    GHL_LOCATION_ID = os.getenv('GHL_LOCATION_ID', 'ilmrtA1Vk6rvcy4BswKg')
+    # --- CRITICAL GHL API Credentials ---
+    # We fetch directly from the environment. No default fallbacks for these.
+    GHL_LOCATION_API = os.getenv('GHL_LOCATION_API')  # V1 Location API Key
+    GHL_PRIVATE_TOKEN = os.getenv('GHL_PRIVATE_TOKEN')  # V2 PIT Token (fallback)
+    GHL_LOCATION_ID = os.getenv('GHL_LOCATION_ID')
+    GHL_AGENCY_API_KEY = os.getenv('GHL_AGENCY_API_KEY') # Optional, for user creation
     
-    # GHL Agency API Key (required for user creation)
-    GHL_AGENCY_API_KEY = os.getenv('GHL_AGENCY_API_KEY', '')
-    
-    # Server Configuration
+    # --- Pipeline Configuration (Essential for creating Opportunities) ---
+    # These should be defined in your .env file for the specific pipeline you use.
+    PIPELINE_ID = os.getenv('PIPELINE_ID')
+    NEW_LEAD_STAGE_ID = os.getenv('NEW_LEAD_STAGE_ID')
+
+    # --- Application Settings ---
     HOST = os.getenv('HOST', '0.0.0.0')
-    PORT = int(os.getenv('PORT', 3000))
-    DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
+    PORT = int(os.getenv('PORT', 8000))
     
-    # Pipeline Configuration (you'll need to get these from GHL)
-    PIPELINE_ID = os.getenv('PIPELINE_ID', 'marine_services')
-    NEW_LEAD_STAGE_ID = os.getenv('NEW_LEAD_STAGE_ID', 'new_lead_stage_id')
-    
-    # Logging Configuration
+    # --- Other Settings ---
     LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
-    
-    # Rate Limiting
     RATE_LIMIT_PER_MINUTE = int(os.getenv('RATE_LIMIT_PER_MINUTE', 60))
-    
-    # Webhook Security (optional)
-    WEBHOOK_SECRET = os.getenv('WEBHOOK_SECRET', '')
-    
+    WEBHOOK_SECRET = os.getenv('WEBHOOK_SECRET', '') # Optional, for security
+
     @classmethod
-    def validate(cls):
-        """Validate required configuration"""
-        required_vars = [
-            ('GHL_PRIVATE_TOKEN', cls.GHL_PRIVATE_TOKEN),
-            ('GHL_LOCATION_ID', cls.GHL_LOCATION_ID)
-        ]
+    def validate_critical_config(cls):
+        """
+        Validates that essential configuration variables are set.
+        This should be called at application startup.
+        """
+        # A dictionary of variable names and their loaded values
+        required_vars = {
+            'GHL_PRIVATE_TOKEN': cls.GHL_PRIVATE_TOKEN,
+            'GHL_LOCATION_ID': cls.GHL_LOCATION_ID,
+            'PIPELINE_ID': cls.PIPELINE_ID,
+            'NEW_LEAD_STAGE_ID': cls.NEW_LEAD_STAGE_ID,
+        }
         
-        missing_vars = []
-        for var_name, var_value in required_vars:
-            if not var_value or var_value.startswith('your_'):
-                missing_vars.append(var_name)
+        missing_vars = [name for name, value in required_vars.items() if not value]
         
         if missing_vars:
-            raise ValueError(f"Missing required configuration: {', '.join(missing_vars)}")
+            raise ValueError(f"FATAL ERROR: Missing required environment variables: {', '.join(missing_vars)}. Please set them in your .env file.")
         
-        return True
+        print("✅ Critical configuration validated successfully.")
 
-# Development configuration
+
 class DevelopmentConfig(Config):
+    """Configuration for the development environment."""
     DEBUG = True
     LOG_LEVEL = 'DEBUG'
 
-# Production configuration  
+
 class ProductionConfig(Config):
+    """Configuration for the production environment."""
     DEBUG = False
     LOG_LEVEL = 'INFO'
+    # In production, you might want a stricter rate limit
+    RATE_LIMIT_PER_MINUTE = int(os.getenv('RATE_LIMIT_PER_MINUTE', 45))
 
-# Configuration mapping
-config = {
+
+# --- Environment-based Config Selection ---
+# Set an environment variable 'APP_ENV' to 'production' to use production settings
+# Default is 'development'
+APP_ENV = os.getenv('APP_ENV', 'development')
+
+config_by_name = {
     'development': DevelopmentConfig,
     'production': ProductionConfig,
-    'default': DevelopmentConfig
 }
+
+# Get the final configuration object based on the environment
+AppConfig = config_by_name.get(APP_ENV, DevelopmentConfig)
+
+# --- Immediate Validation at Startup ---
+# We call the validation method here to ensure the app fails fast if misconfigured.
+try:
+    AppConfig.validate_critical_config()
+except ValueError as e:
+    # Print the error clearly and exit if validation fails
+    print(f"\n--- CONFIGURATION ERROR ---\n{e}\n---------------------------\n")
+    # In a real app, you might want to sys.exit(1) here
+    raise

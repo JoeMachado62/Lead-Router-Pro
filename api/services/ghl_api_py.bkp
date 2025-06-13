@@ -1,5 +1,3 @@
-# api/services/ghl_api.py
-
 import requests
 import logging
 from typing import Dict, List, Optional
@@ -8,62 +6,31 @@ from datetime import datetime
 logger = logging.getLogger(__name__)
 
 class GoHighLevelAPI:
-    """Enhanced GHL API client with V1/V2 fallback support"""
+    """Enhanced GHL API client for multi-tenant operations"""
     
-    def __init__(self, location_api_key: Optional[str] = None, private_token: Optional[str] = None, location_id: Optional[str] = None, agency_api_key: Optional[str] = None, api_key: Optional[str] = None):
-        # Store both API keys for fallback logic
-        self.location_api_key = location_api_key or api_key  # V1 Location API Key (preferred)
-        self.private_token = private_token  # V2 PIT Token (fallback)
+    def __init__(self, api_key: Optional[str] = None, private_token: Optional[str] = None, location_id: Optional[str] = None, agency_api_key: Optional[str] = None):
+        # Support both new API key and legacy PIT token
+        self.api_key = api_key
+        self.private_token = private_token
         self.agency_api_key = agency_api_key
         self.location_id = location_id
         self.base_url = "https://services.leadconnectorhq.com"
         
-        # Determine which API version to try first
-        if self.location_api_key:
-            self.primary_auth_type = "location_api"
-            self.primary_headers = {
-                "Accept": "application/json",
-                "Authorization": f"Bearer {self.location_api_key}",
+        # Use API key if available, otherwise fall back to PIT token
+        if api_key:
+            self.headers = {
+                "Authorization": f"Bearer {api_key}",
                 "Content-Type": "application/json",
                 "Version": "2021-07-28"
             }
-            logger.info("🔑 Using V1 Location API Key as primary authentication")
-        else:
-            self.primary_auth_type = "pit_token"
-            self.primary_headers = {
-                "Accept": "application/json",  # Ensure Accept header is present for V2 API
-                "Authorization": f"Bearer {self.private_token}",
+        elif private_token:
+            self.headers = {
+                "Authorization": f"Bearer {private_token}",
                 "Content-Type": "application/json",
                 "Version": "2021-07-28"
             }
-            logger.info("🔑 Using V2 PIT Token as primary authentication")
-        
-        # Set up fallback headers if both keys are available
-        if self.location_api_key and self.private_token:
-            if self.primary_auth_type == "location_api":
-                self.fallback_auth_type = "pit_token"
-                self.fallback_headers = {
-                    "Accept": "application/json",  # Ensure Accept header is present
-                    "Authorization": f"Bearer {self.private_token}",
-                    "Content-Type": "application/json",
-                    "Version": "2021-07-28"
-                }
-            else:
-                self.fallback_auth_type = "location_api"
-                self.fallback_headers = {
-                    "Accept": "application/json",
-                    "Authorization": f"Bearer {self.location_api_key}",
-                    "Content-Type": "application/json",
-                    "Version": "2021-07-28"
-                }
-            logger.info(f"🔄 Fallback authentication available: {self.fallback_auth_type}")
         else:
-            self.fallback_headers = None
-            self.fallback_auth_type = None
-        
-        # Validate at least one auth method is available
-        if not self.location_api_key and not self.private_token:
-            raise ValueError("Either location_api_key or private_token must be provided")
+            raise ValueError("Either api_key or private_token must be provided")
         
         # Agency API headers for user management operations
         if agency_api_key:
@@ -75,55 +42,8 @@ class GoHighLevelAPI:
         else:
             self.agency_headers = None
     
-    def _make_request_with_fallback(self, method: str, url: str, **kwargs) -> requests.Response:
-        """Make request with automatic fallback between API key types"""
-        
-        # Try primary authentication first
-        try:
-            logger.debug(f"🔑 Trying {self.primary_auth_type} for {method} {url}")
-            kwargs['headers'] = self.primary_headers
-            response = requests.request(method, url, **kwargs)
-            
-            # If successful (2xx status), return immediately
-            if 200 <= response.status_code < 300:
-                logger.debug(f"✅ {self.primary_auth_type} succeeded: {response.status_code}")
-                return response
-                
-            # If authentication error and fallback available, try fallback
-            if response.status_code in [401, 403] and self.fallback_headers:
-                logger.warning(f"🔄 {self.primary_auth_type} failed ({response.status_code}), trying {self.fallback_auth_type}")
-                
-                kwargs['headers'] = self.fallback_headers
-                fallback_response = requests.request(method, url, **kwargs)
-                
-                if 200 <= fallback_response.status_code < 300:
-                    logger.info(f"✅ {self.fallback_auth_type} succeeded: {fallback_response.status_code}")
-                    return fallback_response
-                else:
-                    logger.error(f"❌ Both auth methods failed. Primary: {response.status_code}, Fallback: {fallback_response.status_code}")
-                    return fallback_response  # Return the fallback response for error handling
-            else:
-                # No fallback available or not an auth error
-                logger.debug(f"❌ {self.primary_auth_type} failed: {response.status_code} (no fallback attempted)")
-                return response
-                
-        except Exception as e:
-            logger.error(f"❌ Request exception with {self.primary_auth_type}: {e}")
-            
-            # Try fallback if available
-            if self.fallback_headers:
-                try:
-                    logger.warning(f"🔄 Trying {self.fallback_auth_type} after exception")
-                    kwargs['headers'] = self.fallback_headers
-                    return requests.request(method, url, **kwargs)
-                except Exception as fallback_e:
-                    logger.error(f"❌ Fallback also failed: {fallback_e}")
-                    raise fallback_e
-            else:
-                raise e
-    
     def search_contacts(self, query: str = "", limit: int = 100) -> List[Dict]:
-        """Search contacts in GHL with fallback authentication"""
+        """Search contacts in GHL"""
         try:
             # Ensure limit doesn't exceed 100
             limit = min(limit, 100)
@@ -137,9 +57,7 @@ class GoHighLevelAPI:
             if query:
                 params["query"] = query
             
-            logger.debug(f"Searching contacts with params: {params}")
-            
-            response = self._make_request_with_fallback("GET", url, params=params)
+            response = requests.get(url, headers=self.headers, params=params)
             if response.status_code == 200:
                 data = response.json()
                 return data.get('contacts', [])
@@ -151,10 +69,10 @@ class GoHighLevelAPI:
             return []
     
     def get_contact_by_id(self, contact_id: str) -> Optional[Dict]:
-        """Get contact details by ID with fallback authentication"""
+        """Get contact details by ID"""
         try:
             url = f"{self.base_url}/contacts/{contact_id}"
-            response = self._make_request_with_fallback("GET", url)
+            response = requests.get(url, headers=self.headers)
             
             if response.status_code == 200:
                 data = response.json()
@@ -167,31 +85,19 @@ class GoHighLevelAPI:
             return None
     
     def create_contact(self, contact_data: Dict) -> Optional[Dict]:
-        """Create a new contact in GHL with detailed error reporting and fallback authentication"""
+        """Create a new contact in GHL with detailed error reporting"""
         try:
             url = f"{self.base_url}/contacts/"
-            
-            # Prepare payload with locationId
             payload = {
                 "locationId": self.location_id,
                 **contact_data
             }
             
-            # Ensure locationId is not overridden by contact_data
-            payload["locationId"] = self.location_id
-            
             # VERBOSE DEBUG LOGGING
             logger.info(f"🔍 GHL API CREATE CONTACT REQUEST:")
             logger.info(f"  📍 URL: {url}")
-            logger.info(f"  🔑 Primary Auth: {self.primary_auth_type}")
-            logger.info(f"  🏢 LocationId being used: {self.location_id}")
+            logger.info(f"  🔑 Headers: {self.headers}")
             logger.info(f"  📦 Payload Keys: {list(payload.keys())}")
-            
-            # Verify locationId is in payload
-            if "locationId" in payload:
-                logger.info(f"  ✅ LocationId is in payload: {payload['locationId']}")
-            else:
-                logger.error(f"  ❌ LocationId is MISSING from payload!")
             
             # Detailed custom fields debugging
             if 'customFields' in payload:
@@ -210,8 +116,7 @@ class GoHighLevelAPI:
                 
             logger.info(f"  📋 Full Payload: {payload}")
             
-            # Use fallback request system
-            response = self._make_request_with_fallback("POST", url, json=payload)
+            response = requests.post(url, headers=self.headers, json=payload)
             
             # VERBOSE RESPONSE LOGGING
             logger.info(f"🔍 GHL API CREATE CONTACT RESPONSE:")
@@ -231,8 +136,7 @@ class GoHighLevelAPI:
                     "status_code": response.status_code,
                     "response_text": response.text,
                     "url": url,
-                    "payload_keys": list(payload.keys()),
-                    "locationId_in_payload": payload.get('locationId', 'MISSING!')
+                    "payload_keys": list(payload.keys())
                 }
                 
                 # Try to parse JSON error if possible
@@ -256,19 +160,13 @@ class GoHighLevelAPI:
             return error_details
     
     def update_contact(self, contact_id: str, update_data: Dict) -> bool:
-        """Update contact in GHL with fallback authentication"""
+        """Update contact in GHL"""
         try:
             url = f"{self.base_url}/contacts/{contact_id}"
             
-            # For updates, we don't include locationId in the body, just the data to update
-            payload = update_data.copy()
-            # Remove locationId if it exists in update_data
-            payload.pop("locationId", None)
-            payload.pop("id", None)
+            logger.debug(f"Updating contact {contact_id} with payload: {update_data}")
             
-            logger.debug(f"Updating contact {contact_id} with payload: {payload}")
-            
-            response = self._make_request_with_fallback("PUT", url, json=payload)
+            response = requests.put(url, headers=self.headers, json=update_data)
             
             if response.status_code == 200:
                 logger.debug(f"Successfully updated contact {contact_id}")
@@ -281,53 +179,20 @@ class GoHighLevelAPI:
             return False
     
     def create_opportunity(self, opportunity_data: Dict) -> Optional[Dict]:
-        """Create opportunity in GHL with fallback authentication"""
+        """Create opportunity in GHL"""
         try:
             url = f"{self.base_url}/opportunities/"
-            
-            # Ensure locationId is in opportunity data
-            payload = {
-                "locationId": self.location_id,
-                **opportunity_data
-            }
-            payload["locationId"] = self.location_id  # Ensure it's not overridden
-            
-            logger.debug(f"Creating GHL opportunity. URL: {url}, Payload: {payload}")
-
-            # Use _make_request_with_fallback for robust API calls
-            response = self._make_request_with_fallback("POST", url, json=payload)
+            response = requests.post(url, headers=self.headers, json=opportunity_data)
             
             if response.status_code == 201:
                 data = response.json()
-                logger.info(f"Successfully created GHL opportunity: {data.get('opportunity', {}).get('id')}")
                 return data.get('opportunity', {})
             else:
-                error_text = response.text
-                error_json_response = None
-                try:
-                    error_json_response = response.json()
-                    logger.error(f"Failed to create GHL opportunity: {response.status_code} - {error_text} - JSON: {error_json_response}")
-                except ValueError:
-                    logger.error(f"Failed to create GHL opportunity: {response.status_code} - {error_text}")
-                
-                # Return a dictionary with error details, similar to create_contact
-                return {
-                    "error": True,
-                    "status_code": response.status_code,
-                    "response_text": response.text,
-                    "error_json": error_json_response,
-                    "message": "Failed to create GHL opportunity"
-                }
-                
+                logger.error(f"Failed to create opportunity: {response.status_code} - {response.text}")
+                return None
         except Exception as e:
-            logger.exception(f"Exception creating GHL opportunity: {str(e)}")
-            # Return a dictionary with error details on exception
-            return {
-                "error": True,
-                "exception": str(e),
-                "exception_type": e.__class__.__name__,
-                "message": f"Exception occurred: {str(e)}"
-            }
+            logger.error(f"Error creating opportunity: {str(e)}")
+            return None
     
     def get_pipelines(self) -> List[Dict]:
         """Get all pipelines for the location"""
@@ -531,30 +396,3 @@ class GoHighLevelAPI:
         except Exception as e:
             logger.error(f"Error deleting user: {str(e)}")
             return False
-    
-    def test_location_access(self) -> Dict:
-        """Test if the token can access the location"""
-        try:
-            url = f"{self.base_url}/contacts/"
-            params = {
-                "locationId": self.location_id,
-                "limit": 1
-            }
-            
-            response = requests.get(url, headers=self.headers, params=params)
-            
-            return {
-                "status_code": response.status_code,
-                "can_access": response.status_code == 200,
-                "response_text": response.text,
-                "location_id": self.location_id,
-                "headers_used": self.headers
-            }
-        except Exception as e:
-            return {
-                "status_code": None,
-                "can_access": False,
-                "error": str(e),
-                "location_id": self.location_id,
-                "headers_used": self.headers
-            }

@@ -22,13 +22,13 @@ The webhook system has been **significantly updated** to fix payload processing 
 # WordPress Developer Testing Guide - Lead Forms (UPDATED)
 
 ## Server Configuration
-- **Testing Server**: `http://71.208.153.160:8000`
-- **Webhook Base URL**: `http://71.208.153.160:8000/api/v1/webhooks/elementor/`
+- **Production Server**: `https://dockside.life`
+- **Webhook Base URL**: `https://dockside.life/api/v1/webhooks/elementor/`
 
 ## 🛥️ CLIENT LEAD FORMS
 
 ### Form 1: Ceramic Coating Request
-**Webhook URL**: `http://71.208.153.160:8000/api/v1/webhooks/elementor/ceramic_coating_request`
+**Webhook URL**: `https://dockside.life/api/v1/webhooks/elementor/ceramic_coating_request`
 
 | Elementor Field Label | Custom ID (EXACT) | Required | Sample Value |
 |----------------------|-------------------|----------|--------------|
@@ -50,7 +50,7 @@ The webhook system has been **significantly updated** to fix payload processing 
 | **Hidden Field - Form Source** | `source` | No | **Default Value**: "Ceramic Coating Request Form (DSP)" |
 
 ### Form 2: Emergency Tow Request
-**Webhook URL**: `http://71.208.153.160:8000/api/v1/webhooks/elementor/emergency_tow_request`
+**Webhook URL**: `https://dockside.life/api/v1/webhooks/elementor/emergency_tow_request`
 
 | Elementor Field Label | Custom ID (EXACT) | Required | Sample Value |
 |----------------------|-------------------|----------|--------------|
@@ -67,7 +67,7 @@ The webhook system has been **significantly updated** to fix payload processing 
 | **Hidden Field - Form Source** | `source` | No | **Default Value**: "Emergency Tow Request Form (DSP)" |
 
 ### Form 3: Yacht Delivery Request
-**Webhook URL**: `http://71.208.153.160:8000/api/v1/webhooks/elementor/yacht_delivery_request`
+**Webhook URL**: `https://dockside.life/api/v1/webhooks/elementor/yacht_delivery_request`
 
 | Elementor Field Label | Custom ID (EXACT) | Required | Sample Value |
 |----------------------|-------------------|----------|--------------|

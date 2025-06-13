@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Form Tester - DocksidePros Lead Router Pro</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <style>
+        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .field-row { transition: all 0.3s ease; }
+        .field-row:hover { background-color: #f3f4f6; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Header -->
+    <header class="gradient-bg text-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <div class="flex items-center justify-between">
+                <h1 class="text-2xl font-bold">🧪 Enhanced Form Tester</h1>
+                <div class="flex space-x-4">
+                    <a href="/admin" class="bg-white/20 px-4 py-2 rounded-lg hover:bg-white/30 transition-colors">
+                        ← Back to Dashboard
+                    </a>
+                    <a href="/docs" class="bg-white/20 px-4 py-2 rounded-lg hover:bg-white/30 transition-colors">
+                        API Docs
+                    </a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Introduction -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+            <h2 class="text-xl font-semibold text-gray-900 mb-4">Dynamic Field Mapping & Testing</h2>
+            <p class="text-gray-600 mb-4">
+                This enhanced form tester allows you to define field mappings dynamically and test webhook submissions. 
+                Define how form field names should map to GHL field names, then test your configurations.
+            </p>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                <div class="bg-blue-50 p-3 rounded-lg">
+                    <strong class="text-blue-800">Field Name:</strong> The name used in your form (e.g., "vesselMake", "serviceNeeded")
+                </div>
+                <div class="bg-green-50 p-3 rounded-lg">
+                    <strong class="text-green-800">GHL Field:</strong> The target GHL field name (e.g., "vessel_make", "specific_service_needed")
+                </div>
+                <div class="bg-purple-50 p-3 rounded-lg">
+                    <strong class="text-purple-800">Value:</strong> Test data to send to the webhook
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- Field Mapping Configuration -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <div class="flex items-center justify-between mb-6">
+                    <h3 class="text-lg font-semibold text-gray-900">Field Mapping Configuration</h3>
+                    <div class="flex space-x-2">
+                        <button id="loadMappingsBtn" class="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600">
+                            Load Current
+                        </button>
+                        <button id="saveMappingsBtn" class="bg-green-500 text-white px-3 py-1 rounded text-sm hover:bg-green-600">
+                            Save Mappings
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Field Mapping Table -->
+                <div class="space-y-3 max-h-96 overflow-y-auto" id="fieldMappingContainer">
+                    <!-- Field rows will be populated here -->
+                </div>
+
+                <div class="mt-4 flex space-x-2">
+                    <button id="addFieldBtn" class="bg-indigo-500 text-white px-4 py-2 rounded hover:bg-indigo-600">
+                        + Add Field Mapping
+                    </button>
+                    <button id="clearFieldsBtn" class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">
+                        Clear All
+                    </button>
+                </div>
+            </div>
+
+            <!-- Form Testing -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-6">Test Form Submission</h3>
+                
+                <!-- Form Identifier -->
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Form Identifier</label>
+                    <input type="text" id="formIdentifier" class="w-full border border-gray-300 rounded-md px-3 py-2" 
+                           placeholder="e.g., emergency_tow, ceramic_coating" value="test_form">
+                </div>
+
+                <!-- Industry Selection -->
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Industry</label>
+                    <select id="industrySelect" class="w-full border border-gray-300 rounded-md px-3 py-2">
+                        <option value="marine">Marine</option>
+                        <option value="automotive">Automotive</option>
+                        <option value="general">General</option>
+                    </select>
+                </div>
+
+                <!-- Test Data -->
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Test Payload (Auto-generated from mappings)</label>
+                    <textarea id="testPayload" class="w-full border border-gray-300 rounded-md px-3 py-2 h-40 font-mono text-sm"
+                              placeholder="Test payload will be generated from your field mappings above"></textarea>
+                </div>
+
+                <!-- Test Controls -->
+                <div class="space-y-3">
+                    <button id="generatePayloadBtn" class="w-full bg-purple-500 text-white py-2 rounded hover:bg-purple-600">
+                        🔄 Generate Test Payload from Mappings
+                    </button>
+                    <button id="testMappingBtn" class="w-full bg-yellow-500 text-white py-2 rounded hover:bg-yellow-600">
+                        🧪 Test Field Mapping
+                    </button>
+                    <button id="testWebhookBtn" class="w-full bg-green-500 text-white py-2 rounded hover:bg-green-600">
+                        🚀 Test Webhook Submission
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Section -->
+        <div class="mt-8 bg-white rounded-lg shadow-md p-6">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Test Results</h3>
+            <div id="resultsContainer" class="space-y-4">
+                <p class="text-gray-500 text-center py-8">Run a test to see results here</p>
+            </div>
+        </div>
+
+        <!-- Field Mapping Statistics -->
+        <div class="mt-8 grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div class="bg-white rounded-lg shadow-md p-6 text-center">
+                <div class="text-2xl font-bold text-blue-600" id="totalMappings">--</div>
+                <div class="text-gray-600 text-sm">Total Mappings</div>
+            </div>
+            <div class="bg-white rounded-lg shadow-md p-6 text-center">
+                <div class="text-2xl font-bold text-green-600" id="defaultMappings">--</div>
+                <div class="text-gray-600 text-sm">Default Mappings</div>
+            </div>
+            <div class="bg-white rounded-lg shadow-md p-6 text-center">
+                <div class="text-2xl font-bold text-purple-600" id="industryMappings">--</div>
+                <div class="text-gray-600 text-sm">Industry Mappings</div>
+            </div>
+            <div class="bg-white rounded-lg shadow-md p-6 text-center">
+                <div class="text-2xl font-bold text-yellow-600" id="mappingAccuracy">--</div>
+                <div class="text-gray-600 text-sm">Last Test Accuracy</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let fieldMappings = [];
+        let fieldCounter = 0;
+
+        // Initialize the form tester
+        document.addEventListener('DOMContentLoaded', function() {
+            loadCurrentMappings();
+            addInitialFields();
+            updateStatistics();
+            
+            // Event listeners
+            document.getElementById('addFieldBtn').addEventListener('click', addFieldRow);
+            document.getElementById('clearFieldsBtn').addEventListener('click', clearAllFields);
+            document.getElementById('loadMappingsBtn').addEventListener('click', loadCurrentMappings);
+            document.getElementById('saveMappingsBtn').addEventListener('click', saveMappings);
+            document.getElementById('generatePayloadBtn').addEventListener('click', generateTestPayload);
+            document.getElementById('testMappingBtn').addEventListener('click', testFieldMapping);
+            document.getElementById('testWebhookBtn').addEventListener('click', testWebhookSubmission);
+        });
+
+        function addInitialFields() {
+            // Add some common field mappings to start with
+            const initialFields = [
+                { form: 'firstName', ghl: 'firstName', value: 'John' },
+                { form: 'lastName', ghl: 'lastName', value: 'Doe' },
+                { form: 'email', ghl: 'email', value: 'john.doe@example.com' },
+                { form: 'phone', ghl: 'phone', value: '555-123-4567' },
+                { form: 'serviceNeeded', ghl: 'specific_service_needed', value: 'Emergency towing' },
+                { form: 'zipCode', ghl: 'zip_code_of_service', value: '12345' },
+                { form: 'vesselMake', ghl: 'vessel_make', value: 'Sea Ray' },
+                { form: 'vesselModel', ghl: 'vessel_model', value: 'Sundancer 350' }
+            ];
+
+            initialFields.forEach(field => {
+                addFieldRow(field.form, field.ghl, field.value);
+            });
+        }
+
+        function addFieldRow(formField = '', ghlField = '', value = '') {
+            const container = document.getElementById('fieldMappingContainer');
+            const rowId = `field-row-${fieldCounter++}`;
+            
+            const row = document.createElement('div');
+            row.className = 'field-row border border-gray-200 rounded-lg p-3';
+            row.id = rowId;
+            
+            row.innerHTML = `
+                <div class="grid grid-cols-12 gap-2 items-center">
+                    <div class="col-span-4">
+                        <input type="text" placeholder="Form Field Name" 
+                               class="w-full border border-gray-300 rounded px-2 py-1 text-sm form-field-input"
+                               value="${formField}">
+                    </div>
+                    <div class="col-span-1 text-center text-gray-400">→</div>
+                    <div class="col-span-4">
+                        <input type="text" placeholder="GHL Field Name" 
+                               class="w-full border border-gray-300 rounded px-2 py-1 text-sm ghl-field-input"
+                               value="${ghlField}">
+                    </div>
+                    <div class="col-span-2">
+                        <input type="text" placeholder="Test Value" 
+                               class="w-full border border-gray-300 rounded px-2 py-1 text-sm value-input"
+                               value="${value}">
+                    </div>
+                    <div class="col-span-1">
+                        <button onclick="removeFieldRow('${rowId}')" 
+                                class="text-red-500 hover:text-red-700 p-1">
+                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            container.appendChild(row);
+        }
+
+        function removeFieldRow(rowId) {
+            const row = document.getElementById(rowId);
+            if (row) {
+                row.remove();
+            }
+        }
+
+        function clearAllFields() {
+            const container = document.getElementById('fieldMappingContainer');
+            container.innerHTML = '';
+            fieldCounter = 0;
+        }
+
+        function collectFieldMappings() {
+            const rows = document.querySelectorAll('.field-row');
+            const mappings = [];
+            
+            rows.forEach(row => {
+                const formField = row.querySelector('.form-field-input').value.trim();
+                const ghlField = row.querySelector('.ghl-field-input').value.trim();
+                const value = row.querySelector('.value-input').value.trim();
+                
+                if (formField && ghlField) {
+                    mappings.push({
+                        formField,
+                        ghlField,
+                        value
+                    });
+                }
+            });
+            
+            return mappings;
+        }
+
+        async function loadCurrentMappings() {
+            try {
+                const response = await fetch('/api/v1/field-mappings/');
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    displayMessage('Successfully loaded current field mappings', 'success');
+                    updateStatistics();
+                    
+                    // Optionally populate some mappings from the loaded data
+                    const defaultMappings = data.mappings.default_mappings || {};
+                    let loadedCount = 0;
+                    
+                    for (const [formField, ghlField] of Object.entries(defaultMappings)) {
+                        if (loadedCount < 5) { // Only load first 5 to avoid overwhelming
+                            addFieldRow(formField, ghlField, `Sample ${loadedCount + 1}`);
+                            loadedCount++;
+                        }
+                    }
+                }
+            } catch (error) {
+                displayMessage(`Error loading mappings: ${error.message}`, 'error');
+            }
+        }
+
+        async function saveMappings() {
+            const mappings = collectFieldMappings();
+            const industry = document.getElementById('industrySelect').value;
+            
+            try {
+                // Save each mapping individually
+                const savePromises = mappings.map(mapping => 
+                    fetch('/api/v1/field-mappings/', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            source_field: mapping.formField,
+                            target_field: mapping.ghlField,
+                            industry: industry === 'general' ? null : industry
+                        })
+                    })
+                );
+                
+                const results = await Promise.allSettled(savePromises);
+                const successful = results.filter(r => r.status === 'fulfilled').length;
+                
+                displayMessage(`Successfully saved ${successful} of ${mappings.length} field mappings`, 'success');
+                updateStatistics();
+                
+            } catch (error) {
+                displayMessage(`Error saving mappings: ${error.message}`, 'error');
+            }
+        }
+
+        function generateTestPayload() {
+            const mappings = collectFieldMappings();
+            const payload = {};
+            
+            mappings.forEach(mapping => {
+                if (mapping.value) {
+                    payload[mapping.formField] = mapping.value;
+                }
+            });
+            
+            document.getElementById('testPayload').value = JSON.stringify(payload, null, 2);
+            displayMessage(`Generated test payload with ${Object.keys(payload).length} fields`, 'info');
+        }
+
+        async function testFieldMapping() {
+            const mappings = collectFieldMappings();
+            const industry = document.getElementById('industrySelect').value;
+            const payload = {};
+            
+            mappings.forEach(mapping => {
+                if (mapping.value) {
+                    payload[mapping.formField] = mapping.value;
+                }
+            });
+            
+            try {
+                const response = await fetch('/api/v1/field-mappings/test', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        payload: payload,
+                        industry: industry
+                    })
+                });
+                
+                const result = await response.json();
+                displayTestResults('Field Mapping Test', result);
+                
+                // Update accuracy metric
+                if (result.status === 'success') {
+                    const accuracy = Math.round((result.mapped_fields / result.total_fields) * 100);
+                    document.getElementById('mappingAccuracy').textContent = `${accuracy}%`;
+                }
+                
+            } catch (error) {
+                displayMessage(`Error testing field mapping: ${error.message}`, 'error');
+            }
+        }
+
+        async function testWebhookSubmission() {
+            const formIdentifier = document.getElementById('formIdentifier').value.trim();
+            const payloadText = document.getElementById('testPayload').value.trim();
+            
+            if (!formIdentifier) {
+                displayMessage('Please enter a form identifier', 'error');
+                return;
+            }
+            
+            if (!payloadText) {
+                displayMessage('Please generate or enter a test payload', 'error');
+                return;
+            }
+            
+            try {
+                const payload = JSON.parse(payloadText);
+                
+                const response = await fetch(`/api/v1/webhooks/elementor/${formIdentifier}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                const result = await response.json();
+                displayTestResults('Webhook Submission Test', result);
+                
+            } catch (error) {
+                if (error instanceof SyntaxError) {
+                    displayMessage('Invalid JSON in test payload', 'error');
+                } else {
+                    displayMessage(`Error testing webhook: ${error.message}`, 'error');
+                }
+            }
+        }
+
+        async function updateStatistics() {
+            try {
+                const response = await fetch('/api/v1/field-mappings/stats');
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    const stats = data.statistics;
+                    document.getElementById('totalMappings').textContent = stats.total_mappings || 0;
+                    document.getElementById('defaultMappings').textContent = stats.default_mappings || 0;
+                    document.getElementById('industryMappings').textContent = stats.industry_mappings || 0;
+                }
+            } catch (error) {
+                console.error('Error updating statistics:', error);
+            }
+        }
+
+        function displayTestResults(testType, result) {
+            const container = document.getElementById('resultsContainer');
+            const timestamp = new Date().toLocaleTimeString();
+            
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `border rounded-lg p-4 ${result.status === 'success' ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}`;
+            
+            let resultContent = `
+                <div class="flex items-center justify-between mb-2">
+                    <h4 class="font-semibold ${result.status === 'success' ? 'text-green-800' : 'text-red-800'}">${testType}</h4>
+                    <span class="text-sm text-gray-500">${timestamp}</span>
+                </div>
+                <div class="text-sm space-y-2">
+                    <div><strong>Status:</strong> ${result.status}</div>
+            `;
+            
+            if (result.message) {
+                resultContent += `<div><strong>Message:</strong> ${result.message}</div>`;
+            }
+            
+            if (result.mapping_details) {
+                resultContent += `
+                    <div><strong>Mapping Details:</strong></div>
+                    <div class="ml-4 space-y-1">
+                `;
+                result.mapping_details.forEach(detail => {
+                    const icon = detail.was_mapped ? '✅' : '➡️';
+                    resultContent += `<div class="text-xs">${icon} ${detail.original_field} → ${detail.mapped_field}</div>`;
+                });
+                resultContent += `</div>`;
+            }
+            
+            if (result.validation_warnings && result.validation_warnings.length > 0) {
+                resultContent += `
+                    <div><strong>Warnings:</strong></div>
+                    <ul class="ml-4 text-xs">
+                `;
+                result.validation_warnings.forEach(warning => {
+                    resultContent += `<li>⚠️ ${warning}</li>`;
+                });
+                resultContent += `</ul>`;
+            }
+            
+            resultContent += `</div>`;
+            resultDiv.innerHTML = resultContent;
+            
+            // Clear previous results and add new one
+            container.innerHTML = '';
+            container.appendChild(resultDiv);
+        }
+
+        function displayMessage(message, type) {
+            const container = document.getElementById('resultsContainer');
+            const colors = {
+                'success': 'border-green-200 bg-green-50 text-green-800',
+                'error': 'border-red-200 bg-red-50 text-red-800',
+                'info': 'border-blue-200 bg-blue-50 text-blue-800'
+            };
+            
+            container.innerHTML = `
+                <div class="border rounded-lg p-4 ${colors[type] || colors.info}">
+                    ${message}
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>

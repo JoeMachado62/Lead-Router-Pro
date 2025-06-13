@@ -1,17 +1,385 @@
 {
-  "client_fields": {},
-  "vendor_fields": {},
-  "all_ghl_fields": {
+  "client_fields": {
+    "OpenAI Prompt": {
+      "fieldKey": "contact.openai_prompt",
+      "id": "hVSQ6bKSuyygX1gJqYWR",
+      "dataType": "LARGE_TEXT",
+      "model": "contact"
+    },
     "Your Feedback": {
       "fieldKey": "contact.your_feedback",
       "id": "sedQ09cOeF9GkzxpcyJU",
       "dataType": "LARGE_TEXT",
       "model": "contact"
     },
+    "Valentines Day": {
+      "fieldKey": "contact.valentines_day",
+      "id": "u5aqjumntqaSzRh7HPpj",
+      "dataType": "DATE",
+      "model": "contact"
+    },
+    "Response Channel": {
+      "fieldKey": "contact.response_channel",
+      "id": "AB6l2ntmg89ME0qVkNoO",
+      "dataType": "SINGLE_OPTIONS",
+      "model": "contact"
+    },
+    "Customer Replied Alert": {
+      "fieldKey": "contact.customer_replied_alert",
+      "id": "x5UTD0UYq4Yu7OVs5IYj",
+      "dataType": "RADIO",
+      "model": "contact"
+    },
+    "New Years Day": {
+      "fieldKey": "contact.new_years_day",
+      "id": "xXekJqTE8S3Zo9cPksFg",
+      "dataType": "DATE",
+      "model": "contact"
+    },
+    "St Pattys Day": {
+      "fieldKey": "contact.st_pattys_day",
+      "id": "nvKm1zv79KjLCrPDbS40",
+      "dataType": "DATE",
+      "model": "contact"
+    },
+    "4th of July": {
+      "fieldKey": "contact.4th_of_july",
+      "id": "KkpsDJISf4r705pPMYoA",
+      "dataType": "DATE",
+      "model": "contact"
+    },
     "How Would You Rate Us?": {
       "fieldKey": "contact.how_would_you_rate_us",
       "id": "W7cAoRsRq5k9o7ws17Vw",
       "dataType": "RADIO",
+      "model": "contact"
+    },
+    "Intro Message": {
+      "fieldKey": "contact.intro_message",
+      "id": "lDYqzxRxMymJH4euSg4Z",
+      "dataType": "LARGE_TEXT",
+      "model": "contact"
+    },
+    "Message Body": {
+      "fieldKey": "contact.message_body",
+      "id": "6aVOUjiHWlz1bHcjRHYL",
+      "dataType": "LARGE_TEXT",
+      "model": "contact"
+    },
+    "Debug Test Field": {
+      "fieldKey": "contact.debug_test_field",
+      "id": "UAPrG08MQ3kDeMCW2t9v",
+      "dataType": "TEXT",
+      "model": "contact"
+    },
+    "Vessel Year": {
+      "fieldKey": "contact.vessel_year",
+      "id": "8HWqslCRX6hXl6lWYrWZ",
+      "dataType": "NUMERICAL",
+      "model": "contact"
+    },
+    "Vessel Make": {
+      "fieldKey": "contact.vessel_make",
+      "id": "B0wHr7XBtjkawyP5O6qH",
+      "dataType": "TEXT",
+      "model": "contact"
+    },
+    "Vessel Model": {
+      "fieldKey": "contact.vessel_model",
+      "id": "FfBSzKytAmjHpgeadINR",
+      "dataType": "TEXT",
+      "model": "contact"
+    },
+    "Vessel Length (ft)": {
+      "fieldKey": "contact.vessel_length_ft",
+      "id": "er480ND4nXmk5gFO1kWG",
+      "dataType": "NUMERICAL",
+      "model": "contact"
+    },
+    "# Guests / Crew": {
+      "fieldKey": "contact._guests__crew",
+      "id": "krUr9GaLoJLXc6MAc3ry",
+      "dataType": "NUMERICAL",
+      "model": "contact"
+    },
+    "Budget Range": {
+      "fieldKey": "contact.budget_range",
+      "id": "lzPNBivJaiVIh9FEpLbE",
+      "dataType": "TEXT",
+      "model": "contact"
+    },
+    "Policy Start Date": {
+      "fieldKey": "contact.policy_start_date",
+      "id": "r9HGbBJ5jHRKmQPaoBCo",
+      "dataType": "DATE",
+      "model": "contact"
+    },
+    "Rental Duration": {
+      "fieldKey": "contact.rental_duration",
+      "id": "YLhQxrOlVwLKRw1t52v7",
+      "dataType": "NUMERICAL",
+      "model": "contact"
+    },
+    "Special Requests / Notes": {
+      "fieldKey": "contact.special_requests__notes",
+      "id": "16b5tLOqrBbL61IDPbBz",
+      "dataType": "LARGE_TEXT",
+      "model": "contact"
+    },
+    "Street / City / State / Zip": {
+      "fieldKey": "contact.street__city__state__zip",
+      "id": "WgYzWTZB2uyE2033JcET",
+      "dataType": "LARGE_TEXT",
+      "model": "contact"
+    },
+    "DBA": {
+      "fieldKey": "contact.dba",
+      "id": "7xEj5I9Ejcl9tuQEo9SB",
+      "dataType": "TEXT",
+      "model": "contact"
+    },
+    "Reviews / Google Profile URL": {
+      "fieldKey": "contact.reviews__google_profile_url",
+      "id": "fjskmHCfhrJC72UWRqmX",
+      "dataType": "TEXT",
+      "model": "contact"
+    },
+    "Website URL": {
+      "fieldKey": "contact.website_url",
+      "id": "AzQfAWudDX8l96CaID3X",
+      "dataType": "TEXT",
+      "model": "contact"
+    },
+    "Licences / Certifications": {
+      "fieldKey": "contact.licences__certifications",
+      "id": "KjNpq1hdrGkvxQ6GdfrH",
+      "dataType": "LARGE_TEXT",
+      "model": "contact"
+    },
+    "GHL User ID": {
+      "fieldKey": "contact.ghl_user_id",
+      "id": "HXVNT4y8OynNokWAfO2D",
+      "dataType": "TEXT",
+      "model": "contact"
+    },
+    "Last Lead Assigned": {
+      "fieldKey": "contact.last_lead_assigned",
+      "id": "NbsJTMv3EkxqNfwx8Jh4",
+      "dataType": "DATE",
+      "model": "contact"
+    },
+    "Lead Close %": {
+      "fieldKey": "contact.lead_close_",
+      "id": "OwHQipU7xdrHCpVswtnW",
+      "dataType": "NUMERICAL",
+      "model": "contact"
+    },
+    "Provider Signup Date": {
+      "fieldKey": "contact.provider_signup_date",
+      "id": "Ph3L0IXu1wA1aGymzFX8",
+      "dataType": "DATE",
+      "model": "contact"
+    },
+    "Preferred Contact Method": {
+      "fieldKey": "contact.preferred_contact_method",
+      "id": "3DfFfFktWJtsynpOy6z9",
+      "dataType": "TEXT",
+      "model": "contact"
+    },
+    "Vessel Location / Slip": {
+      "fieldKey": "contact.vessel_location__slip",
+      "id": "43F7QfjDIM0Zf9AcluWa",
+      "dataType": "TEXT",
+      "model": "contact"
+    },
+    "Desired Timeline": {
+      "fieldKey": "contact.desired_timeline",
+      "id": "x3eHJ91v180aLs3HidEB",
+      "dataType": "TEXT",
+      "model": "contact"
+    },
+    "Purchased Yet?": {
+      "fieldKey": "contact.purchased_yet",
+      "id": "NT1HhGivWZbGYanaaWGz",
+      "dataType": "TEXT",
+      "model": "contact"
+    },
+    "Need Emergency Tow?": {
+      "fieldKey": "contact.need_emergency_tow",
+      "id": "9T50oQY74CNWKjWKBTTz",
+      "dataType": "TEXT",
+      "model": "contact"
+    },
+    "Training / Education Type": {
+      "fieldKey": "contact.training__education_type",
+      "id": "coAOpXBkurFArgy6r7YG",
+      "dataType": "TEXT",
+      "model": "contact"
+    },
+    "Taking New Work?": {
+      "fieldKey": "contact.taking_new_work",
+      "id": "bTFOs5zXYt85AvDJJUAb",
+      "dataType": "TEXT",
+      "model": "contact"
+    },
+    "Insurance Coverage?": {
+      "fieldKey": "contact.insurance_coverage",
+      "id": "bnem13vzw9xvPQTW8Y04",
+      "dataType": "TEXT",
+      "model": "contact"
+    }
+  },
+  "vendor_fields": {
+    "Liked About Services": {
+      "fieldKey": "contact.liked_about_services",
+      "id": "tD1IWREpKLzAWFEWMe9o",
+      "dataType": "LARGE_TEXT",
+      "model": "contact"
+    },
+    "Specific Service Needed": {
+      "fieldKey": "contact.specific_service_needed",
+      "id": "FT85QGi0tBq1AfVGNJ9v",
+      "dataType": "TEXT",
+      "model": "contact"
+    },
+    "Zip Code of Service": {
+      "fieldKey": "contact.zip_code_of_service",
+      "id": "y3Xo7qsFEQumoFugTeCq",
+      "dataType": "NUMERICAL",
+      "model": "contact"
+    },
+    "Service Zip Codes": {
+      "fieldKey": "contact.service_zip_codes",
+      "id": "yDcN0FmwI3xacyxAuTWs",
+      "dataType": "LARGE_TEXT",
+      "model": "contact"
+    },
+    "About Your Company": {
+      "fieldKey": "contact.about_your_company",
+      "id": "5ZWWMpVtP7IOpHxTw4vY",
+      "dataType": "LARGE_TEXT",
+      "model": "contact"
+    },
+    "Years in Business": {
+      "fieldKey": "contact.years_in_business",
+      "id": "YNkqNHJvW5OblIHd8RqL",
+      "dataType": "NUMERICAL",
+      "model": "contact"
+    },
+    "Vendor Company Name": {
+      "fieldKey": "contact.vendor_company_name",
+      "id": "JexVrg2VNhnwIX7YlyJV",
+      "dataType": "TEXT",
+      "model": "contact"
+    },
+    "Service Category": {
+      "fieldKey": "contact.service_category",
+      "id": "O84LyhN1QjZ8Zz5mteCM",
+      "dataType": "TEXT",
+      "model": "contact"
+    },
+    "Primary Service Category": {
+      "fieldKey": "contact.primary_service_category",
+      "id": "HRqfv0HnUydNRLKWhk27",
+      "dataType": "TEXT",
+      "model": "contact"
+    },
+    "Services Provided": {
+      "fieldKey": "contact.services_provided",
+      "id": "pAq9WBsIuFUAZuwz3YY4",
+      "dataType": "LARGE_TEXT",
+      "model": "contact"
+    },
+    "Vendor Preferred Contact Method": {
+      "fieldKey": "contact.vendor_preferred_contact_method",
+      "id": "i7Z6h5pWSBLMEcco4HOn",
+      "dataType": "TEXT",
+      "model": "contact"
+    },
+    "Select Your Service Categories": {
+      "fieldKey": "contact.select_your_service_categories",
+      "id": "TiuwG2tu54EPsEeCF5mv",
+      "dataType": "CHECKBOX",
+      "model": "contact"
+    },
+    "Service Categories Selections": {
+      "fieldKey": "contact.service_categories_selections",
+      "id": "72qwwzy4AUfTCBJvBIEf",
+      "dataType": "MULTIPLE_OPTIONS",
+      "model": "contact"
+    }
+  },
+  "all_ghl_fields": {
+    "OpenAI Prompt": {
+      "fieldKey": "contact.openai_prompt",
+      "id": "hVSQ6bKSuyygX1gJqYWR",
+      "dataType": "LARGE_TEXT",
+      "model": "contact"
+    },
+    "Your Feedback": {
+      "fieldKey": "contact.your_feedback",
+      "id": "sedQ09cOeF9GkzxpcyJU",
+      "dataType": "LARGE_TEXT",
+      "model": "contact"
+    },
+    "Liked About Services": {
+      "fieldKey": "contact.liked_about_services",
+      "id": "tD1IWREpKLzAWFEWMe9o",
+      "dataType": "LARGE_TEXT",
+      "model": "contact"
+    },
+    "Valentines Day": {
+      "fieldKey": "contact.valentines_day",
+      "id": "u5aqjumntqaSzRh7HPpj",
+      "dataType": "DATE",
+      "model": "contact"
+    },
+    "Response Channel": {
+      "fieldKey": "contact.response_channel",
+      "id": "AB6l2ntmg89ME0qVkNoO",
+      "dataType": "SINGLE_OPTIONS",
+      "model": "contact"
+    },
+    "Customer Replied Alert": {
+      "fieldKey": "contact.customer_replied_alert",
+      "id": "x5UTD0UYq4Yu7OVs5IYj",
+      "dataType": "RADIO",
+      "model": "contact"
+    },
+    "New Years Day": {
+      "fieldKey": "contact.new_years_day",
+      "id": "xXekJqTE8S3Zo9cPksFg",
+      "dataType": "DATE",
+      "model": "contact"
+    },
+    "St Pattys Day": {
+      "fieldKey": "contact.st_pattys_day",
+      "id": "nvKm1zv79KjLCrPDbS40",
+      "dataType": "DATE",
+      "model": "contact"
+    },
+    "4th of July": {
+      "fieldKey": "contact.4th_of_july",
+      "id": "KkpsDJISf4r705pPMYoA",
+      "dataType": "DATE",
+      "model": "contact"
+    },
+    "How Would You Rate Us?": {
+      "fieldKey": "contact.how_would_you_rate_us",
+      "id": "W7cAoRsRq5k9o7ws17Vw",
+      "dataType": "RADIO",
+      "model": "contact"
+    },
+    "Intro Message": {
+      "fieldKey": "contact.intro_message",
+      "id": "lDYqzxRxMymJH4euSg4Z",
+      "dataType": "LARGE_TEXT",
+      "model": "contact"
+    },
+    "Message Body": {
+      "fieldKey": "contact.message_body",
+      "id": "6aVOUjiHWlz1bHcjRHYL",
+      "dataType": "LARGE_TEXT",
       "model": "contact"
     },
     "Debug Test Field": {
@@ -26,28 +394,10 @@
       "dataType": "TEXT",
       "model": "contact"
     },
-    "Customer Replied Alert": {
-      "fieldKey": "contact.customer_replied_alert",
-      "id": "x5UTD0UYq4Yu7OVs5IYj",
-      "dataType": "RADIO",
-      "model": "contact"
-    },
     "Zip Code of Service": {
       "fieldKey": "contact.zip_code_of_service",
       "id": "y3Xo7qsFEQumoFugTeCq",
       "dataType": "NUMERICAL",
-      "model": "contact"
-    },
-    "Response Channel": {
-      "fieldKey": "contact.response_channel",
-      "id": "AB6l2ntmg89ME0qVkNoO",
-      "dataType": "SINGLE_OPTIONS",
-      "model": "contact"
-    },
-    "New Years Day": {
-      "fieldKey": "contact.new_years_day",
-      "id": "xXekJqTE8S3Zo9cPksFg",
-      "dataType": "DATE",
       "model": "contact"
     },
     "Vessel Year": {
@@ -56,58 +406,16 @@
       "dataType": "NUMERICAL",
       "model": "contact"
     },
-    "OpenAI Prompt": {
-      "fieldKey": "contact.openai_prompt",
-      "id": "hVSQ6bKSuyygX1gJqYWR",
-      "dataType": "LARGE_TEXT",
-      "model": "contact"
-    },
-    "Valentines Day": {
-      "fieldKey": "contact.valentines_day",
-      "id": "u5aqjumntqaSzRh7HPpj",
-      "dataType": "DATE",
-      "model": "contact"
-    },
     "Vessel Make": {
       "fieldKey": "contact.vessel_make",
       "id": "B0wHr7XBtjkawyP5O6qH",
       "dataType": "TEXT",
       "model": "contact"
     },
-    "Liked About Services": {
-      "fieldKey": "contact.liked_about_services",
-      "id": "tD1IWREpKLzAWFEWMe9o",
-      "dataType": "LARGE_TEXT",
-      "model": "contact"
-    },
-    "St Pattys Day": {
-      "fieldKey": "contact.st_pattys_day",
-      "id": "nvKm1zv79KjLCrPDbS40",
-      "dataType": "DATE",
-      "model": "contact"
-    },
-    "Intro Message": {
-      "fieldKey": "contact.intro_message",
-      "id": "lDYqzxRxMymJH4euSg4Z",
-      "dataType": "LARGE_TEXT",
-      "model": "contact"
-    },
     "Vessel Model": {
       "fieldKey": "contact.vessel_model",
       "id": "FfBSzKytAmjHpgeadINR",
       "dataType": "TEXT",
-      "model": "contact"
-    },
-    "4th of July": {
-      "fieldKey": "contact.4th_of_july",
-      "id": "KkpsDJISf4r705pPMYoA",
-      "dataType": "DATE",
-      "model": "contact"
-    },
-    "Message Body": {
-      "fieldKey": "contact.message_body",
-      "id": "6aVOUjiHWlz1bHcjRHYL",
-      "dataType": "LARGE_TEXT",
       "model": "contact"
     },
     "Vessel Length (ft)": {
@@ -295,7 +603,19 @@
       "id": "i7Z6h5pWSBLMEcco4HOn",
       "dataType": "TEXT",
       "model": "contact"
+    },
+    "Select Your Service Categories": {
+      "fieldKey": "contact.select_your_service_categories",
+      "id": "TiuwG2tu54EPsEeCF5mv",
+      "dataType": "CHECKBOX",
+      "model": "contact"
+    },
+    "Service Categories Selections": {
+      "fieldKey": "contact.service_categories_selections",
+      "id": "72qwwzy4AUfTCBJvBIEf",
+      "dataType": "MULTIPLE_OPTIONS",
+      "model": "contact"
     }
   },
-  "generated_at": "2025-05-31 20:35:15"
+  "generated_at": "2025-06-10 15:04:19"
 }

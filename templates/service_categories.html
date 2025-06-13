@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Service Categories - DocksidePros Lead Router</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <style>
+        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .card-hover { transition: all 0.3s ease; }
+        .card-hover:hover { transform: translateY(-2px); box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1); }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Header -->
+    <header class="gradient-bg text-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="bg-white/20 p-3 rounded-lg">
+                        <svg class="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <h1 class="text-2xl font-bold">Service Categories</h1>
+                        <p class="text-blue-100">Supported Marine Services</p>
+                    </div>
+                </div>
+                <a href="/admin" class="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition-colors">
+                    ← Back to Dashboard
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Service Categories Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="categoriesGrid">
+            <!-- Categories will be loaded here -->
+            <div class="bg-white rounded-xl shadow-md p-6 card-hover animate-pulse">
+                <div class="h-4 bg-gray-200 rounded w-3/4 mb-4"></div>
+                <div class="h-3 bg-gray-200 rounded w-1/2 mb-2"></div>
+                <div class="h-3 bg-gray-200 rounded w-2/3"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Load service categories on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadServiceCategories();
+        });
+
+        async function loadServiceCategories() {
+            try {
+                const response = await fetch('/api/v1/webhooks/service-categories');
+                const data = await response.json();
+                
+                const categoriesGrid = document.getElementById('categoriesGrid');
+                
+                if (data.status === 'success') {
+                    let categoriesHTML = '';
+                    
+                    Object.entries(data.service_categories).forEach(([key, category]) => {
+                        const subcategoryCount = category.subcategories ? category.subcategories.length : 0;
+                        const keywordsCount = category.keywords ? category.keywords.length : 0;
+                        
+                        categoriesHTML += `
+                            <div class="bg-white rounded-xl shadow-md p-6 card-hover border-l-4 border-blue-500">
+                                <div class="flex items-start justify-between mb-4">
+                                    <h3 class="text-lg font-semibold text-gray-900">${category.name}</h3>
+                                    <span class="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
+                                        ${subcategoryCount} services
+                                    </span>
+                                </div>
+                                
+                                <div class="space-y-3">
+                                    <div>
+                                        <h4 class="text-sm font-medium text-gray-700 mb-2">Subcategories:</h4>
+                                        <div class="flex flex-wrap gap-1">
+                                            ${category.subcategories.slice(0, 3).map(sub => 
+                                                `<span class="bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded">${sub.replace(/_/g, ' ')}</span>`
+                                            ).join('')}
+                                            ${subcategoryCount > 3 ? `<span class="bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded">+${subcategoryCount - 3} more</span>` : ''}
+                                        </div>
+                                    </div>
+                                    
+                                    <div>
+                                        <h4 class="text-sm font-medium text-gray-700 mb-2">Keywords:</h4>
+                                        <div class="flex flex-wrap gap-1">
+                                            ${category.keywords.slice(0, 4).map(keyword => 
+                                                `<span class="bg-green-100 text-green-700 text-xs px-2 py-1 rounded">${keyword}</span>`
+                                            ).join('')}
+                                            ${keywordsCount > 4 ? `<span class="bg-green-100 text-green-700 text-xs px-2 py-1 rounded">+${keywordsCount - 4} more</span>` : ''}
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="pt-2 border-t border-gray-200">
+                                        <p class="text-xs text-gray-500">
+                                            Webhook URL: <code class="bg-gray-100 px-1 rounded">/api/v1/webhooks/elementor/${key}_example</code>
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    
+                    categoriesGrid.innerHTML = categoriesHTML;
+                } else {
+                    categoriesGrid.innerHTML = '<div class="col-span-full text-center text-red-500">Error loading service categories</div>';
+                }
+            } catch (error) {
+                console.error('Error loading service categories:', error);
+                document.getElementById('categoriesGrid').innerHTML = 
+                    '<div class="col-span-full text-center text-red-500">Failed to load service categories</div>';
+            }
+        }
+    </script>
+</body>
+</html>

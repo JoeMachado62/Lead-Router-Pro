@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DocksidePros Lead Router - Admin Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <style>
+        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .card-hover { transition: all 0.3s ease; }
+        .card-hover:hover { transform: translateY(-4px); box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); }
+        .loading { animation: spin 1s linear infinite; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .status-healthy { background: linear-gradient(90deg, #10b981 0%, #059669 100%); }
+        .status-warning { background: linear-gradient(90deg, #f59e0b 0%, #d97706 100%); }
+        .status-error { background: linear-gradient(90deg, #ef4444 0%, #dc2626 100%); }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Header -->
+    <header class="gradient-bg text-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="bg-white/20 p-3 rounded-lg">
+                        <svg class="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <h1 class="text-2xl font-bold">DocksidePros Lead Router</h1>
+                        <p class="text-blue-100">Admin Dashboard</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div id="systemStatus" class="px-4 py-2 rounded-full text-sm font-medium">
+                        <span class="loading inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-2"></span>
+                        Checking Status...
+                    </div>
+                    <button onclick="refreshDashboard()" class="bg-white/20 hover:bg-white/30 p-2 rounded-lg transition-colors">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Quick Stats -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <div class="bg-white rounded-xl shadow-md p-6 card-hover">
+                <div class="flex items-center">
+                    <div class="p-3 rounded-full bg-blue-100 text-blue-600 mr-4">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-600">Active Forms</p>
+                        <p id="formsCount" class="text-2xl font-bold text-gray-900">--</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-md p-6 card-hover">
+                <div class="flex items-center">
+                    <div class="p-3 rounded-full bg-green-100 text-green-600 mr-4">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-600">Active Vendors</p>
+                        <p id="vendorsCount" class="text-2xl font-bold text-gray-900">--</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-md p-6 card-hover">
+                <div class="flex items-center">
+                    <div class="p-3 rounded-full bg-purple-100 text-purple-600 mr-4">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-600">Total Leads</p>
+                        <p id="leadsCount" class="text-2xl font-bold text-gray-900">--</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-md p-6 card-hover">
+                <div class="flex items-center">
+                    <div class="p-3 rounded-full bg-yellow-100 text-yellow-600 mr-4">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 00-2-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v4"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-600">Custom Fields</p>
+                        <p id="fieldsCount" class="text-2xl font-bold text-gray-900">--</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Navigation Tabs -->
+        <div class="mb-8">
+            <nav class="flex space-x-8">
+                <button onclick="showTab('configuration')" class="tab-button tab-active px-3 py-2 text-sm font-medium rounded-md">
+                    System Configuration
+                </button>
+                <button onclick="showTab('fields')" class="tab-button px-3 py-2 text-sm font-medium rounded-md">
+                    Field Management
+                </button>
+                <button onclick="showTab('forms')" class="tab-button px-3 py-2 text-sm font-medium rounded-md">
+                    Form Testing
+                </button>
+                <button onclick="showTab('monitoring')" class="tab-button px-3 py-2 text-sm font-medium rounded-md">
+                    System Monitoring
+                </button>
+                <button onclick="showTab('vendors')" class="tab-button px-3 py-2 text-sm font-medium rounded-md">
+                    Vendor Management
+                </button>
+            </nav>
+        </div>
+
+        <!-- Configuration Tab -->
+        <div id="configurationTab" class="tab-content">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <!-- API Configuration -->
+                <div class="bg-white rounded-xl shadow-md p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">GoHighLevel API Configuration</h3>
+                    <form id="apiConfigForm" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Location ID</label>
+                            <input type="text" id="locationId" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Your GHL Location ID">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Private Integration Token</label>
+                            <input type="password" id="privateToken" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="pit-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Agency API Key (Optional)</label>
+                            <input type="password" id="agencyApiKey" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="For user creation features">
+                        </div>
+                        <div class="flex space-x-3">
+                            <button type="button" onclick="testGHLConnection()" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
+                                Test Connection
+                            </button>
+                            <button type="button" onclick="saveAPIConfig()" class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors">
+                                Save Configuration
+                            </button>
+                        </div>
+                    </form>
+                    <div id="apiTestResult" class="mt-4"></div>
+                </div>
+
+                <!-- System Status -->
+                <div class="bg-white rounded-xl shadow-md p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">System Status</h3>
+                    <div id="systemStatusDetails" class="space-y-3">
+                        <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                            <span class="text-sm text-gray-600">Webhook System</span>
+                            <span class="status-indicator">Checking...</span>
+                        </div>
+                        <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                            <span class="text-sm text-gray-600">Database Connection</span>
+                            <span class="status-indicator">Checking...</span>
+                        </div>
+                        <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                            <span class="text-sm text-gray-600">Field Reference</span>
+                            <span class="status-indicator">Checking...</span>
+                        </div>
+                        <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                            <span class="text-sm text-gray-600">Service Categories</span>
+                            <span class="status-indicator">Checking...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Fields Tab -->
+        <div id="fieldsTab" class="tab-content hidden">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <!-- Field Management -->
+                <div class="bg-white rounded-xl shadow-md p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Custom Field Management</h3>
+                    <div class="space-y-4">
+                        <div class="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                            <h4 class="font-medium text-blue-900 mb-2">Generate Field Reference</h4>
+                            <p class="text-sm text-blue-700 mb-3">Automatically scan your GHL location and generate field_reference.json</p>
+                            <button onclick="generateFieldReference()" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
+                                Generate field_reference.json
+                            </button>
+                        </div>
+                        
+                        <div class="p-4 bg-green-50 border border-green-200 rounded-lg">
+                            <h4 class="font-medium text-green-900 mb-2">Create Missing Fields</h4>
+                            <p class="text-sm text-green-700 mb-3">Upload CSV file to automatically create missing custom fields</p>
+                            <div class="space-y-2">
+                                <input type="file" id="csvFile" accept=".csv" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-green-50 file:text-green-700 hover:file:bg-green-100">
+                                <button onclick="createFieldsFromCSV()" class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors">
+                                    Create Fields from CSV
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="fieldOperationResult" class="mt-4"></div>
+                </div>
+
+                <!-- Current Fields -->
+                <div class="bg-white rounded-xl shadow-md p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Current Custom Fields</h3>
+                    <div id="currentFields" class="space-y-2 max-h-96 overflow-y-auto">
+                        <p class="text-gray-500">Loading fields...</p>
+                    </div>
+                    <button onclick="loadCurrentFields()" class="mt-4 px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors">
+                        Refresh Fields
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Forms Tab -->
+        <div id="formsTab" class="tab-content hidden">
+            <div class="bg-white rounded-xl shadow-md p-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">Form Testing</h3>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <!-- Test Form -->
+                    <div>
+                        <h4 class="font-medium text-gray-900 mb-4">Test Form Submission</h4>
+                        <form id="testFormSubmission" class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Form Identifier</label>
+                                <select id="testFormId" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option value="boat_maintenance_ceramic_coating">Ceramic Coating Request</option>
+                                    <option value="marine_systems_electrical_service">Electrical Service</option>
+                                    <option value="emergency_tow_request">Emergency Tow</option>
+                                    <option value="vendor_application_general">Vendor Application</option>
+                                    <option value="custom">Custom Form ID</option>
+                                </select>
+                            </div>
+                            <div id="customFormIdDiv" class="hidden">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Custom Form ID</label>
+                                <input type="text" id="customFormId" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="your_custom_form_identifier">
+                            </div>
+                            <!-- === PAYLOAD FIELDS - START === -->
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">First Name</label>
+                                    <input type="text" id="testFirstName" value="John" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Last Name</label>
+                                    <input type="text" id="testLastName" value="Doe" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                                <input type="email" id="testEmail" value="john.doe.test@dockside.life" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Phone</label>
+                                <input type="tel" id="testPhone" value="555-123-4567" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                            </div>
+                             <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Service Needed (specific_service_needed)</label>
+                                <input type="text" id="testServiceNeeded" value="Full ceramic coating for hull and deck" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                            </div>
+                             <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Service Zip Code (zip_code_of_service)</label>
+                                <input type="text" id="testZipCode" value="33139" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Vessel Make (vessel_make)</label>
+                                <input type="text" id="testVesselMake" value="Sea Ray" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                            </div>
+                            <!-- === PAYLOAD FIELDS - END === -->
+                            <button type="button" onclick="testFormSubmission()" class="w-full px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors">
+                                Test Form Submission
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Test Results -->
+                    <div>
+                        <h4 class="font-medium text-gray-900 mb-4">Test Results</h4>
+                        <div id="formTestResult" class="bg-gray-800 text-white rounded-lg p-4 min-h-[300px] overflow-x-auto">
+                            <p class="text-gray-400">No tests run yet</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Monitoring Tab -->
+        <div id="monitoringTab" class="tab-content hidden">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <!-- Recent Activity -->
+                <div class="bg-white rounded-xl shadow-md p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-semibold text-gray-900">Recent Activity</h3>
+                        <button onclick="loadRecentActivity()" class="text-sm text-blue-600 hover:underline">Refresh</button>
+                    </div>
+                    <div id="recentActivity" class="space-y-3 max-h-96 overflow-y-auto">
+                        <p class="text-gray-500">Loading activity...</p>
+                    </div>
+                </div>
+
+                <!-- Service Categories -->
+                <div class="bg-white rounded-xl shadow-md p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Active Service Categories</h3>
+                    <div id="serviceCategories" class="space-y-2 max-h-96 overflow-y-auto">
+                        <p class="text-gray-500">Loading categories...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Vendors Tab -->
+        <div id="vendorsTab" class="tab-content hidden">
+            <div class="bg-white rounded-xl shadow-md p-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">Vendor Management</h3>
+                <div id="vendorsList" class="overflow-x-auto">
+                    <p class="text-gray-500">Loading vendors...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let currentTab = 'configuration';
+        const baseURL = window.location.origin;
+
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            checkSystemStatus();
+            loadDashboardStats();
+            loadCurrentFields();
+        });
+
+        // Tab Management
+        function showTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.add('hidden'));
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.classList.remove('tab-active', 'bg-blue-600', 'text-white');
+                btn.classList.add('text-gray-500', 'hover:text-gray-700');
+            });
+            document.getElementById(tabName + 'Tab').classList.remove('hidden');
+            event.target.classList.add('tab-active', 'bg-blue-600', 'text-white');
+            event.target.classList.remove('text-gray-500', 'hover:text-gray-700');
+            currentTab = tabName;
+            
+            if (tabName === 'monitoring') {
+                loadRecentActivity();
+                loadServiceCategories();
+            } else if (tabName === 'vendors') {
+                loadVendors();
+            }
+        }
+
+        async function checkSystemStatus() {
+            try {
+                showSystemStatusMessage('🔍 Running comprehensive system health check...', 'info');
+                const response = await fetch(`${baseURL}/api/v1/webhooks/health`);
+                const data = await response.json();
+                updateSystemStatus(data);
+                updateSystemStatusDetails(data);
+                if (data.status === 'healthy') {
+                    showSystemStatusMessage('✅ System health check completed successfully! All components operational.', 'success');
+                } else {
+                    showSystemStatusMessage('⚠️ System health check completed with warnings. Some components need attention.', 'warning');
+                }
+            } catch (error) {
+                updateSystemStatus({ status: 'error', message: 'Connection failed' });
+                showSystemStatusMessage('❌ System health check failed: ' + error.message, 'error');
+            }
+        }
+
+        function updateSystemStatus(data) {
+            const statusEl = document.getElementById('systemStatus');
+            statusEl.innerHTML = '';
+            if (data.status === 'healthy') {
+                statusEl.className = 'px-4 py-2 rounded-full text-sm font-medium status-healthy text-white';
+                statusEl.innerHTML = '✅ System Healthy';
+            } else if (data.status === 'degraded') {
+                statusEl.className = 'px-4 py-2 rounded-full text-sm font-medium status-warning text-white';
+                statusEl.innerHTML = '⚠️ System Degraded';
+            } else {
+                statusEl.className = 'px-4 py-2 rounded-full text-sm font-medium status-error text-white';
+                statusEl.innerHTML = '❌ System Error';
+            }
+        }
+
+        function updateSystemStatusDetails(data) {
+            const indicators = document.querySelectorAll('.status-indicator');
+            const statuses = [
+                data.webhook_system === 'enhanced_dynamic_processing' ? 'healthy' : 'error',
+                data.database_status === 'healthy' ? 'healthy' : 'error',
+                data.field_reference_status === 'loaded' ? 'healthy' : 'error',
+                data.service_categories > 15 ? 'healthy' : 'warning'
+            ];
+            indicators.forEach((indicator, index) => {
+                const status = statuses[index];
+                if (status === 'healthy') indicator.innerHTML = '<span class="text-green-600 font-medium">✅ Healthy</span>';
+                else if (status === 'warning') indicator.innerHTML = '<span class="text-yellow-600 font-medium">⚠️ Warning</span>';
+                else indicator.innerHTML = '<span class="text-red-600 font-medium">❌ Error</span>';
+            });
+        }
+
+        function showSystemStatusMessage(message, type) {
+            let messageEl = document.getElementById('systemStatusMessage');
+            if (!messageEl) {
+                messageEl = document.createElement('div');
+                messageEl.id = 'systemStatusMessage';
+                messageEl.className = 'mt-4 p-3 rounded-lg text-sm';
+                document.querySelector('#systemStatusDetails').appendChild(messageEl);
+            }
+            const colors = {
+                success: 'bg-green-50 border border-green-200 text-green-800',
+                error: 'bg-red-50 border border-red-200 text-red-800',
+                warning: 'bg-yellow-50 border border-yellow-200 text-yellow-800',
+                info: 'bg-blue-50 border border-blue-200 text-blue-800'
+            };
+            messageEl.className = `mt-4 p-3 rounded-lg text-sm ${colors[type]}`;
+            messageEl.textContent = message;
+            if (type === 'info') setTimeout(() => { if (messageEl) messageEl.remove(); }, 5000);
+        }
+
+        async function loadDashboardStats() {
+            try {
+                const [healthResponse, categoriesResponse, statsResponse] = await Promise.all([
+                    fetch(`${baseURL}/api/v1/webhooks/health`),
+                    fetch(`${baseURL}/api/v1/webhooks/service-categories`),
+                    fetch(`${baseURL}/api/v1/simple-admin/stats`)
+                ]);
+                const healthData = await healthResponse.json();
+                const categoriesData = await categoriesResponse.json();
+                const statsData = await statsResponse.json();
+                document.getElementById('formsCount').textContent = categoriesData.total_categories || 17;
+                document.getElementById('fieldsCount').textContent = healthData.custom_field_mappings || 0;
+                if (statsData.status === 'success') {
+                    document.getElementById('vendorsCount').textContent = statsData.data.vendors || 0;
+                    document.getElementById('leadsCount').textContent = statsData.data.leads || 0;
+                }
+            } catch (error) { console.error('Error loading stats:', error); }
+        }
+
+        async function testGHLConnection() {
+            const locationId = document.getElementById('locationId').value;
+            const privateToken = document.getElementById('privateToken').value;
+            if (!locationId || !privateToken) {
+                showResult('apiTestResult', 'error', 'Please fill in Location ID and Private Token');
+                return;
+            }
+            showResult('apiTestResult', 'info', 'Testing connection...');
+            try {
+                const response = await fetch(`${baseURL}/api/v1/admin/test-ghl-connection`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ locationId, privateToken })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    showResult('apiTestResult', 'success', 'Connection successful! Found ' + (data.fieldCount || 0) + ' custom fields.');
+                } else {
+                    showResult('apiTestResult', 'error', 'Connection failed: ' + data.error);
+                }
+            } catch (error) { showResult('apiTestResult', 'error', 'Connection test failed: ' + error.message); }
+        }
+
+        async function generateFieldReference() {
+            showResult('fieldOperationResult', 'info', 'Generating field reference...');
+            try {
+                const response = await fetch(`${baseURL}/api/v1/admin/generate-field-reference`, { method: 'POST' });
+                const data = await response.json();
+                if (data.success) {
+                    showResult('fieldOperationResult', 'success', `Successfully generated field_reference.json with ${data.fieldCount} fields.`);
+                    loadCurrentFields();
+                } else {
+                    showResult('fieldOperationResult', 'error', 'Failed to generate field reference: ' + data.detail);
+                }
+            } catch (error) { showResult('fieldOperationResult', 'error', 'Error generating field reference: ' + error.message); }
+        }
+        
+        // --- CORRECTED Form Testing Logic ---
+        function testFormSubmission() {
+            const formId = document.getElementById('testFormId').value === 'custom' 
+                ? document.getElementById('customFormId').value 
+                : document.getElementById('testFormId').value;
+            
+            if (!formId) {
+                showResult('formTestResult', 'error', 'Please select or enter a form identifier');
+                return;
+            }
+            
+            // Dynamically build the payload from all fields with a 'test' prefix
+            const testData = {};
+            const formInputs = document.querySelectorAll('#testFormSubmission input[type="text"], #testFormSubmission input[type="email"], #testFormSubmission input[type="tel"]');
+            
+            formInputs.forEach(input => {
+                if (input.value) {
+                    // Extract the GHL field key from the ID (e.g., 'testFirstName' -> 'firstName')
+                    const key = input.id.replace('test', '');
+                    const ghlKey = key.charAt(0).toLowerCase() + key.slice(1);
+                    testData[ghlKey] = input.value;
+                }
+            });
+
+            showResult('formTestResult', 'info', 'Submitting test form with payload:\n' + JSON.stringify(testData, null, 2));
+            
+            fetch(`${baseURL}/api/v1/webhooks/elementor/${formId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(testData)
+            })
+            .then(response => {
+                // Show raw response for better debugging
+                const status = response.status;
+                const statusText = response.statusText;
+                response.json().then(data => {
+                    const formattedJson = JSON.stringify(data, null, 2);
+                    const resultMessage = `Status: ${status} ${statusText}\n\n${formattedJson}`;
+
+                    if (response.ok && data.status === 'success') {
+                        showResult('formTestResult', 'success', resultMessage);
+                    } else {
+                        showResult('formTestResult', 'error', resultMessage);
+                    }
+                });
+            })
+            .catch(error => {
+                showResult('formTestResult', 'error', 'Form submission fetch error: ' + error.message);
+            });
+        }
+        
+        async function loadRecentActivity() {
+            try {
+                const response = await fetch(`${baseURL}/api/v1/admin/recent-activity`);
+                const data = await response.json();
+                const activityContainer = document.getElementById('recentActivity');
+                if (data.success && data.activities && data.activities.length > 0) {
+                    let activityHTML = '';
+                    data.activities.forEach(activity => {
+                        const timeAgo = new Date(activity.timestamp).toLocaleString();
+                        const statusColor = activity.success ? 'text-green-600' : 'text-red-600';
+                        activityHTML += `
+                            <div class="p-3 bg-gray-50 rounded-lg">
+                                <div class="flex items-center justify-between">
+                                    <span class="font-medium text-gray-900">${activity.event_type.replace(/_/g, ' ')}</span>
+                                    <span class="text-xs text-gray-500">${timeAgo}</span>
+                                </div>
+                                <div class="text-sm ${statusColor} mt-1">
+                                    ${activity.success ? '✅ Success' : `❌ ${activity.error_message || 'Failed'}`}
+                                </div>
+                            </div>`;
+                    });
+                    activityContainer.innerHTML = activityHTML;
+                } else {
+                    activityContainer.innerHTML = '<p class="text-gray-500">No recent activity found.</p>';
+                }
+            } catch (error) { document.getElementById('recentActivity').innerHTML = '<p class="text-red-500">Error loading activity.</p>'; }
+        }
+
+        // Utility Functions
+        function showResult(elementId, type, message) {
+            const element = document.getElementById(elementId);
+            const colors = {
+                success: 'bg-green-900/50 border-green-500 text-green-200',
+                error: 'bg-red-900/50 border-red-500 text-red-200',
+                info: 'bg-blue-900/50 border-blue-500 text-blue-200'
+            };
+            element.innerHTML = `
+                <div class="p-4 border rounded-lg ${colors[type] || colors['info']}">
+                    <pre class="whitespace-pre-wrap text-sm font-mono">${message}</pre>
+                </div>`;
+        }
+        
+        // --- Other functions (createFieldsFromCSV, loadCurrentFields, etc.) remain the same ---
+        // (For brevity, I'm omitting the JS functions that did not need changes)
+        async function createFieldsFromCSV(){const fileInput=document.getElementById("csvFile"),file=fileInput.files[0];if(!file)return void showResult("fieldOperationResult","error","Please select a CSV file");showResult("fieldOperationResult","info","Creating fields from CSV...");const formData=new FormData;formData.append("csvFile",file);try{const e=await fetch(`${baseURL}/api/v1/admin/create-fields-from-csv`,{method:"POST",body:formData}),t=await e.json();t.success?(showResult("fieldOperationResult","success",`Successfully processed CSV. Created: ${t.created}, Skipped: ${t.skipped}, Errors: ${t.errors}`),loadCurrentFields()):showResult("fieldOperationResult","error","Failed to process CSV: "+t.detail)}catch(e){showResult("fieldOperationResult","error","Error processing CSV: "+e.message)}}async function loadCurrentFields(){try{const e=await fetch(`${baseURL}/api/v1/webhooks/field-mappings`),t=await e.json(),d=document.getElementById("currentFields");if("success"===t.status){const e=t.custom_field_mappings;let a="";Object.entries(e).forEach(([e,t])=>{const s=t.dataType||"TEXT",l={TEXT:"bg-blue-100 text-blue-800",LARGE_TEXT:"bg-purple-100 text-purple-800",NUMERICAL:"bg-green-100 text-green-800",DATE:"bg-yellow-100 text-yellow-800",RADIO:"bg-pink-100 text-pink-800"}[s]||"bg-gray-100 text-gray-800";a+=`\n                            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">\n                                <div>\n                                    <span class="font-medium text-gray-900">${t.name}</span>\n                                    <span class="text-xs text-gray-500 ml-2">${e}</span>\n                                </div>\n                                <span class="px-2 py-1 text-xs font-medium rounded-full ${l}">\n                                    ${s}\n                                </span>\n                            </div>\n                        `}),d.innerHTML=a||'<p class="text-gray-500">No custom fields found</p>'}else d.innerHTML='<p class="text-red-500">Error loading fields</p>'}catch(e){document.getElementById("currentFields").innerHTML='<p class="text-red-500">Error loading fields</p>'}}async function loadServiceCategories(){try{const e=await fetch(`${baseURL}/api/v1/webhooks/service-categories`),t=await e.json(),d=document.getElementById("serviceCategories");if("success"===t.status){let e="";Object.entries(t.service_categories).forEach(([t,a])=>{const s=a.subcategories?a.subcategories.length:0;e+=`\n                            <div class="p-3 bg-gray-50 rounded-lg">\n                                <div class="font-medium text-gray-900">${a.name}</div>\n                                <div class="text-sm text-gray-600 mt-1">\n                                    ${s} subcategories • ${a.keywords.length} keywords\n                                </div>\n                            </div>\n                        `}),d.innerHTML=e}else d.innerHTML='<p class="text-red-500">Error loading categories</p>'}catch(e){document.getElementById("serviceCategories").innerHTML='<p class="text-red-500">Error loading categories</p>'}}async function loadVendors(){try{const e=await fetch(`${baseURL}/api/v1/simple-admin/vendors`),t=await e.json(),d=document.getElementById("vendorsList");if("success"===t.status&&t.data.length>0){let e='<table class="min-w-full divide-y divide-gray-200"><thead class="bg-gray-50"><tr><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vendor</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Company</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Performance</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Taking Work</th></tr></thead><tbody class="bg-white divide-y divide-gray-200">';t.data.forEach(t=>{const a={active:"bg-green-100 text-green-800",pending:"bg-yellow-100 text-yellow-800",inactive:"bg-red-100 text-red-800"}[t.status]||"bg-gray-100 text-gray-800";e+=`\n                            <tr>\n                                <td class="px-6 py-4 whitespace-nowrap">\n                                    <div>\n                                        <div class="text-sm font-medium text-gray-900">${t.name}</div>\n                                        <div class="text-sm text-gray-500">${t.email}</div>\n                                    </div>\n                                </td>\n                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">\n                                    ${t.company_name||"Not specified"}\n                                </td>\n                                <td class="px-6 py-4 whitespace-nowrap">\n                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${a}">\n                                        ${t.status}\n                                    </span>\n                                </td>\n                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">\n                                    ${(100*t.performance_score).toFixed(0)}%\n                                </td>\n                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">\n                                    ${t.taking_new_work?"✅ Yes":"❌ No"}\n                                </td>\n                            </tr>\n                        `}),e+="</tbody></table>",d.innerHTML=e}else d.innerHTML='<p class="text-gray-500">No vendors found</p>'}catch(e){document.getElementById("vendorsList").innerHTML='<p class="text-red-500">Error loading vendors</p>'}}function refreshDashboard(){checkSystemStatus(),loadDashboardStats(),"fields"===currentTab?loadCurrentFields():"monitoring"===currentTab?(loadRecentActivity(),loadServiceCategories()):"vendors"===currentTab&&loadVendors()}document.getElementById("testFormId").addEventListener("change",function(){const e=document.getElementById("customFormIdDiv");"custom"===this.value?e.classList.remove("hidden"):e.classList.add("hidden")}),document.addEventListener("DOMContentLoaded",function(){document.querySelectorAll(".tab-button").forEach(e=>{e.classList.add("text-gray-500","hover:text-gray-700")}),document.querySelector(".tab-button").classList.add("tab-active","bg-blue-600","text-white"),document.querySelector(".tab-button").classList.remove("text-gray-500","hover:text-gray-700")});
+
+    </script>
+</body>
+</html>
