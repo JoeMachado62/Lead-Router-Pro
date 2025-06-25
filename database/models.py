@@ -1,16 +1,122 @@
-from sqlalchemy import create_engine, Column, String, DateTime, JSON, Integer, Float, Boolean, Text, ForeignKey
+from sqlalchemy import create_engine, Column, String, DateTime, JSON, Integer, Float, Boolean, Text, ForeignKey, UniqueConstraint
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
-from sqlalchemy.dialects.postgresql import UUID
 import uuid
-from datetime import datetime
+import os
+from datetime import datetime, timedelta
 
 Base = declarative_base()
+
+# Use String for UUID fields in SQLite, UUID for PostgreSQL
+def get_uuid_column():
+    """Return appropriate UUID column type based on database URL"""
+    database_url = os.getenv("DATABASE_URL", "sqlite:///./smart_lead_router.db")
+    if "postgresql" in database_url:
+        from sqlalchemy.dialects.postgresql import UUID
+        return UUID(as_uuid=True)
+    else:
+        # Use String for SQLite
+        return String(36)
+
+class Tenant(Base):
+    """Multi-tenant support - each tenant represents a company/organization"""
+    __tablename__ = "tenants"
+    
+    id = Column(get_uuid_column(), primary_key=True, default=lambda: str(uuid.uuid4()))
+    name = Column(String(255), nullable=False)
+    domain = Column(String(255), unique=True, nullable=False)  # e.g., dockside.life
+    subdomain = Column(String(100), unique=True)  # e.g., dockside
+    settings = Column(JSON, default={})
+    is_active = Column(Boolean, default=True)
+    subscription_tier = Column(String(50), default="starter")
+    max_users = Column(Integer, default=10)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    users = relationship("User", back_populates="tenant")
+    accounts = relationship("Account", back_populates="tenant")
+
+class User(Base):
+    """User authentication with multi-tenant support"""
+    __tablename__ = "users"
+    
+    id = Column(get_uuid_column(), primary_key=True, default=lambda: str(uuid.uuid4()))
+    tenant_id = Column(get_uuid_column(), ForeignKey("tenants.id"), nullable=False)
+    email = Column(String(255), nullable=False, index=True)
+    password_hash = Column(String(255), nullable=False)
+    first_name = Column(String(100))
+    last_name = Column(String(100))
+    role = Column(String(50), default="user")  # admin, user, viewer
+    is_active = Column(Boolean, default=True)
+    is_verified = Column(Boolean, default=False)
+    two_factor_enabled = Column(Boolean, default=True)
+    last_login = Column(DateTime)
+    login_attempts = Column(Integer, default=0)
+    locked_until = Column(DateTime)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    tenant = relationship("Tenant", back_populates="users")
+    auth_tokens = relationship("AuthToken", back_populates="user")
+    two_factor_codes = relationship("TwoFactorCode", back_populates="user")
+    
+    # Unique constraint: email must be unique within tenant
+    __table_args__ = (
+        UniqueConstraint('tenant_id', 'email', name='unique_tenant_user_email'),
+    )
+
+class AuthToken(Base):
+    """JWT tokens for authentication"""
+    __tablename__ = "auth_tokens"
+    
+    id = Column(get_uuid_column(), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(get_uuid_column(), ForeignKey("users.id"), nullable=False)
+    token_type = Column(String(50), nullable=False)  # access, refresh, reset_password
+    token_hash = Column(String(255), nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+    is_revoked = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    user = relationship("User", back_populates="auth_tokens")
+
+class TwoFactorCode(Base):
+    """2FA codes sent via email"""
+    __tablename__ = "two_factor_codes"
+    
+    id = Column(get_uuid_column(), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(get_uuid_column(), ForeignKey("users.id"), nullable=False)
+    code = Column(String(10), nullable=False)
+    purpose = Column(String(50), default="login")  # login, password_reset, email_verification
+    expires_at = Column(DateTime, nullable=False)
+    is_used = Column(Boolean, default=False)
+    attempts = Column(Integer, default=0)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    user = relationship("User", back_populates="two_factor_codes")
+
+class AuditLog(Base):
+    """Security audit log"""
+    __tablename__ = "audit_logs"
+    
+    id = Column(get_uuid_column(), primary_key=True, default=lambda: str(uuid.uuid4()))
+    tenant_id = Column(get_uuid_column(), ForeignKey("tenants.id"))
+    user_id = Column(get_uuid_column(), ForeignKey("users.id"))
+    action = Column(String(100), nullable=False)
+    resource = Column(String(100))
+    ip_address = Column(String(45))
+    user_agent = Column(String(500))
+    details = Column(JSON, default={})
+    timestamp = Column(DateTime, default=datetime.utcnow)
 
 class Account(Base):
     __tablename__ = "accounts"
     
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(get_uuid_column(), primary_key=True, default=lambda: str(uuid.uuid4()))
+    tenant_id = Column(get_uuid_column(), ForeignKey("tenants.id"), nullable=False)
     ghl_location_id = Column(String(255), unique=True, nullable=False)
     company_name = Column(String(255), nullable=False)
     industry = Column(String(100), default="general")
@@ -21,14 +127,15 @@ class Account(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
+    tenant = relationship("Tenant", back_populates="accounts")
     vendors = relationship("Vendor", back_populates="account")
     leads = relationship("Lead", back_populates="account")
 
 class Vendor(Base):
     __tablename__ = "vendors"
     
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    account_id = Column(UUID(as_uuid=True), ForeignKey("accounts.id"), nullable=False)
+    id = Column(get_uuid_column(), primary_key=True, default=lambda: str(uuid.uuid4()))
+    account_id = Column(get_uuid_column(), ForeignKey("accounts.id"), nullable=False)
     ghl_contact_id = Column(String(255), nullable=False)
     name = Column(String(255), nullable=False)
     company_name = Column(String(255))
@@ -54,9 +161,9 @@ class Vendor(Base):
 class Lead(Base):
     __tablename__ = "leads"
     
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    account_id = Column(UUID(as_uuid=True), ForeignKey("accounts.id"), nullable=False)
-    vendor_id = Column(UUID(as_uuid=True), ForeignKey("vendors.id"))
+    id = Column(get_uuid_column(), primary_key=True, default=lambda: str(uuid.uuid4()))
+    account_id = Column(get_uuid_column(), ForeignKey("accounts.id"), nullable=False)
+    vendor_id = Column(get_uuid_column(), ForeignKey("vendors.id"))
     ghl_contact_id = Column(String(255), nullable=False)
     service_category = Column(String(100))
     service_details = Column(JSON, default={})
@@ -79,9 +186,9 @@ class Lead(Base):
 class PerformanceMetric(Base):
     __tablename__ = "performance_metrics"
     
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    vendor_id = Column(UUID(as_uuid=True), ForeignKey("vendors.id"), nullable=False)
-    lead_id = Column(UUID(as_uuid=True), ForeignKey("leads.id"))
+    id = Column(get_uuid_column(), primary_key=True, default=lambda: str(uuid.uuid4()))
+    vendor_id = Column(get_uuid_column(), ForeignKey("vendors.id"), nullable=False)
+    lead_id = Column(get_uuid_column(), ForeignKey("leads.id"))
     metric_type = Column(String(50), nullable=False)  # response_time, conversion, rating
     metric_value = Column(Float, nullable=False)
     timestamp = Column(DateTime, default=datetime.utcnow)
@@ -92,9 +199,9 @@ class PerformanceMetric(Base):
 class Feedback(Base):
     __tablename__ = "feedback"
     
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    lead_id = Column(UUID(as_uuid=True), ForeignKey("leads.id"), nullable=False)
-    vendor_id = Column(UUID(as_uuid=True), ForeignKey("vendors.id"), nullable=False)
+    id = Column(get_uuid_column(), primary_key=True, default=lambda: str(uuid.uuid4()))
+    lead_id = Column(get_uuid_column(), ForeignKey("leads.id"), nullable=False)
+    vendor_id = Column(get_uuid_column(), ForeignKey("vendors.id"), nullable=False)
     rating = Column(Integer)  # 1-5 scale
     comments = Column(Text)
     feedback_type = Column(String(50), default="post_service")

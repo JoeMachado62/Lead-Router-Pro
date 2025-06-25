@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Dockside Pro</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <style>
+        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .login-card { backdrop-filter: blur(10px); background: rgba(255, 255, 255, 0.95); }
+        .input-focus:focus { border-color: #667eea; box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1); }
+        .loading { display: none; }
+        .loading.active { display: inline-block; }
+    </style>
+</head>
+<body class="gradient-bg min-h-screen flex items-center justify-center p-4">
+    <!-- Background Pattern -->
+    <div class="absolute inset-0 opacity-10">
+        <div class="absolute inset-0 bg-white" style="background-image: repeating-linear-gradient(45deg, transparent, transparent 35px, rgba(255,255,255,.1) 35px, rgba(255,255,255,.1) 70px), repeating-linear-gradient(-45deg, transparent, transparent 35px, rgba(255,255,255,.1) 35px, rgba(255,255,255,.1) 70px);"></div>
+    </div>
+
+    <!-- Login Card -->
+    <div class="login-card rounded-2xl shadow-2xl p-8 w-full max-w-md relative">
+        <!-- Logo -->
+        <div class="text-center mb-8">
+            <div class="text-4xl mb-2">🚤</div>
+            <h1 class="text-2xl font-bold text-gray-800">Dockside Pro</h1>
+            <p class="text-gray-600">Secure Access Portal</p>
+        </div>
+
+        <!-- Alert Messages -->
+        <div id="alertContainer" class="mb-4"></div>
+
+        <!-- Login Form -->
+        <form id="loginForm" class="space-y-6">
+            <div>
+                <label for="email" class="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
+                <input type="email" id="email" name="email" required
+                       class="w-full px-4 py-3 border border-gray-300 rounded-lg input-focus transition-all duration-200"
+                       placeholder="Enter your email">
+            </div>
+
+            <div>
+                <label for="password" class="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                <input type="password" id="password" name="password" required
+                       class="w-full px-4 py-3 border border-gray-300 rounded-lg input-focus transition-all duration-200"
+                       placeholder="Enter your password">
+            </div>
+
+            <div class="flex items-center justify-between">
+                <label class="flex items-center">
+                    <input type="checkbox" id="rememberMe" class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                    <span class="ml-2 text-sm text-gray-600">Remember me</span>
+                </label>
+                <a href="#" id="forgotPasswordLink" class="text-sm text-blue-600 hover:text-blue-800">Forgot password?</a>
+            </div>
+
+            <button type="submit" id="loginButton"
+                    class="w-full py-3 px-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-medium rounded-lg hover:from-blue-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200">
+                <span id="loginButtonText">Sign In</span>
+                <div class="loading inline-block ml-2">
+                    <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                </div>
+            </button>
+        </form>
+
+        <!-- 2FA Form (Hidden initially) -->
+        <form id="twoFactorForm" class="space-y-6 hidden">
+            <div class="text-center mb-6">
+                <div class="text-3xl mb-2">🔐</div>
+                <h2 class="text-xl font-semibold text-gray-800">Two-Factor Authentication</h2>
+                <p class="text-gray-600 text-sm mt-2">Enter the 6-digit code sent to your email</p>
+            </div>
+
+            <div>
+                <label for="twoFactorCode" class="block text-sm font-medium text-gray-700 mb-2">Verification Code</label>
+                <input type="text" id="twoFactorCode" name="twoFactorCode" required maxlength="6"
+                       class="w-full px-4 py-3 border border-gray-300 rounded-lg input-focus transition-all duration-200 text-center text-2xl tracking-widest"
+                       placeholder="000000">
+            </div>
+
+            <div class="flex space-x-3">
+                <button type="button" id="backToLogin"
+                        class="flex-1 py-3 px-4 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200">
+                    Back
+                </button>
+                <button type="submit" id="verifyButton"
+                        class="flex-1 py-3 px-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-medium rounded-lg hover:from-blue-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200">
+                    <span id="verifyButtonText">Verify</span>
+                    <div class="loading inline-block ml-2">
+                        <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    </div>
+                </button>
+            </div>
+
+            <div class="text-center">
+                <button type="button" id="resendCode" class="text-sm text-blue-600 hover:text-blue-800">
+                    Didn't receive the code? Resend
+                </button>
+            </div>
+        </form>
+
+        <!-- Password Reset Form (Hidden initially) -->
+        <form id="passwordResetForm" class="space-y-6 hidden">
+            <div class="text-center mb-6">
+                <div class="text-3xl mb-2">🔑</div>
+                <h2 class="text-xl font-semibold text-gray-800">Reset Password</h2>
+                <p class="text-gray-600 text-sm mt-2">Enter your email to receive a reset code</p>
+            </div>
+
+            <div>
+                <label for="resetEmail" class="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
+                <input type="email" id="resetEmail" name="resetEmail" required
+                       class="w-full px-4 py-3 border border-gray-300 rounded-lg input-focus transition-all duration-200"
+                       placeholder="Enter your email">
+            </div>
+
+            <div class="flex space-x-3">
+                <button type="button" id="backToLoginFromReset"
+                        class="flex-1 py-3 px-4 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200">
+                    Back
+                </button>
+                <button type="submit" id="resetButton"
+                        class="flex-1 py-3 px-4 bg-gradient-to-r from-red-600 to-pink-600 text-white font-medium rounded-lg hover:from-red-700 hover:to-pink-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-all duration-200">
+                    <span id="resetButtonText">Send Reset Code</span>
+                    <div class="loading inline-block ml-2">
+                        <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    </div>
+                </button>
+            </div>
+        </form>
+
+        <!-- Footer -->
+        <div class="mt-8 text-center text-sm text-gray-500">
+            <p>© 2025 Dockside Pro. All rights reserved.</p>
+            <p class="mt-1">Secured with enterprise-grade encryption</p>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let currentStep = 'login';
+        let sessionData = {};
+
+        // DOM elements
+        const loginForm = document.getElementById('loginForm');
+        const twoFactorForm = document.getElementById('twoFactorForm');
+        const passwordResetForm = document.getElementById('passwordResetForm');
+        const alertContainer = document.getElementById('alertContainer');
+
+        // Event listeners
+        document.addEventListener('DOMContentLoaded', function() {
+            // Login form
+            loginForm.addEventListener('submit', handleLogin);
+            
+            // 2FA form
+            twoFactorForm.addEventListener('submit', handleTwoFactor);
+            document.getElementById('backToLogin').addEventListener('click', () => showForm('login'));
+            document.getElementById('resendCode').addEventListener('click', resendCode);
+            
+            // Password reset form
+            passwordResetForm.addEventListener('submit', handlePasswordReset);
+            document.getElementById('forgotPasswordLink').addEventListener('click', (e) => {
+                e.preventDefault();
+                showForm('reset');
+            });
+            document.getElementById('backToLoginFromReset').addEventListener('click', () => showForm('login'));
+
+            // Auto-format 2FA code input
+            document.getElementById('twoFactorCode').addEventListener('input', function(e) {
+                e.target.value = e.target.value.replace(/\D/g, '');
+            });
+        });
+
+        // Show alert message
+        function showAlert(message, type = 'error') {
+            const alertClass = type === 'success' ? 'bg-green-100 border-green-400 text-green-700' : 
+                              type === 'warning' ? 'bg-yellow-100 border-yellow-400 text-yellow-700' :
+                              'bg-red-100 border-red-400 text-red-700';
+            
+            alertContainer.innerHTML = `
+                <div class="${alertClass} border px-4 py-3 rounded-lg">
+                    <span class="block sm:inline">${message}</span>
+                </div>
+            `;
+            
+            setTimeout(() => {
+                alertContainer.innerHTML = '';
+            }, 5000);
+        }
+
+        // Show specific form
+        function showForm(formType) {
+            loginForm.classList.add('hidden');
+            twoFactorForm.classList.add('hidden');
+            passwordResetForm.classList.add('hidden');
+            
+            switch(formType) {
+                case 'login':
+                    loginForm.classList.remove('hidden');
+                    currentStep = 'login';
+                    break;
+                case '2fa':
+                    twoFactorForm.classList.remove('hidden');
+                    currentStep = '2fa';
+                    setTimeout(() => document.getElementById('twoFactorCode').focus(), 100);
+                    break;
+                case 'reset':
+                    passwordResetForm.classList.remove('hidden');
+                    currentStep = 'reset';
+                    setTimeout(() => document.getElementById('resetEmail').focus(), 100);
+                    break;
+            }
+        }
+
+        // Handle login
+        async function handleLogin(e) {
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            setLoading('loginButton', true);
+            
+            try {
+                const response = await fetch('/api/v1/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email: email,
+                        password: password,
+                        domain: window.location.hostname
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    if (data.requires_2fa) {
+                        sessionData = {
+                            user_id: data.user_id,
+                            session_token: data.session_token,
+                            email: email
+                        };
+                        showAlert('Verification code sent to your email', 'success');
+                        showForm('2fa');
+                    } else {
+                        // Direct login success (no 2FA)
+                        handleLoginSuccess(data);
+                    }
+                } else {
+                    showAlert(data.detail || 'Login failed');
+                }
+            } catch (error) {
+                showAlert('Network error. Please try again.');
+            } finally {
+                setLoading('loginButton', false);
+            }
+        }
+
+        // Handle 2FA verification
+        async function handleTwoFactor(e) {
+            e.preventDefault();
+            
+            const code = document.getElementById('twoFactorCode').value;
+            
+            if (code.length !== 6) {
+                showAlert('Please enter a 6-digit code');
+                return;
+            }
+            
+            setLoading('verifyButton', true);
+            
+            try {
+                const response = await fetch('/api/v1/auth/verify-2fa', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        user_id: sessionData.user_id,
+                        code: code,
+                        session_token: sessionData.session_token
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    handleLoginSuccess(data);
+                } else {
+                    showAlert(data.detail || '2FA verification failed');
+                    document.getElementById('twoFactorCode').value = '';
+                }
+            } catch (error) {
+                showAlert('Network error. Please try again.');
+            } finally {
+                setLoading('verifyButton', false);
+            }
+        }
+
+        // Handle password reset
+        async function handlePasswordReset(e) {
+            e.preventDefault();
+            
+            const email = document.getElementById('resetEmail').value;
+            
+            setLoading('resetButton', true);
+            
+            try {
+                const response = await fetch('/api/v1/auth/forgot-password', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email: email,
+                        domain: window.location.hostname
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showAlert('If the email exists, a reset code has been sent', 'success');
+                    showForm('login');
+                } else {
+                    showAlert(data.detail || 'Password reset failed');
+                }
+            } catch (error) {
+                showAlert('Network error. Please try again.');
+            } finally {
+                setLoading('resetButton', false);
+            }
+        }
+
+        // Resend 2FA code
+        async function resendCode() {
+            try {
+                const response = await fetch('/api/v1/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email: sessionData.email,
+                        password: '',  // Will fail but will trigger new code
+                        domain: window.location.hostname
+                    })
+                });
+                
+                showAlert('New verification code sent', 'success');
+            } catch (error) {
+                showAlert('Failed to resend code');
+            }
+        }
+
+        // Handle successful login
+        function handleLoginSuccess(data) {
+            // Store tokens
+            localStorage.setItem('access_token', data.access_token);
+            localStorage.setItem('refresh_token', data.refresh_token);
+            localStorage.setItem('user_data', JSON.stringify(data.user));
+            
+            showAlert('Login successful! Redirecting...', 'success');
+            
+            // Redirect to dashboard
+            setTimeout(() => {
+                window.location.href = '/';
+            }, 1000);
+        }
+
+        // Set loading state
+        function setLoading(buttonId, isLoading) {
+            const button = document.getElementById(buttonId);
+            const text = button.querySelector('span');
+            const loading = button.querySelector('.loading');
+            
+            if (isLoading) {
+                button.disabled = true;
+                loading.classList.add('active');
+                button.classList.add('opacity-75');
+            } else {
+                button.disabled = false;
+                loading.classList.remove('active');
+                button.classList.remove('opacity-75');
+            }
+        }
+
+        // Check if user is already logged in
+        if (localStorage.getItem('access_token')) {
+            window.location.href = '/';
+        }
+    </script>
+</body>
+</html>

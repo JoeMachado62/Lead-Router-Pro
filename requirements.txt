@@ -19,6 +19,9 @@ python-dotenv==1.0.0
 # Data processing
 pandas==2.0.3
 
+# Geographic data processing
+pyzipcode==3.0.1
+
 # Caching and background tasks
 redis==5.0.1
 celery==5.3.4
@@ -40,9 +43,18 @@ pytest-asyncio==0.21.1
 # Security
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
+bcrypt==4.1.2
 
-# Template engine
+# Email support for 2FA
+fastapi-mail==1.4.1
+aiosmtplib>=2.0,<3.0
+email-validator==2.1.0
+
+# Template engine for email templates
 Jinja2==3.1.2
+
+# Additional email dependencies for 2FA
+# Note: smtplib and email.mime are built-in Python modules, no installation needed
 
 # Legacy Flask support (for existing webhook_server.py)
 Flask==2.3.3

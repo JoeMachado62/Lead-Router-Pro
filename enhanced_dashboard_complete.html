@@ -95,14 +95,9 @@
                         <span class="loading inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-2"></span>
                         Checking Status...
                     </div>
-                    <button onclick="refreshDashboard()" class="bg-white/20 hover:bg-white/30 p-2 rounded-lg transition-colors" title="Refresh">
+                    <button onclick="refreshDashboard()" class="bg-white/20 hover:bg-white/30 p-2 rounded-lg transition-colors">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-                        </svg>
-                    </button>
-                    <button onclick="logout()" class="bg-red-500/20 hover:bg-red-500/30 p-2 rounded-lg transition-colors" title="Logout">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
                         </svg>
                     </button>
                 </div>
@@ -176,17 +171,20 @@
                 <button onclick="showTab('routing')" class="tab-button tab-active px-3 py-2 text-sm font-medium rounded-md">
                     Lead Routing
                 </button>
-                <button onclick="showTab('vendors')" class="tab-button px-3 py-2 text-sm font-medium rounded-md">
-                    Vendor Management
-                </button>
                 <button onclick="showTab('configuration')" class="tab-button px-3 py-2 text-sm font-medium rounded-md">
                     System Configuration
                 </button>
                 <button onclick="showTab('fields')" class="tab-button px-3 py-2 text-sm font-medium rounded-md">
                     Field Management
                 </button>
+                <button onclick="showTab('forms')" class="tab-button px-3 py-2 text-sm font-medium rounded-md">
+                    Form Testing
+                </button>
                 <button onclick="showTab('monitoring')" class="tab-button px-3 py-2 text-sm font-medium rounded-md">
                     System Monitoring
+                </button>
+                <button onclick="showTab('vendors')" class="tab-button px-3 py-2 text-sm font-medium rounded-md">
+                    Vendor Management
                 </button>
             </nav>
         </div>
@@ -264,21 +262,6 @@
                             <p class="text-gray-400">No tests run yet</p>
                         </div>
                     </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Vendor Management Tab -->
-        <div id="vendorsTab" class="tab-content hidden">
-            <div class="bg-white rounded-xl shadow-md p-6">
-                <div class="flex justify-between items-center mb-6">
-                    <h3 class="text-lg font-semibold text-gray-900">Vendor Management</h3>
-                    <button onclick="loadVendors()" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
-                        Refresh Vendors
-                    </button>
-                </div>
-                <div id="vendorsList" class="overflow-x-auto">
-                    <p class="text-gray-500">Loading vendors...</p>
                 </div>
             </div>
         </div>
@@ -381,6 +364,78 @@
             </div>
         </div>
 
+        <!-- Forms Tab -->
+        <div id="formsTab" class="tab-content hidden">
+            <div class="bg-white rounded-xl shadow-md p-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">Form Testing</h3>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <!-- Test Form -->
+                    <div>
+                        <h4 class="font-medium text-gray-900 mb-4">Test Form Submission</h4>
+                        <form id="testFormSubmission" class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Form Identifier</label>
+                                <select id="testFormId" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option value="boat_maintenance_ceramic_coating">Ceramic Coating Request</option>
+                                    <option value="marine_systems_electrical_service">Electrical Service</option>
+                                    <option value="emergency_tow_request">Emergency Tow</option>
+                                    <option value="vendor_application_general">Vendor Application</option>
+                                    <option value="custom">Custom Form ID</option>
+                                </select>
+                            </div>
+                            <div id="customFormIdDiv" class="hidden">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Custom Form ID</label>
+                                <input type="text" id="customFormId" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="your_custom_form_identifier">
+                            </div>
+                            <!-- === PAYLOAD FIELDS - START === -->
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">First Name</label>
+                                    <input type="text" id="testFirstName" value="John" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Last Name</label>
+                                    <input type="text" id="testLastName" value="Doe" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                                <input type="email" id="testEmail" value="john.doe.test@dockside.life" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Phone</label>
+                                <input type="tel" id="testPhone" value="555-123-4567" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                            </div>
+                             <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Service Needed (specific_service_needed)</label>
+                                <input type="text" id="testServiceNeeded" value="Full ceramic coating for hull and deck" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                            </div>
+                             <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Service Zip Code (zip_code_of_service)</label>
+                                <input type="text" id="testZipCode" value="33139" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Vessel Make (vessel_make)</label>
+                                <input type="text" id="testVesselMake" value="Sea Ray" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                            </div>
+                            <!-- === PAYLOAD FIELDS - END === -->
+                            <button type="button" onclick="testFormSubmission()" class="w-full px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors">
+                                Test Form Submission
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Test Results -->
+                    <div>
+                        <h4 class="font-medium text-gray-900 mb-4">Test Results</h4>
+                        <div id="formTestResult" class="bg-gray-800 text-white rounded-lg p-4 min-h-[300px] overflow-x-auto">
+                            <p class="text-gray-400">No tests run yet</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Monitoring Tab -->
         <div id="monitoringTab" class="tab-content hidden">
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -404,6 +459,16 @@
                 </div>
             </div>
         </div>
+
+        <!-- Vendors Tab -->
+        <div id="vendorsTab" class="tab-content hidden">
+            <div class="bg-white rounded-xl shadow-md p-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">Vendor Management</h3>
+                <div id="vendorsList" class="overflow-x-auto">
+                    <p class="text-gray-500">Loading vendors...</p>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -415,9 +480,23 @@
         document.addEventListener('DOMContentLoaded', function() {
             checkSystemStatus();
             loadDashboardStats();
-            loadRoutingConfiguration();
             loadCurrentFields();
+            loadRoutingConfiguration();
         });
+
+        // Notification System
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => notification.classList.add('show'), 100);
+            setTimeout(() => {
+                notification.classList.remove('show');
+                setTimeout(() => document.body.removeChild(notification), 300);
+            }, 3000);
+        }
 
         // Tab Management
         function showTab(tabName) {
@@ -433,26 +512,12 @@
             
             if (tabName === 'routing') {
                 loadRoutingConfiguration();
-            } else if (tabName === 'vendors') {
-                loadVendors();
             } else if (tabName === 'monitoring') {
                 loadRecentActivity();
                 loadServiceCategories();
+            } else if (tabName === 'vendors') {
+                loadVendors();
             }
-        }
-
-        // Notification System
-        function showNotification(message, type = 'info') {
-            const notification = document.createElement('div');
-            notification.className = `notification ${type}`;
-            notification.textContent = message;
-            document.body.appendChild(notification);
-            
-            setTimeout(() => notification.classList.add('show'), 100);
-            setTimeout(() => {
-                notification.classList.remove('show');
-                setTimeout(() => document.body.removeChild(notification), 300);
-            }, 3000);
         }
 
         // Routing Configuration Functions
@@ -676,6 +741,53 @@
             } catch (error) { showResult('fieldOperationResult', 'error', 'Error generating field reference: ' + error.message); }
         }
         
+        function testFormSubmission() {
+            const formId = document.getElementById('testFormId').value === 'custom' 
+                ? document.getElementById('customFormId').value 
+                : document.getElementById('testFormId').value;
+            
+            if (!formId) {
+                showResult('formTestResult', 'error', 'Please select or enter a form identifier');
+                return;
+            }
+            
+            const testData = {};
+            const formInputs = document.querySelectorAll('#testFormSubmission input[type="text"], #testFormSubmission input[type="email"], #testFormSubmission input[type="tel"]');
+            
+            formInputs.forEach(input => {
+                if (input.value) {
+                    const key = input.id.replace('test', '');
+                    const ghlKey = key.charAt(0).toLowerCase() + key.slice(1);
+                    testData[ghlKey] = input.value;
+                }
+            });
+
+            showResult('formTestResult', 'info', 'Submitting test form with payload:\n' + JSON.stringify(testData, null, 2));
+            
+            fetch(`${baseURL}/api/v1/webhooks/elementor/${formId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(testData)
+            })
+            .then(response => {
+                const status = response.status;
+                const statusText = response.statusText;
+                response.json().then(data => {
+                    const formattedJson = JSON.stringify(data, null, 2);
+                    const resultMessage = `Status: ${status} ${statusText}\n\n${formattedJson}`;
+
+                    if (response.ok && data.status === 'success') {
+                        showResult('formTestResult', 'success', resultMessage);
+                    } else {
+                        showResult('formTestResult', 'error', resultMessage);
+                    }
+                });
+            })
+            .catch(error => {
+                showResult('formTestResult', 'error', 'Form submission fetch error: ' + error.message);
+            });
+        }
+        
         async function loadRecentActivity() {
             try {
                 const response = await fetch(`${baseURL}/api/v1/admin/recent-activity`);
@@ -717,19 +829,11 @@
                 </div>`;
         }
         
-        async function createFieldsFromCSV(){const fileInput=document.getElementById("csvFile"),file=fileInput.files[0];if(!file)return void showResult("fieldOperationResult","error","Please select a CSV file");showResult("fieldOperationResult","info","Creating fields from CSV...");const formData=new FormData;formData.append("csvFile",file);try{const e=await fetch(`${baseURL}/api/v1/admin/create-fields-from-csv`,{method:"POST",body:formData}),t=await e.json();t.success?(showResult("fieldOperationResult","success",`Successfully processed CSV. Created: ${t.created}, Skipped: ${t.skipped}, Errors: ${t.errors}`),loadCurrentFields()):showResult("fieldOperationResult","error","Failed to process CSV: "+t.detail)}catch(e){showResult("fieldOperationResult","error","Error processing CSV: "+e.message)}}async function loadCurrentFields(){try{const e=await fetch(`${baseURL}/api/v1/webhooks/field-mappings`),t=await e.json(),d=document.getElementById("currentFields");if("success"===t.status){const e=t.custom_field_mappings;let a="";Object.entries(e).forEach(([e,t])=>{const s=t.dataType||"TEXT",l={TEXT:"bg-blue-100 text-blue-800",LARGE_TEXT:"bg-purple-100 text-purple-800",NUMERICAL:"bg-green-100 text-green-800",DATE:"bg-yellow-100 text-yellow-800",RADIO:"bg-pink-100 text-pink-800"}[s]||"bg-gray-100 text-gray-800";a+=`\n                            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">\n                                <div>\n                                    <span class="font-medium text-gray-900">${t.name}</span>\n                                    <span class="text-xs text-gray-500 ml-2">${e}</span>\n                                </div>\n                                <span class="px-2 py-1 text-xs font-medium rounded-full ${l}">\n                                    ${s}\n                                </span>\n                            </div>\n                        `}),d.innerHTML=a||'<p class="text-gray-500">No custom fields found</p>'}else d.innerHTML='<p class="text-red-500">Error loading fields</p>'}catch(e){document.getElementById("currentFields").innerHTML='<p class="text-red-500">Error loading fields</p>'}}async function loadServiceCategories(){try{const e=await fetch(`${baseURL}/api/v1/webhooks/service-categories`),t=await e.json(),d=document.getElementById("serviceCategories");if("success"===t.status){let e="";Object.entries(t.service_categories).forEach(([t,a])=>{const s=a.subcategories?a.subcategories.length:0;e+=`\n                            <div class="p-3 bg-gray-50 rounded-lg">\n                                <div class="font-medium text-gray-900">${a.name}</div>\n                                <div class="text-sm text-gray-600 mt-1">\n                                    ${s} subcategories • ${a.keywords.length} keywords\n                                </div>\n                            </div>\n                        `}),d.innerHTML=e}else d.innerHTML='<p class="text-red-500">Error loading categories</p>'}catch(e){document.getElementById("serviceCategories").innerHTML='<p class="text-red-500">Error loading categories</p>'}}async function loadVendors(){try{const e=await fetch(`${baseURL}/api/v1/simple-admin/vendors`),t=await e.json(),d=document.getElementById("vendorsList");if("success"===t.status&&t.data.length>0){let e='<table class="min-w-full divide-y divide-gray-200"><thead class="bg-gray-50"><tr><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vendor</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Company</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Performance</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Taking Work</th></tr></thead><tbody class="bg-white divide-y divide-gray-200">';t.data.forEach(t=>{const a={active:"bg-green-100 text-green-800",pending:"bg-yellow-100 text-yellow-800",inactive:"bg-red-100 text-red-800"}[t.status]||"bg-gray-100 text-gray-800";e+=`\n                            <tr>\n                                <td class="px-6 py-4 whitespace-nowrap">\n                                    <div>\n                                        <div class="text-sm font-medium text-gray-900">${t.name}</div>\n                                        <div class="text-sm text-gray-500">${t.email}</div>\n                                    </div>\n                                </td>\n                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">\n                                    ${t.company_name||"Not specified"}\n                                </td>\n                                <td class="px-6 py-4 whitespace-nowrap">\n                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${a}">\n                                        ${t.status}\n                                    </span>\n                                </td>\n                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">\n                                    ${(100*t.performance_score).toFixed(0)}%\n                                </td>\n                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">\n                                    ${t.taking_new_work?"✅ Yes":"❌ No"}\n                                </td>\n                            </tr>\n                        `}),e+="</tbody></table>",d.innerHTML=e}else d.innerHTML='<p class="text-gray-500">No vendors found</p>'}catch(e){document.getElementById("vendorsList").innerHTML='<p class="text-red-500">Error loading vendors</p>'}}function refreshDashboard(){checkSystemStatus(),loadDashboardStats(),"fields"===currentTab?loadCurrentFields():"monitoring"===currentTab?(loadRecentActivity(),loadServiceCategories()):"vendors"===currentTab?loadVendors():"routing"===currentTab&&loadRoutingConfiguration()}
+        async function createFieldsFromCSV(){const fileInput=document.getElementById("csvFile"),file=fileInput.files[0];if(!file)return void showResult("fieldOperationResult","error","Please select a CSV file");showResult("fieldOperationResult","info","Creating fields from CSV...");const formData=new FormData;formData.append("csvFile",file);try{const e=await fetch(`${baseURL}/api/v1/admin/create-fields-from-csv`,{method:"POST",body:formData}),t=await e.json();t.success?(showResult("fieldOperationResult","success",`Successfully processed CSV. Created: ${t.created}, Skipped: ${t.skipped}, Errors: ${t.errors}`),loadCurrentFields()):showResult("fieldOperationResult","error","Failed to process CSV: "+t.detail)}catch(e){showResult("fieldOperationResult","error","Error processing CSV: "+e.message)}}async function loadCurrentFields(){try{const e=await fetch(`${baseURL}/api/v1/webhooks/field-mappings`),t=await e.json(),d=document.getElementById("currentFields");if("success"===t.status){const e=t.custom_field_mappings;let a="";Object.entries(e).forEach(([e,t])=>{const s=t.dataType||"TEXT",l={TEXT:"bg-blue-100 text-blue-800",LARGE_TEXT:"bg-purple-100 text-purple-800",NUMERICAL:"bg-green-100 text-green-800",DATE:"bg-yellow-100 text-yellow-800",RADIO:"bg-pink-100 text-pink-800"}[s]||"bg-gray-100 text-gray-800";a+=`\n                            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">\n                                <div>\n                                    <span class="font-medium text-gray-900">${t.name}</span>\n                                    <span class="text-xs text-gray-500 ml-2">${e}</span>\n                                </div>\n                                <span class="px-2 py-1 text-xs font-medium rounded-full ${l}">\n                                    ${s}\n                                </span>\n                            </div>\n                        `}),d.innerHTML=a||'<p class="text-gray-500">No custom fields found</p>'}else d.innerHTML='<p class="text-red-500">Error loading fields</p>'}catch(e){document.getElementById("currentFields").innerHTML='<p class="text-red-500">Error loading fields</p>'}}async function loadServiceCategories(){try{const e=await fetch(`${baseURL}/api/v1/webhooks/service-categories`),t=await e.json(),d=document.getElementById("serviceCategories");if("success"===t.status){let e="";Object.entries(t.service_categories).forEach(([t,a])=>{const s=a.subcategories?a.subcategories.length:0;e+=`\n                            <div class="p-3 bg-gray-50 rounded-lg">\n                                <div class="font-medium text-gray-900">${a.name}</div>\n                                <div class="text-sm text-gray-600 mt-1">\n                                    ${s} subcategories • ${a.keywords.length} keywords\n                                </div>\n                            </div>\n                        `}),d.innerHTML=e}else d.innerHTML='<p class="text-red-500">Error loading categories</p>'}catch(e){document.getElementById("serviceCategories").innerHTML='<p class="text-red-500">Error loading categories</p>'}}async function loadVendors(){try{const e=await fetch(`${baseURL}/api/v1/simple-admin/vendors`),t=await e.json(),d=document.getElementById("vendorsList");if("success"===t.status&&t.data.length>0){let e='<table class="min-w-full divide-y divide-gray-200"><thead class="bg-gray-50"><tr><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vendor</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Company</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Performance</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Taking Work</th></tr></thead><tbody class="bg-white divide-y divide-gray-200">';t.data.forEach(t=>{const a={active:"bg-green-100 text-green-800",pending:"bg-yellow-100 text-yellow-800",inactive:"bg-red-100 text-red-800"}[t.status]||"bg-gray-100 text-gray-800";e+=`\n                            <tr>\n                                <td class="px-6 py-4 whitespace-nowrap">\n                                    <div>\n                                        <div class="text-sm font-medium text-gray-900">${t.name}</div>\n                                        <div class="text-sm text-gray-500">${t.email}</div>\n                                    </div>\n                                </td>\n                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">\n                                    ${t.company_name||"Not specified"}\n                                </td>\n                                <td class="px-6 py-4 whitespace-nowrap">\n                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${a}">\n                                        ${t.status}\n                                    </span>\n                                </td>\n                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">\n                                    ${(100*t.performance_score).toFixed(0)}%\n                                </td>\n                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">\n                                    ${t.taking_new_work?"✅ Yes":"❌ No"}\n                                </td>\n                            </tr>\n                        `}),e+="</tbody></table>",d.innerHTML=e}else d.innerHTML='<p class="text-gray-500">No vendors found</p>'}catch(e){document.getElementById("vendorsList").innerHTML='<p class="text-red-500">Error loading vendors</p>'}}function refreshDashboard(){checkSystemStatus(),loadDashboardStats(),"fields"===currentTab?loadCurrentFields():"monitoring"===currentTab?(loadRecentActivity(),loadServiceCategories()):"vendors"===currentTab?loadVendors():"routing"===currentTab&&loadRoutingConfiguration()}document.getElementById("testFormId").addEventListener("change",function(){const e=document.getElementById("customFormIdDiv");"custom"===this.value?e.classList.remove("hidden"):e.classList.add("hidden")}),document.addEventListener("DOMContentLoaded",function(){document.querySelectorAll(".tab-button").forEach(e=>{e.classList.add("text-gray-500","hover:text-gray-700")}),document.querySelector(".tab-button").classList.add("tab-active","bg-blue-600","text-white"),document.querySelector(".tab-button").classList.remove("text-gray-500","hover:text-gray-700")});
 
         // Placeholder functions for API config
         function saveAPIConfig() {
             showNotification('API configuration save functionality coming soon', 'info');
-        }
-
-        function logout() {
-            if (confirm('Are you sure you want to logout?')) {
-                localStorage.removeItem('access_token');
-                localStorage.removeItem('refresh_token');
-                window.location.href = '/login';
-            }
         }
     </script>
 </body>

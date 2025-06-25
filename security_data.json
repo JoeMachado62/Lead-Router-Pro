@@ -1,0 +1,15 @@
+{
+  "blocked_ips": {
+    "69.158.246.148": {
+      "reason": "Consecutive 404 errors (5)",
+      "blocked_at": 1750857256.8913088,
+      "blocked_until": 1750860856.8913088,
+      "duration": 3600
+    }
+  },
+  "whitelist": [
+    "71.208.153.160"
+  ],
+  "trusted_networks": [],
+  "saved_at": 1750857256.8913143
+}

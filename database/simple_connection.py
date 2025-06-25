@@ -49,6 +49,11 @@ class SimpleDatabase:
                     ghl_user_id TEXT UNIQUE,    
                     services_provided TEXT DEFAULT '[]',
                     service_areas TEXT DEFAULT '[]',
+                    service_coverage_type TEXT DEFAULT 'zip',
+                    service_states TEXT DEFAULT '[]',
+                    service_counties TEXT DEFAULT '[]',
+                    last_lead_assigned TIMESTAMP,
+                    lead_close_percentage REAL DEFAULT 0.0,
                     status TEXT DEFAULT 'pending', 
                     taking_new_work BOOLEAN DEFAULT 1,
                     performance_score REAL DEFAULT 0.8,
@@ -64,6 +69,7 @@ class SimpleDatabase:
                     account_id TEXT,
                     vendor_id TEXT,
                     ghl_contact_id TEXT, 
+                    ghl_opportunity_id TEXT,
                     service_category TEXT,
                     customer_name TEXT,
                     customer_email TEXT,
@@ -78,6 +84,35 @@ class SimpleDatabase:
                     FOREIGN KEY (vendor_id) REFERENCES vendors (id)
                 )
             ''')
+            
+            # Add ghl_opportunity_id column to existing leads table if it doesn't exist
+            try:
+                cursor.execute("ALTER TABLE leads ADD COLUMN ghl_opportunity_id TEXT")
+                logger.info("✅ Added ghl_opportunity_id column to leads table")
+            except sqlite3.OperationalError as e:
+                if "duplicate column name" in str(e).lower():
+                    logger.debug("ghl_opportunity_id column already exists")
+                else:
+                    logger.warning(f"Could not add ghl_opportunity_id column: {e}")
+
+            # Add new service coverage columns to existing vendors table if they don't exist
+            new_vendor_columns = [
+                ("service_coverage_type", "TEXT DEFAULT 'zip'"),
+                ("service_states", "TEXT DEFAULT '[]'"),
+                ("service_counties", "TEXT DEFAULT '[]'"),
+                ("last_lead_assigned", "TIMESTAMP"),
+                ("lead_close_percentage", "REAL DEFAULT 0.0")
+            ]
+            
+            for column_name, column_def in new_vendor_columns:
+                try:
+                    cursor.execute(f"ALTER TABLE vendors ADD COLUMN {column_name} {column_def}")
+                    logger.info(f"✅ Added {column_name} column to vendors table")
+                except sqlite3.OperationalError as e:
+                    if "duplicate column name" in str(e).lower():
+                        logger.debug(f"{column_name} column already exists")
+                    else:
+                        logger.warning(f"Could not add {column_name} column: {e}")
 
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS activity_log (
@@ -309,7 +344,9 @@ class SimpleDatabase:
         try:
             conn = self._get_conn()
             cursor = conn.cursor()
-            sql_query = "SELECT id, account_id, name, company_name, email, phone, services_provided, service_areas, status, taking_new_work, performance_score, created_at, ghl_contact_id, ghl_user_id FROM vendors"
+            sql_query = """SELECT id, account_id, name, company_name, email, phone, services_provided, service_areas, 
+                          service_coverage_type, service_states, service_counties, last_lead_assigned, lead_close_percentage,
+                          status, taking_new_work, performance_score, created_at, ghl_contact_id, ghl_user_id FROM vendors"""
             params = []
             if account_id:
                 sql_query += " WHERE account_id = ?"
@@ -325,9 +362,14 @@ class SimpleDatabase:
                     "email": v_row[4], "phone": v_row[5], 
                     "services_provided": json.loads(v_row[6]) if v_row[6] else [],
                     "service_areas": json.loads(v_row[7]) if v_row[7] else [],
-                    "status": v_row[8], "taking_new_work": bool(v_row[9]),
-                    "performance_score": v_row[10], "created_at": v_row[11],
-                    "ghl_contact_id": v_row[12], "ghl_user_id": v_row[13]
+                    "service_coverage_type": v_row[8] or 'zip',
+                    "service_states": json.loads(v_row[9]) if v_row[9] else [],
+                    "service_counties": json.loads(v_row[10]) if v_row[10] else [],
+                    "last_lead_assigned": v_row[11],
+                    "lead_close_percentage": v_row[12] or 0.0,
+                    "status": v_row[13], "taking_new_work": bool(v_row[14]),
+                    "performance_score": v_row[15], "created_at": v_row[16],
+                    "ghl_contact_id": v_row[17], "ghl_user_id": v_row[18]
                 })
             return vendors_list
         except Exception as e:
@@ -457,5 +499,154 @@ class SimpleDatabase:
             if conn:
                 conn.close()
 
+    def update_lead_opportunity_id(self, lead_id: str, ghl_opportunity_id: str) -> bool:
+        """
+        Update a lead record with the GHL opportunity ID to link the two systems
+        
+        Args:
+            lead_id: The internal lead ID
+            ghl_opportunity_id: The GHL opportunity ID returned from opportunity creation
+            
+        Returns:
+            bool: True if update was successful, False otherwise
+        """
+        conn = None
+        try:
+            conn = self._get_conn()
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE leads 
+                SET ghl_opportunity_id = ?, updated_at = CURRENT_TIMESTAMP 
+                WHERE id = ?
+            """, (ghl_opportunity_id, lead_id))
+            
+            if cursor.rowcount > 0:
+                conn.commit()
+                logger.info(f"✅ Updated lead {lead_id} with opportunity ID {ghl_opportunity_id}")
+                return True
+            else:
+                logger.warning(f"⚠️ No lead found with ID {lead_id} to update with opportunity ID")
+                return False
+                
+        except Exception as e:
+            logger.error(f"❌ Error updating lead {lead_id} with opportunity ID {ghl_opportunity_id}: {e}")
+            return False
+        finally:
+            if conn:
+                conn.close()
+
+    def assign_lead_to_vendor(self, lead_id: str, vendor_id: str) -> bool:
+        """
+        Assign a lead to a specific vendor
+        
+        Args:
+            lead_id: The internal lead ID
+            vendor_id: The vendor ID to assign the lead to
+            
+        Returns:
+            bool: True if assignment was successful, False otherwise
+        """
+        conn = None
+        try:
+            conn = self._get_conn()
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE leads 
+                SET vendor_id = ?, status = 'assigned', updated_at = CURRENT_TIMESTAMP 
+                WHERE id = ?
+            """, (vendor_id, lead_id))
+            
+            if cursor.rowcount > 0:
+                conn.commit()
+                logger.info(f"✅ Assigned lead {lead_id} to vendor {vendor_id}")
+                return True
+            else:
+                logger.warning(f"⚠️ No lead found with ID {lead_id} to assign to vendor")
+                return False
+                
+        except Exception as e:
+            logger.error(f"❌ Error assigning lead {lead_id} to vendor {vendor_id}: {e}")
+            return False
+        finally:
+            if conn:
+                conn.close()
+
+    def get_lead_by_id(self, lead_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get a specific lead by its ID
+        
+        Args:
+            lead_id: The internal lead ID
+            
+        Returns:
+            Dict containing lead data or None if not found
+        """
+        conn = None
+        try:
+            conn = self._get_conn()
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT id, account_id, vendor_id, ghl_contact_id, ghl_opportunity_id, 
+                       service_category, customer_name, customer_email, customer_phone, 
+                       service_details, estimated_value, priority_score, status, 
+                       created_at, updated_at
+                FROM leads WHERE id = ?
+            """, (lead_id,))
+            
+            row = cursor.fetchone()
+            if row:
+                return {
+                    "id": row[0], "account_id": row[1], "vendor_id": row[2], 
+                    "ghl_contact_id": row[3], "ghl_opportunity_id": row[4],
+                    "service_category": row[5], "customer_name": row[6], 
+                    "customer_email": row[7], "customer_phone": row[8],
+                    "service_details": json.loads(row[9]) if row[9] else {},
+                    "estimated_value": row[10], "priority_score": row[11], 
+                    "status": row[12], "created_at": row[13], "updated_at": row[14]
+                }
+            return None
+            
+        except Exception as e:
+            logger.error(f"❌ Error getting lead {lead_id}: {e}")
+            return None
+        finally:
+            if conn:
+                conn.close()
+
 # Global database instance
 db = SimpleDatabase()
+
+# SQLAlchemy setup for authentication system
+import os
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker, Session
+
+# Database URL for authentication
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./smart_lead_router.db")
+
+# Create SQLAlchemy engine
+auth_engine = create_engine(
+    DATABASE_URL,
+    echo=False,  # Set to True for SQL debugging
+    connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {}
+)
+
+# Create session factory
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=auth_engine)
+
+def get_db() -> Session:
+    """
+    SQLAlchemy dependency injection for authentication system
+    Yields a database session that automatically closes after use
+    """
+    db_session = SessionLocal()
+    try:
+        yield db_session
+    finally:
+        db_session.close()
+
+def get_db_session() -> Session:
+    """
+    Get a SQLAlchemy session for direct use (must be closed manually)
+    """
+    return SessionLocal()

@@ -1,8 +1,8 @@
-# Lead Router Pro - Advanced Marine Services Lead Automation
+# Lead Router Pro - Advanced Marine Services Lead Automation using Go High Level herein reffered to as 'GHL'
 
 ## 🚀 Production-Ready Lead Routing System
 
-**Lead Router Pro** is a comprehensive, AI-powered lead routing system specifically designed for marine service businesses. The system automatically processes form submissions, intelligently classifies services, and routes leads to qualified vendors through seamless GoHighLevel CRM integration.
+**Lead Router Pro** is a comprehensive, AI-powered lead routing system specifically designed for marine service businesses, but intended to be industry agnostic such that lead router pro dashboard allows users to configure acces keys and location settings for their GHL account which is saved in the .ENV, and also allows them to upload CSV files containing the custom fields needed for their lead processing automations. With those CSV files the system runs API calls to GHL to create those custom fileds. Another process then retrieves the unique field-names and field keys created by GoGHL to be use by the system when structuring Webhooks for form submissions to GHL. The the systen The system automatically processes form submissions, intelligently classifies services requested, and routes leads to qualified vendors through seamless GHL CRM integration.
 
 **Status**: ✅ **Production Ready** | **Admin Dashboard Included** | **Multi-Tenant Architecture**
 

@@ -68,6 +68,7 @@ class GoHighLevelAPI:
         # Agency API headers for user management operations
         if agency_api_key:
             self.agency_headers = {
+                "Accept": "application/json",
                 "Authorization": f"Bearer {agency_api_key}",
                 "Content-Type": "application/json",
                 "Version": "2021-07-28"
@@ -335,7 +336,7 @@ class GoHighLevelAPI:
             url = f"{self.base_url}/opportunities/pipelines"
             params = {"locationId": self.location_id}
             
-            response = requests.get(url, headers=self.headers, params=params)
+            response = self._make_request_with_fallback("GET", url, params=params)
             if response.status_code == 200:
                 data = response.json()
                 return data.get('pipelines', [])
@@ -351,7 +352,7 @@ class GoHighLevelAPI:
         try:
             url = f"{self.base_url}/locations/{self.location_id}/customFields"
             
-            response = requests.get(url, headers=self.headers)
+            response = self._make_request_with_fallback("GET", url)
             if response.status_code == 200:
                 data = response.json()
                 return data.get('customFields', [])
@@ -373,7 +374,7 @@ class GoHighLevelAPI:
                 "locationId": self.location_id
             }
             
-            response = requests.post(url, headers=self.headers, json=payload)
+            response = self._make_request_with_fallback("POST", url, json=payload)
             if response.status_code == 201:
                 return True
             else:
@@ -395,7 +396,7 @@ class GoHighLevelAPI:
                 "locationId": self.location_id
             }
             
-            response = requests.post(url, headers=self.headers, json=payload)
+            response = self._make_request_with_fallback("POST", url, json=payload)
             if response.status_code == 201:
                 return True
             else:
@@ -406,98 +407,174 @@ class GoHighLevelAPI:
             return False
     
     def create_user(self, user_data: Dict) -> Optional[Dict]:
-        """Create a new user in GHL location using Agency API"""
+        """Create a new user in GHL using V1 API endpoint with Agency API key"""
         try:
-            if not self.agency_headers:
+            if not self.agency_api_key:
                 logger.error("Agency API key required for user creation")
                 return None
             
-            # Use Agency API endpoint for user creation
-            url = f"{self.base_url}/locations/{self.location_id}/users"
+            # CORRECTED: Use V1 API endpoint for user creation
+            v1_base_url = "https://rest.gohighlevel.com"
+            url = f"{v1_base_url}/v1/users/"
             
-            # Required fields for user creation
+            # CORRECTED: V1 API headers with Agency API key
+            v1_headers = {
+                "Authorization": f"Bearer {self.agency_api_key}",
+                "Content-Type": "application/json"
+            }
+            
+            # CORRECTED: V1 API payload structure with locationIds array  
+            # Generate a secure password if not provided
+            password = user_data.get("password", "TempPass123!")
+            
             payload = {
-                "firstName": user_data.get("firstName"),
-                "lastName": user_data.get("lastName"), 
-                "email": user_data.get("email"),
-                "phone": user_data.get("phone", ""),
-                "type": user_data.get("type", "user"),  # user, admin, agency
-                "role": user_data.get("role", "user"),  # user, admin, agency
+                "firstName": user_data.get("firstName", ""),
+                "lastName": user_data.get("lastName", ""), 
+                "email": user_data.get("email", ""),
+                "phone": user_data.get("phone", ""),  # FIXED: Add phone number to payload
+                "password": password,
+                "type": user_data.get("type", "account"),  # V1 API: account, agency
+                "role": user_data.get("role", "user"),     # V1 API: admin, user
+                "locationIds": [self.location_id],         # CORRECTED: Must be array with location ID
                 "permissions": user_data.get("permissions", {
-                    "campaignsEnabled": True,
-                    "campaignsReadOnly": False,
+                    "campaignsEnabled": False,
+                    "campaignsReadOnly": True,
                     "contactsEnabled": True,
-                    "workflowsEnabled": True,
-                    "triggersEnabled": True,
-                    "funnelsEnabled": True,
-                    "websitesEnabled": True,
+                    "workflowsEnabled": False,
+                    "triggersEnabled": False,
+                    "funnelsEnabled": False,
+                    "websitesEnabled": False,
                     "opportunitiesEnabled": True,
                     "dashboardStatsEnabled": True,
                     "bulkRequestsEnabled": False,
                     "appointmentEnabled": True,
-                    "reviewsEnabled": True,
-                    "onlineListingsEnabled": True,
+                    "reviewsEnabled": False,
+                    "onlineListingsEnabled": False,
                     "phoneCallEnabled": True,
                     "conversationsEnabled": True,
-                    "assignedDataOnly": False,
-                    "adwordsReportingEnabled": True,
-                    "membershipEnabled": True,
-                    "facebookAdsReportingEnabled": True,
-                    "attributionsReportingEnabled": True,
+                    "assignedDataOnly": True,  # Only see their assigned leads
+                    "adwordsReportingEnabled": False,
+                    "membershipEnabled": False,
+                    "facebookAdsReportingEnabled": False,
+                    "attributionsReportingEnabled": False,
                     "settingsEnabled": False,
-                    "tagsEnabled": True,
+                    "tagsEnabled": False,
                     "leadValueEnabled": True,
-                    "marketingEnabled": True,
+                    "marketingEnabled": False,
                     "agentReportingEnabled": True,
-                    "botService": True,
-                    "socialPlanner": True,
-                    "bloggingEnabled": True,
-                    "invoiceEnabled": True,
+                    "botService": False,
+                    "socialPlanner": False,
+                    "bloggingEnabled": False,
+                    "invoiceEnabled": False,
                     "affiliateManagerEnabled": False,
-                    "contentAiEnabled": True,
+                    "contentAiEnabled": False,
                     "refundsEnabled": False,
-                    "recordPaymentEnabled": True,
+                    "recordPaymentEnabled": False,
                     "cancelSubscriptionEnabled": False,
-                    "paymentsEnabled": True,
+                    "paymentsEnabled": False,
                     "communitiesEnabled": False,
                     "exportPaymentsEnabled": False
                 })
             }
             
-            logger.debug(f"Creating GHL user with Agency API. Payload: {payload}")
+            # VERBOSE LOGGING for V1 API request
+            logger.info(f"🔐 Creating GHL user with V1 API. URL: {url}")
+            logger.info(f"📋 V1 User payload DETAILED:")
+            logger.info(f"  firstName: '{payload.get('firstName', 'MISSING')}'")
+            logger.info(f"  lastName: '{payload.get('lastName', 'MISSING')}'")
+            logger.info(f"  email: '{payload.get('email', 'MISSING')}'")
+            logger.info(f"  phone: '{payload.get('phone', 'MISSING')}'")  # FIXED: Log phone number
+            logger.info(f"  password: '{payload.get('password', 'MISSING')[:3]}***' (showing first 3 chars)")
+            logger.info(f"  type: '{payload.get('type', 'MISSING')}'")
+            logger.info(f"  role: '{payload.get('role', 'MISSING')}'")
+            logger.info(f"  locationIds: {payload.get('locationIds', 'MISSING')}")
+            logger.info(f"  permissions keys: {list(payload.get('permissions', {}).keys())}")
+            logger.info(f"🔑 V1 Headers: Authorization: Bearer {self.agency_api_key[:10]}...{self.agency_api_key[-4:]}")
+            logger.info(f"📋 Full V1 Payload: {payload}")
             
-            # Use Agency API headers for user creation
-            response = requests.post(url, headers=self.agency_headers, json=payload)
-            if response.status_code == 201:
+            # CORRECTED: Use V1 API endpoint and headers
+            response = requests.post(url, headers=v1_headers, json=payload)
+            
+            logger.info(f"📈 V1 User Creation Response: Status={response.status_code}")
+            logger.info(f"📄 V1 Response Headers: {dict(response.headers)}")
+            logger.info(f"📄 V1 Response Text: {response.text}")
+            
+            # FIXED: Accept both 200 and 201 status codes
+            if response.status_code in [200, 201]:
                 data = response.json()
-                logger.info(f"Successfully created GHL user with Agency API: {data.get('user', {}).get('id')}")
-                return data.get('user', {})
+                user = data.get('user', data)  # Handle different response structures
+                user_id = user.get('id') if isinstance(user, dict) else None
+                logger.info(f"✅ Successfully created GHL user with V1 API: {user_id}")
+                return user
             else:
-                logger.error(f"Failed to create user with Agency API: {response.status_code} - {response.text}")
-                return None
+                logger.error(f"❌ Failed to create user with V1 API: {response.status_code} - {response.text}")
+                
+                # Try to parse error response
+                try:
+                    error_data = response.json()
+                    logger.error(f"📋 V1 API Error Details: {error_data}")
+                except:
+                    pass
+                
+                return {
+                    "error": True,
+                    "status_code": response.status_code,
+                    "response_text": response.text,
+                    "api_version": "V1",
+                    "url": url
+                }
         except Exception as e:
-            logger.error(f"Error creating user with Agency API: {str(e)}")
-            return None
+            logger.error(f"❌ Exception creating user with V1 API: {str(e)}")
+            return {
+                "error": True,
+                "exception": str(e),
+                "exception_type": e.__class__.__name__,
+                "api_version": "V1"
+            }
     
     def get_user_by_email(self, email: str) -> Optional[Dict]:
-        """Get user by email address"""
+        """Get user by email address using V1 API (matches create_user endpoint)"""
         try:
-            url = f"{self.base_url}/locations/{self.location_id}/users"
+            # CORRECTED: Use V1 API base URL and endpoint for user lookup
+            v1_base_url = "https://rest.gohighlevel.com"
+            url = f"{v1_base_url}/v1/users"
+            
+            # Use Agency API key for V1 user operations
+            if not self.agency_api_key:
+                logger.warning("No agency API key available for V1 user lookup")
+                return None
+                
+            v1_headers = {
+                "Authorization": f"Bearer {self.agency_api_key}",
+                "Content-Type": "application/json"
+            }
+            
+            # V1 API might require different query parameters
             params = {"email": email}
             
-            response = requests.get(url, headers=self.headers, params=params)
+            logger.info(f"🔍 V1 User lookup: {url} with email={email}")
+            response = requests.get(url, headers=v1_headers, params=params)
+            
+            logger.info(f"📈 V1 User lookup response: Status={response.status_code}")
+            logger.debug(f"📄 V1 User lookup response: {response.text}")
+            
             if response.status_code == 200:
                 data = response.json()
                 users = data.get('users', [])
                 for user in users:
                     if user.get('email', '').lower() == email.lower():
+                        logger.info(f"✅ Found existing V1 user: {user.get('id')}")
                         return user
+                logger.info(f"📋 No user found with email {email} in V1 API response")
+                return None
+            elif response.status_code == 404:
+                logger.info(f"📋 V1 User lookup: No users found (404) - this is normal for new vendors")
                 return None
             else:
-                logger.error(f"Failed to get users: {response.status_code} - {response.text}")
+                logger.error(f"❌ Failed to get users from V1 API: {response.status_code} - {response.text}")
                 return None
         except Exception as e:
-            logger.error(f"Error getting user by email: {str(e)}")
+            logger.error(f"❌ Error getting user by email from V1 API: {str(e)}")
             return None
     
     def update_user(self, user_id: str, update_data: Dict) -> bool:
@@ -505,7 +582,7 @@ class GoHighLevelAPI:
         try:
             url = f"{self.base_url}/locations/{self.location_id}/users/{user_id}"
             
-            response = requests.put(url, headers=self.headers, json=update_data)
+            response = self._make_request_with_fallback("PUT", url, json=update_data)
             if response.status_code == 200:
                 logger.info(f"Successfully updated user {user_id}")
                 return True
@@ -521,7 +598,7 @@ class GoHighLevelAPI:
         try:
             url = f"{self.base_url}/locations/{self.location_id}/users/{user_id}"
             
-            response = requests.delete(url, headers=self.headers)
+            response = self._make_request_with_fallback("DELETE", url)
             if response.status_code == 200:
                 logger.info(f"Successfully deleted user {user_id}")
                 return True
@@ -541,14 +618,14 @@ class GoHighLevelAPI:
                 "limit": 1
             }
             
-            response = requests.get(url, headers=self.headers, params=params)
+            response = self._make_request_with_fallback("GET", url, params=params)
             
             return {
                 "status_code": response.status_code,
                 "can_access": response.status_code == 200,
                 "response_text": response.text,
                 "location_id": self.location_id,
-                "headers_used": self.headers
+                "headers_used": self.primary_headers
             }
         except Exception as e:
             return {
@@ -556,5 +633,5 @@ class GoHighLevelAPI:
                 "can_access": False,
                 "error": str(e),
                 "location_id": self.location_id,
-                "headers_used": self.headers
+                "headers_used": self.primary_headers
             }
