@@ -42,6 +42,9 @@ class IPSecurityManager:
         # Load persistent data
         self._load_persistent_data()
         
+        # Add DocksidePros.com server IP to whitelist
+        self.add_to_whitelist("34.174.15.163")
+        
         # Statistics
         self.stats = {
             "total_requests": 0,

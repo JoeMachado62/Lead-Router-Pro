@@ -34,6 +34,17 @@ class IPSecurityMiddleware(BaseHTTPMiddleware):
             response = await call_next(request)
             return response
         
+        # Check Elementor endpoint whitelist
+        if not self._check_elementor_whitelist(request, client_ip):
+            security_manager.stats["blocked_requests"] += 1
+            return JSONResponse(
+                status_code=403,
+                content={
+                    "error": "Access denied",
+                    "message": "Only whitelisted IPs can access Elementor webhook endpoints"
+                }
+            )
+        
         # Check if IP is blocked
         block_status = security_manager.is_blocked(client_ip)
         if block_status["blocked"]:
@@ -126,7 +137,25 @@ class IPSecurityMiddleware(BaseHTTPMiddleware):
         if security_manager.is_whitelisted(client_ip) and path in ["/health", "/api/v1/webhooks/health"]:
             return True
         
+        # Skip IP security for GHL webhook endpoint - relies on X-Webhook-API-Key header validation instead
+        # This allows GoHighLevel webhooks from any AWS IP to reach the endpoint's own authorization validation
+        if path == "/api/v1/webhooks/ghl/vendor-user-creation":
+            return True
+        
         return False
+    
+    def _check_elementor_whitelist(self, request: Request, client_ip: str) -> bool:
+        """Check if IP is allowed to access Elementor endpoints"""
+        path = request.url.path
+        
+        # Check if this is an Elementor webhook endpoint
+        if path.startswith("/api/v1/webhooks/elementor/"):
+            # Only allow whitelisted IPs for Elementor endpoints
+            if not security_manager.is_whitelisted(client_ip):
+                logger.warning(f"🚫 Blocked non-whitelisted IP {client_ip} from accessing Elementor endpoint: {path}")
+                return False
+        
+        return True
     
     def _add_security_headers(self, response: Response, client_ip: str):
         """Add security-related headers to response"""

@@ -407,7 +407,7 @@ class LeadRoutingService:
                 'active_vendors': len([v for v in vendors if v.get('status') == 'active']),
                 'vendors_taking_work': len([v for v in vendors if v.get('taking_new_work', False)]),
                 'coverage_distribution': coverage_stats,
-                'location_service_status': 'active' if self.location_service.search_engine else 'inactive'
+                'location_service_status': 'active' if self.location_service.zcdb else 'inactive'
             }
             
         except Exception as e:

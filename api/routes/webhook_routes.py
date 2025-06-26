@@ -1381,10 +1381,51 @@ async def handle_vendor_user_creation_webhook(request: Request):
     """
     Legacy webhook endpoint for GHL workflow to trigger vendor user creation.
     Maintained for backward compatibility with existing workflows.
+    SECURITY: Requires X-Webhook-API-Key header for authentication.
     """
     start_time = time.time()
     
     try:
+        # SECURITY: Validate API key from header with enhanced debugging
+        api_key = request.headers.get("X-Webhook-API-Key")
+        expected_api_key = AppConfig.GHL_WEBHOOK_API_KEY
+        
+        # ENHANCED DEBUGGING: Log all request details for troubleshooting
+        logger.info(f"🔍 GHL WEBHOOK DEBUG - Request from IP: {request.client.host}")
+        logger.info(f"🔍 GHL WEBHOOK DEBUG - All Headers: {dict(request.headers)}")
+        logger.info(f"🔍 GHL WEBHOOK DEBUG - Received API Key: '{api_key}' (length: {len(api_key) if api_key else 0})")
+        logger.info(f"🔍 GHL WEBHOOK DEBUG - Expected API Key: '{expected_api_key}' (length: {len(expected_api_key) if expected_api_key else 0})")
+        
+        if not api_key:
+            logger.error(f"❌ GHL webhook request missing API key from IP: {request.client.host}")
+            logger.error(f"❌ Available headers: {list(request.headers.keys())}")
+            raise HTTPException(
+                status_code=401, 
+                detail="Missing X-Webhook-API-Key header"
+            )
+        
+        if api_key != expected_api_key:
+            logger.error(f"❌ GHL webhook API key mismatch from IP: {request.client.host}")
+            logger.error(f"❌ Received: '{api_key}' (type: {type(api_key)}, len: {len(api_key)})")
+            logger.error(f"❌ Expected: '{expected_api_key}' (type: {type(expected_api_key)}, len: {len(expected_api_key)})")
+            logger.error(f"❌ Char-by-char comparison:")
+            
+            # Character-by-character comparison for debugging
+            if api_key and expected_api_key:
+                max_len = max(len(api_key), len(expected_api_key))
+                for i in range(max_len):
+                    rec_char = api_key[i] if i < len(api_key) else "EOF"
+                    exp_char = expected_api_key[i] if i < len(expected_api_key) else "EOF"
+                    match = "✅" if rec_char == exp_char else "❌"
+                    logger.error(f"   [{i:2d}] Received: '{rec_char}' | Expected: '{exp_char}' {match}")
+            
+            raise HTTPException(
+                status_code=401, 
+                detail="Invalid API key"
+            )
+        
+        logger.info(f"✅ GHL webhook API key validated successfully")
+        
         # Parse incoming GHL workflow webhook payload
         ghl_payload = await request.json()
         logger.info(f"📥 GHL Vendor User Creation Webhook received: {json.dumps(ghl_payload, indent=2)}")
@@ -1570,46 +1611,11 @@ async def handle_vendor_user_creation_webhook(request: Request):
             success=True
         )
         
-        # Send welcome email to vendor
-        welcome_subject = f"Welcome to Dockside Pros - Your Account is Ready!"
-        welcome_message = f"""
-        <h2>Welcome to Dockside Pros, {vendor_first_name}!</h2>
-        
-        <p>Your vendor account has been approved and your user credentials have been created.</p>
-        
-        <p><strong>Company:</strong> {vendor_company_name}</p>
-        <p><strong>Email:</strong> {vendor_email}</p>
-        
-        <p>You can now log in to your vendor portal to:</p>
-        <ul>
-            <li>View and manage your assigned leads</li>
-            <li>Update your availability status</li>
-            <li>Communicate with clients through the portal</li>
-        </ul>
-        
-        <p><strong>Next Steps:</strong></p>
-        <ol>
-            <li>Check your email for login credentials</li>
-            <li>Log in to your vendor portal</li>
-            <li>Complete your service profile setup</li>
-        </ol>
-        
-        <p>If you have any questions, please contact our support team.</p>
-        
-        <p>Best regards,<br>The Dockside Pros Team</p>
-        """
-        
-        # Send welcome email via GHL
-        email_sent = ghl_api_client.send_email(
-            contact_id=contact_id,
-            subject=welcome_subject,
-            html_content=welcome_message
-        )
-        
-        if email_sent:
-            logger.info(f"📧 Welcome email sent to vendor {vendor_email}")
-        else:
-            logger.warning(f"⚠️ Failed to send welcome email to vendor {vendor_email}")
+        # NOTE: Welcome email sending removed as GHL handles all vendor communications
+        # through its own automation workflows. This prevents conflicts and ensures
+        # consistent messaging through the GHL system.
+        email_sent = True  # Set to True since GHL handles vendor notifications
+        logger.info(f"📧 Vendor notifications handled by GHL automation workflows")
         
         return {
             "status": "success",

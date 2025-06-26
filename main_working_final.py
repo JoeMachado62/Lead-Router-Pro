@@ -1,5 +1,9 @@
 # main.py - Enhanced with Admin Dashboard
 
+# Load environment variables FIRST (before any other imports that use config)
+from dotenv import load_dotenv
+load_dotenv()  # This loads the .env file
+
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, FileResponse
@@ -342,6 +346,24 @@ async def not_found_handler(request, exc):
 async def startup_event():
     """Initialize system on startup"""
     logger.info("🚀 DocksidePros Lead Router Pro starting up...")
+    
+    # Import and validate configuration
+    from config import AppConfig
+    
+    # Log environment variable loading status
+    logger.info("🔧 Configuration Status:")
+    logger.info(f"   📍 GHL_LOCATION_ID: {'✅ Loaded' if AppConfig.GHL_LOCATION_ID else '❌ Missing'}")
+    logger.info(f"   🔑 GHL_PRIVATE_TOKEN: {'✅ Loaded' if AppConfig.GHL_PRIVATE_TOKEN else '❌ Missing'}")
+    logger.info(f"   🔐 GHL_WEBHOOK_API_KEY: {'✅ Loaded' if AppConfig.GHL_WEBHOOK_API_KEY else '❌ Missing'} (length: {len(AppConfig.GHL_WEBHOOK_API_KEY)})")
+    logger.info(f"   🏢 GHL_AGENCY_API_KEY: {'✅ Loaded' if AppConfig.GHL_AGENCY_API_KEY else '❌ Missing'}")
+    
+    # Validate required configuration
+    config_valid = AppConfig.validate_config()
+    if config_valid:
+        logger.info("✅ All required configuration loaded successfully")
+    else:
+        logger.error("❌ Configuration validation failed - check environment variables")
+    
     logger.info("✅ Enhanced webhook system loaded")
     logger.info("✅ Admin dashboard available at /admin")
     logger.info("✅ System health page available at /system-health")
