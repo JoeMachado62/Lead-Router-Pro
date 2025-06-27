@@ -10,12 +10,13 @@ logger = logging.getLogger(__name__)
 class GoHighLevelAPI:
     """Enhanced GHL API client with V1/V2 fallback support"""
     
-    def __init__(self, location_api_key: Optional[str] = None, private_token: Optional[str] = None, location_id: Optional[str] = None, agency_api_key: Optional[str] = None, api_key: Optional[str] = None):
+    def __init__(self, location_api_key: Optional[str] = None, private_token: Optional[str] = None, location_id: Optional[str] = None, agency_api_key: Optional[str] = None, api_key: Optional[str] = None, company_id: Optional[str] = None):
         # Store both API keys for fallback logic
         self.location_api_key = location_api_key or api_key  # V1 Location API Key (preferred)
         self.private_token = private_token  # V2 PIT Token (fallback)
         self.agency_api_key = agency_api_key
         self.location_id = location_id
+        self.company_id = company_id  # For V2 user creation API
         self.base_url = "https://services.leadconnectorhq.com"
         
         # Determine which API version to try first
@@ -406,8 +407,216 @@ class GoHighLevelAPI:
             logger.error(f"Error sending email: {str(e)}")
             return False
     
-    def create_user(self, user_data: Dict) -> Optional[Dict]:
-        """Create a new user in GHL using V1 API endpoint with Agency API key"""
+    def create_user_v2(self, user_data: Dict) -> Optional[Dict]:
+        """Create a new user in GHL using V2 OAuth API with CLEAN, minimal payload"""
+        try:
+            if not self.private_token:
+                logger.error("❌ V2 API FAIL: Private token required for V2 user creation")
+                return {
+                    "error": True,
+                    "message": "Private token required for V2 user creation",
+                    "api_version": "V2"
+                }
+            
+            if not self.company_id:
+                logger.error("❌ V2 API FAIL: Company ID required for V2 user creation")
+                return {
+                    "error": True,
+                    "message": "Company ID required for V2 user creation",
+                    "api_version": "V2"
+                }
+            
+            # V2 API endpoint for user creation
+            url = f"{self.base_url}/users/"
+            
+            # V2 API headers with Private Token - EXACT MATCH TO OFFICIAL DOCS
+            v2_headers = {
+                "Accept": "application/json",
+                "Authorization": f"Bearer {self.private_token}",
+                "Content-Type": "application/json",
+                "Version": "2021-07-28"
+            }
+            
+            # Generate a secure password if not provided
+            password = user_data.get("password", "TempPass123!")
+            
+            # MINIMAL V2 scopes for vendors (restrictive)
+            vendor_scopes = [
+                "contacts.write",              # Assigned contacts only
+                "conversations.write"          # Messages to assigned contacts only
+            ]
+            
+            # Assigned-only enforcement - vendors see ONLY their assigned data
+            vendor_assigned_scopes = [
+                "contacts.write",              # ONLY assigned contacts
+                "conversations.write"          # ONLY assigned conversations
+            ]
+            
+            # 🔥 V2 PAYLOAD - OFFICIAL TEMPLATE WITH RESTRICTIVE VENDOR PERMISSIONS
+            payload = {
+                "companyId": self.company_id,
+                "firstName": user_data.get("firstName", ""),
+                "lastName": user_data.get("lastName", ""),
+                "email": user_data.get("email", ""),
+                "password": password,
+                "phone": user_data.get("phone", ""),
+                "type": "account",
+                "role": "user",  # User role instead of admin for vendors
+                "locationIds": [self.location_id],
+                "permissions": {
+                    # VENDOR ESSENTIALS - ENABLED
+                    "contactsEnabled": True,           # View/manage assigned contacts
+                    "conversationsEnabled": True,      # Send messages to assigned contacts
+                    "opportunitiesEnabled": True,      # Manage assigned opportunities
+                    "appointmentsEnabled": True,       # Schedule appointments
+                    "dashboardStatsEnabled": True,     # Basic dashboard access
+                    "assignedDataOnly": True,          # CRITICAL: Only see assigned data
+                    
+                    # EVERYTHING ELSE - DISABLED FOR SECURITY
+                    "campaignsEnabled": False,
+                    "campaignsReadOnly": False,
+                    "workflowsEnabled": False,
+                    "workflowsReadOnly": False,
+                    "triggersEnabled": False,
+                    "funnelsEnabled": False,
+                    "websitesEnabled": False,
+                    "bulkRequestsEnabled": False,
+                    "reviewsEnabled": False,
+                    "onlineListingsEnabled": False,
+                    "phoneCallEnabled": False,         # Disable calls for security
+                    "adwordsReportingEnabled": False,
+                    "membershipEnabled": False,
+                    "facebookAdsReportingEnabled": False,
+                    "attributionsReportingEnabled": False,
+                    "settingsEnabled": False,          # CRITICAL: No account settings
+                    "tagsEnabled": False,
+                    "leadValueEnabled": False,
+                    "marketingEnabled": False,         # CRITICAL: No marketing tools
+                    "agentReportingEnabled": False,
+                    "botService": False,
+                    "socialPlanner": False,            # CRITICAL: No social media
+                    "bloggingEnabled": False,
+                    "invoiceEnabled": False,
+                    "affiliateManagerEnabled": False,
+                    "contentAiEnabled": False,
+                    "refundsEnabled": False,
+                    "recordPaymentEnabled": False,
+                    "cancelSubscriptionEnabled": False,
+                    "paymentsEnabled": False,
+                    "communitiesEnabled": False,
+                    "exportPaymentsEnabled": False
+                },
+                "scopes": vendor_scopes,
+                "scopesAssignedToOnly": vendor_assigned_scopes
+            }
+            
+            # 🔍 ULTRA-DETAILED V2 API REQUEST DEBUGGING
+            logger.error("=" * 80)
+            logger.error("🔥 V2 API REQUEST DEBUG - FULL DETAILS")
+            logger.error("=" * 80)
+            logger.error(f"📍 V2 URL: {url}")
+            logger.error(f"🔑 V2 Headers: {v2_headers}")
+            logger.error(f"📦 V2 Payload (CLEAN - NO V1 PERMISSIONS):")
+            logger.error(f"   companyId: '{payload['companyId']}'")
+            logger.error(f"   firstName: '{payload['firstName']}'")
+            logger.error(f"   lastName: '{payload['lastName']}'")
+            logger.error(f"   email: '{payload['email']}'")
+            logger.error(f"   phone: '{payload['phone']}'")
+            logger.error(f"   password: '{payload['password'][:3]}***'")
+            logger.error(f"   type: '{payload['type']}'")
+            logger.error(f"   role: '{payload['role']}'")
+            logger.error(f"   locationIds: {payload['locationIds']}")
+            logger.error(f"   scopes: {payload['scopes']}")
+            logger.error(f"   scopesAssignedToOnly: {payload['scopesAssignedToOnly']}")
+            logger.error(f"📋 FULL JSON PAYLOAD:")
+            
+            import json
+            logger.error(json.dumps(payload, indent=2))
+            logger.error("=" * 80)
+            
+            # Make V2 API request
+            logger.error("🚀 SENDING V2 API REQUEST...")
+            response = requests.post(url, headers=v2_headers, json=payload, timeout=30)
+            
+            # 🔍 ULTRA-DETAILED V2 API RESPONSE DEBUGGING
+            logger.error("=" * 80)
+            logger.error("📥 V2 API RESPONSE DEBUG - FULL DETAILS")
+            logger.error("=" * 80)
+            logger.error(f"📈 Status Code: {response.status_code}")
+            logger.error(f"📄 Response Headers: {dict(response.headers)}")
+            logger.error(f"📝 Response Body (RAW): {response.text}")
+            logger.error(f"⏱️  Response Time: {response.elapsed.total_seconds():.2f}s")
+            
+            # Try to parse JSON response
+            try:
+                response_json = response.json()
+                logger.error(f"📋 Response JSON (PARSED):")
+                logger.error(json.dumps(response_json, indent=2))
+            except Exception as json_err:
+                logger.error(f"❌ Could not parse response as JSON: {json_err}")
+            
+            logger.error("=" * 80)
+            
+            # Handle V2 API response
+            if response.status_code == 201:
+                data = response.json()
+                user_id = data.get('id')
+                logger.error(f"✅ V2 API SUCCESS! Created user: {user_id}")
+                logger.error(f"🔒 Applied restrictive scopes: {vendor_scopes}")
+                return data
+            elif response.status_code == 200:
+                # Some APIs return 200 instead of 201
+                data = response.json()
+                user_id = data.get('id')
+                logger.error(f"✅ V2 API SUCCESS! (200 response) Created user: {user_id}")
+                return data
+            else:
+                logger.error(f"❌ V2 API FAILED: {response.status_code}")
+                logger.error(f"❌ V2 Error Response: {response.text}")
+                
+                # Parse detailed error if possible
+                try:
+                    error_data = response.json()
+                    logger.error(f"❌ V2 Parsed Error: {json.dumps(error_data, indent=2)}")
+                    
+                    # Log specific error details
+                    if 'message' in error_data:
+                        logger.error(f"❌ V2 Error Message: {error_data['message']}")
+                    if 'errors' in error_data:
+                        logger.error(f"❌ V2 Error Details: {error_data['errors']}")
+                        
+                except Exception as parse_err:
+                    logger.error(f"❌ Could not parse V2 error response: {parse_err}")
+                
+                return {
+                    "error": True,
+                    "status_code": response.status_code,
+                    "response_text": response.text,
+                    "api_version": "V2",
+                    "url": url,
+                    "clean_payload": True
+                }
+                
+        except requests.exceptions.Timeout:
+            logger.error(f"❌ V2 API TIMEOUT after 30 seconds")
+            return {
+                "error": True,
+                "message": "V2 API request timeout",
+                "api_version": "V2"
+            }
+        except Exception as e:
+            logger.error(f"❌ V2 API EXCEPTION: {str(e)}")
+            import traceback
+            logger.error(f"❌ V2 Exception Traceback: {traceback.format_exc()}")
+            return {
+                "error": True,
+                "exception": str(e),
+                "exception_type": e.__class__.__name__,
+                "api_version": "V2"
+            }
+
+    def create_user_v1(self, user_data: Dict) -> Optional[Dict]:
+        """Create a new user in GHL using V1 API endpoint with Agency API key (FALLBACK)"""
         try:
             if not self.agency_api_key:
                 logger.error("Agency API key required for user creation")
@@ -531,6 +740,57 @@ class GoHighLevelAPI:
                 "exception_type": e.__class__.__name__,
                 "api_version": "V1"
             }
+
+    def create_user(self, user_data: Dict) -> Optional[Dict]:
+        """
+        Create a new user in GHL with V2 API (preferred) and V1 API fallback
+        V2 provides granular scope control for better vendor permission management
+        """
+        logger.info(f"🚀 Starting user creation with V2 → V1 fallback strategy for {user_data.get('email', 'unknown')}")
+        
+        # Try V2 API first (preferred for scope control)
+        if self.private_token and self.company_id:
+            logger.info(f"🎯 Attempting V2 API user creation (preferred method)")
+            v2_result = self.create_user_v2(user_data)
+            
+            # Check if V2 was successful
+            if v2_result and not v2_result.get("error"):
+                logger.info(f"✅ V2 API user creation successful - vendor will have limited scope permissions")
+                return v2_result
+            else:
+                logger.warning(f"⚠️ V2 API user creation failed: {v2_result.get('response_text', 'Unknown error')}")
+                logger.info(f"🔄 Falling back to V1 API...")
+        else:
+            missing_reqs = []
+            if not self.private_token:
+                missing_reqs.append("private_token")
+            if not self.company_id:
+                missing_reqs.append("company_id")
+            logger.info(f"⚠️ V2 API requirements missing: {missing_reqs}. Skipping to V1 API fallback.")
+        
+        # Fallback to V1 API
+        if self.agency_api_key:
+            logger.info(f"🔄 Attempting V1 API user creation (fallback method)")
+            v1_result = self.create_user_v1(user_data)
+            
+            # Check if V1 was successful
+            if v1_result and not v1_result.get("error"):
+                logger.info(f"✅ V1 API user creation successful - user will have broader permissions (manual adjustment may be needed)")
+                return v1_result
+            else:
+                logger.error(f"❌ V1 API user creation also failed: {v1_result.get('response_text', 'Unknown error') if v1_result else 'No response'}")
+        else:
+            logger.error(f"❌ No agency API key available for V1 fallback")
+        
+        # Both methods failed
+        logger.error(f"❌ Both V2 and V1 user creation methods failed")
+        return {
+            "error": True,
+            "message": "Both V2 and V1 user creation methods failed",
+            "v2_available": bool(self.private_token and self.company_id),
+            "v1_available": bool(self.agency_api_key),
+            "recommendation": "Check API keys and company_id configuration"
+        }
     
     def get_user_by_email(self, email: str) -> Optional[Dict]:
         """Get user by email address using V1 API (matches create_user endpoint)"""

@@ -625,13 +625,15 @@ async def handle_enhanced_elementor_webhook(
         if validation_result["warnings"]:
             logger.warning(f"⚠️ Form validation warnings for '{form_identifier}': {validation_result['warnings']}")
 
-        # Initialize GHL API client using AppConfig with both V1 and V2 keys
+        # Initialize GHL API client using AppConfig with V2/V1 fallback support
         ghl_api_client = GoHighLevelAPI(
             location_api_key=AppConfig.GHL_LOCATION_API,
             private_token=AppConfig.GHL_PRIVATE_TOKEN, 
-            location_id=AppConfig.GHL_LOCATION_ID
+            location_id=AppConfig.GHL_LOCATION_ID,
+            agency_api_key=AppConfig.GHL_AGENCY_API_KEY,
+            company_id=AppConfig.GHL_COMPANY_ID
         )
-        logger.info(f"🔑 GHL API client initialized with V1/V2 fallback authentication")
+        logger.info(f"🔑 GHL API client initialized with V2→V1 fallback authentication and enhanced scope control")
 
         # Process payload into GHL format
         final_ghl_payload = process_payload_to_ghl_format(elementor_payload, form_config)
@@ -1447,11 +1449,12 @@ async def handle_vendor_user_creation_webhook(request: Request):
         logger.info(f"   📱 Phone: {vendor_phone}")
         logger.info(f"   🏢 Company: {vendor_company_name}")
         
-        # Initialize GHL API client with Agency API key for user creation
+        # Initialize GHL API client with V2/V1 fallback support including company_id
         ghl_api_client = GoHighLevelAPI(
             private_token=AppConfig.GHL_PRIVATE_TOKEN, 
             location_id=AppConfig.GHL_LOCATION_ID,
-            agency_api_key=AppConfig.GHL_AGENCY_API_KEY
+            agency_api_key=AppConfig.GHL_AGENCY_API_KEY,
+            company_id=AppConfig.GHL_COMPANY_ID  # FIXED: Added missing company_id parameter
         )
         
         if not vendor_email:

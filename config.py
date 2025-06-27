@@ -13,6 +13,7 @@ class AppConfig:
     GHL_LOCATION_API: str = os.getenv("GHL_LOCATION_API", "")
     GHL_LOCATION_ID: str = os.getenv("GHL_LOCATION_ID", "")
     GHL_AGENCY_API_KEY: str = os.getenv("GHL_AGENCY_API_KEY", "")
+    GHL_COMPANY_ID: str = os.getenv("GHL_COMPANY_ID", "")  # For V2 user creation API
     
     # Pipeline Configuration
     PIPELINE_ID: Optional[str] = os.getenv("PIPELINE_ID")
