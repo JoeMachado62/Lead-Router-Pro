@@ -440,16 +440,18 @@ class GoHighLevelAPI:
             # Generate a secure password if not provided
             password = user_data.get("password", "TempPass123!")
             
-            # MINIMAL V2 scopes for vendors (restrictive)
+                        # MINIMAL V2 scopes for vendors (restrictive)
             vendor_scopes = [
                 "contacts.write",              # Assigned contacts only
-                "conversations.write"          # Messages to assigned contacts only
+                "conversations.write",         # Messages to assigned contacts only
+                "opportunities.write"          # Manage assigned opportunities
             ]
-            
+
             # Assigned-only enforcement - vendors see ONLY their assigned data
             vendor_assigned_scopes = [
                 "contacts.write",              # ONLY assigned contacts
-                "conversations.write"          # ONLY assigned conversations
+                "conversations.write",         # ONLY assigned conversations  
+                "opportunities.write"          # ONLY assigned opportunities
             ]
             
             # 🔥 V2 PAYLOAD - OFFICIAL TEMPLATE WITH RESTRICTIVE VENDOR PERMISSIONS

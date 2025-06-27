@@ -356,6 +356,7 @@ async def startup_event():
     logger.info(f"   🔑 GHL_PRIVATE_TOKEN: {'✅ Loaded' if AppConfig.GHL_PRIVATE_TOKEN else '❌ Missing'}")
     logger.info(f"   🔐 GHL_WEBHOOK_API_KEY: {'✅ Loaded' if AppConfig.GHL_WEBHOOK_API_KEY else '❌ Missing'} (length: {len(AppConfig.GHL_WEBHOOK_API_KEY)})")
     logger.info(f"   🏢 GHL_AGENCY_API_KEY: {'✅ Loaded' if AppConfig.GHL_AGENCY_API_KEY else '❌ Missing'}")
+    logger.info(f"   🏭 GHL_COMPANY_ID: {'✅ Loaded' if AppConfig.GHL_COMPANY_ID else '❌ Missing'}")
     
     # Validate required configuration
     config_valid = AppConfig.validate_config()

@@ -1563,6 +1563,41 @@ async def handle_vendor_user_creation_webhook(request: Request):
             raise HTTPException(status_code=502, detail="User created but no ID returned from GHL")
         
         logger.info(f"✅ Successfully created GHL user: {user_id} for {vendor_email}")
+
+        # CREATE VENDOR RECORD IN LOCAL DATABASE
+        try:
+            # Get or create account
+            account_record = simple_db_instance.get_account_by_ghl_location_id(AppConfig.GHL_LOCATION_ID)
+            if not account_record:
+                account_id = simple_db_instance.create_account(
+                    ghl_location_id=AppConfig.GHL_LOCATION_ID,
+                    company_name="DocksidePros",
+                    industry="Marine Services"
+                )
+            else:
+                account_id = account_record["id"]
+
+            # Check if vendor already exists
+            existing_vendor = simple_db_instance.get_vendor_by_email_and_account(vendor_email, account_id)
+            
+            if existing_vendor:
+                # Update existing vendor with GHL User ID
+                simple_db_instance.update_vendor_status(existing_vendor["id"], "active", user_id)
+                logger.info(f"✅ Updated existing vendor record: {existing_vendor['id']}")
+            else:
+                # Create new vendor record
+                vendor_db_id = simple_db_instance.create_vendor(
+                    account_id=account_id,
+                    name=f"{vendor_first_name} {vendor_last_name}".strip(),
+                    email=vendor_email,
+                    company_name=vendor_company_name,
+                    phone=vendor_phone,
+                    ghl_contact_id=contact_id,
+                    status="active"
+                )
+                logger.info(f"✅ Created vendor record: {vendor_db_id}")
+        except Exception as e:
+            logger.error(f"⚠️ Vendor DB creation failed: {e}")
         
         # FIXED: Update the contact record with the GHL User ID
         if contact_id:
