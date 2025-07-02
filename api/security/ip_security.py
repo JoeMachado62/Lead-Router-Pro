@@ -45,6 +45,9 @@ class IPSecurityManager:
         # Add DocksidePros.com server IP to whitelist
         self.add_to_whitelist("34.174.15.163")
         
+        # Add requested IP to whitelist
+        self.add_to_whitelist("34.174.132.172")
+        
         # Statistics
         self.stats = {
             "total_requests": 0,

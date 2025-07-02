@@ -172,9 +172,11 @@ def normalize_field_names(payload: Dict[str, Any]) -> Dict[str, Any]:
         "Notes": "special_requests__notes",
         
         # Vendor fields
+        "What is Your Company Name?": "vendor_company_name",
         "Company Name": "vendor_company_name",
         "Business Name": "vendor_company_name",
         "Services Provided": "services_provided",
+        "What Main Service Does Your Company Offer?": "services_provided",
         "Service Areas": "service_zip_codes",
         "Years in Business": "years_in_business",
         
@@ -1467,7 +1469,7 @@ async def handle_vendor_user_creation_webhook(request: Request):
             logger.info(f"✅ User already exists for {vendor_email}: {existing_user.get('id')}")
             
             # Update vendor record with existing user ID
-            vendor_record = simple_db_instance.get_vendor_by_email_and_account(vendor_email, AppConfig.GHL_LOCATION_ID)
+            vendor_record = simple_db_instance.get_vendor_by_email_and_account(vendor_email, account_id)    
             if vendor_record:
                 simple_db_instance.update_vendor_status(
                     vendor_record["id"], 

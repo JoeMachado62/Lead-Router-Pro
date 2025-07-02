@@ -8,6 +8,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
 import logging
 from pathlib import Path # os was not used, Path is already imported
 
@@ -34,13 +35,51 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Create FastAPI app
+# Lifespan event handler
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Handle application startup and shutdown events"""
+    # Startup
+    logger.info("🚀 DocksidePros Lead Router Pro starting up...")
+    
+    # Import and validate configuration
+    from config import AppConfig
+    
+    # Log environment variable loading status
+    logger.info("🔧 Configuration Status:")
+    logger.info(f"   📍 GHL_LOCATION_ID: {'✅ Loaded' if AppConfig.GHL_LOCATION_ID else '❌ Missing'}")
+    logger.info(f"   🔑 GHL_PRIVATE_TOKEN: {'✅ Loaded' if AppConfig.GHL_PRIVATE_TOKEN else '❌ Missing'}")
+    logger.info(f"   🔐 GHL_WEBHOOK_API_KEY: {'✅ Loaded' if AppConfig.GHL_WEBHOOK_API_KEY else '❌ Missing'} (length: {len(AppConfig.GHL_WEBHOOK_API_KEY)})")
+    logger.info(f"   🏢 GHL_AGENCY_API_KEY: {'✅ Loaded' if AppConfig.GHL_AGENCY_API_KEY else '❌ Missing'}")
+    logger.info(f"   🏭 GHL_COMPANY_ID: {'✅ Loaded' if AppConfig.GHL_COMPANY_ID else '❌ Missing'}")
+    
+    # Validate required configuration
+    config_valid = AppConfig.validate_config()
+    if config_valid:
+        logger.info("✅ All required configuration loaded successfully")
+    else:
+        logger.error("❌ Configuration validation failed - check environment variables")
+    
+    logger.info("✅ Enhanced webhook system loaded")
+    logger.info("✅ Admin dashboard available at /admin")
+    logger.info("✅ System health page available at /system-health")
+    logger.info("✅ Service categories page available at /service-categories")
+    logger.info("✅ API documentation available at /docs")
+    logger.info("🎯 Ready to process form submissions!")
+    
+    yield
+    
+    # Shutdown (if needed)
+    logger.info("🛑 DocksidePros Lead Router Pro shutting down...")
+
+# Create FastAPI app with lifespan
 app = FastAPI(
     title="DocksidePros Smart Lead Router Pro",
     description="Advanced lead routing system with admin dashboard",
     version="2.0.0",
     docs_url="/docs",
-    redoc_url="/redoc"
+    redoc_url="/redoc",
+    lifespan=lifespan
 )
 
 # Add IP Security Middleware (BEFORE CORS)
@@ -341,36 +380,6 @@ async def not_found_handler(request, exc):
         status_code=404
     )
 
-# Startup event
-@app.on_event("startup")
-async def startup_event():
-    """Initialize system on startup"""
-    logger.info("🚀 DocksidePros Lead Router Pro starting up...")
-    
-    # Import and validate configuration
-    from config import AppConfig
-    
-    # Log environment variable loading status
-    logger.info("🔧 Configuration Status:")
-    logger.info(f"   📍 GHL_LOCATION_ID: {'✅ Loaded' if AppConfig.GHL_LOCATION_ID else '❌ Missing'}")
-    logger.info(f"   🔑 GHL_PRIVATE_TOKEN: {'✅ Loaded' if AppConfig.GHL_PRIVATE_TOKEN else '❌ Missing'}")
-    logger.info(f"   🔐 GHL_WEBHOOK_API_KEY: {'✅ Loaded' if AppConfig.GHL_WEBHOOK_API_KEY else '❌ Missing'} (length: {len(AppConfig.GHL_WEBHOOK_API_KEY)})")
-    logger.info(f"   🏢 GHL_AGENCY_API_KEY: {'✅ Loaded' if AppConfig.GHL_AGENCY_API_KEY else '❌ Missing'}")
-    logger.info(f"   🏭 GHL_COMPANY_ID: {'✅ Loaded' if AppConfig.GHL_COMPANY_ID else '❌ Missing'}")
-    
-    # Validate required configuration
-    config_valid = AppConfig.validate_config()
-    if config_valid:
-        logger.info("✅ All required configuration loaded successfully")
-    else:
-        logger.error("❌ Configuration validation failed - check environment variables")
-    
-    logger.info("✅ Enhanced webhook system loaded")
-    logger.info("✅ Admin dashboard available at /admin")
-    logger.info("✅ System health page available at /system-health")
-    logger.info("✅ Service categories page available at /service-categories")
-    logger.info("✅ API documentation available at /docs")
-    logger.info("🎯 Ready to process form submissions!")
 
 if __name__ == "__main__":
     import uvicorn

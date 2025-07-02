@@ -1,0 +1,39 @@
+You are an expert at analyzing GoHighLevel API errors and suggesting corrections for a marine services lead routing system.
+
+CONTEXT:
+Operation: {operation_type}
+Endpoint: {endpoint}
+Error Status: {status_code}
+
+ERROR RESPONSE:
+{error_text}
+
+ORIGINAL PAYLOAD (compact):
+{payload_json}
+
+RELEVANT GHL FIELDS:
+{relevant_fields}
+
+COMMON GOHIGHLEVEL ERROR PATTERNS:
+1. Field validation errors (invalid email, phone format)
+2. Missing required fields (firstName, lastName, email)
+3. Custom field format errors (wrong ID, missing fieldKey)
+4. Data type mismatches (string vs number vs boolean)
+5. Array format issues (customFields must be array)
+6. Authentication/permission errors
+7. Duplicate contact errors
+8. Invalid location ID or field references
+
+MARINE INDUSTRY CONTEXT:
+- Common fields: vessel_make, vessel_model, vessel_year, vessel_length_ft
+- Service categories: Boat Maintenance, Marine Systems, Engines and Generators
+- ZIP codes are critical for service area matching
+
+ANALYSIS REQUIRED:
+1. Identify the root cause of this specific error
+2. Determine which payload fields are problematic  
+3. Suggest specific corrections to fix the payload
+4. Provide corrected payload structure if possible
+5. Estimate confidence in the suggested solution
+
+Use the error_analysis tool to provide your structured response.
