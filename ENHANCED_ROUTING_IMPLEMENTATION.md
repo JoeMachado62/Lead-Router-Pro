@@ -176,7 +176,7 @@ Based on your field_reference.json:
 ### Modified Files
 - `database/simple_connection.py` - Schema updates and migration
 - `api/routes/webhook_routes.py` - Integration with new services
-- `requirements.txt` - Added pyzipcode dependency
+- `requirements.txt` - "Added pgeocode dependency"
 
 ## Next Steps for Full Implementation
 
