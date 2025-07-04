@@ -1,10 +1,17 @@
 {
-  "blocked_ips": {},
+  "blocked_ips": {
+    "188.166.183.6": {
+      "reason": "Consecutive 404 errors (5)",
+      "blocked_at": 1751602198.296774,
+      "blocked_until": 1751605798.296774,
+      "duration": 3600
+    }
+  },
   "whitelist": [
     "71.208.153.160",
     "34.174.132.172",
     "34.174.15.163"
   ],
   "trusted_networks": [],
-  "saved_at": 1751587040.8678432
+  "saved_at": 1751602198.2971861
 }

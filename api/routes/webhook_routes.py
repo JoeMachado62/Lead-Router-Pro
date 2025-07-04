@@ -16,9 +16,15 @@ from database.simple_connection import db as simple_db_instance
 from api.services.ghl_api import GoHighLevelAPI
 from api.services.ai_classifier import AIServiceClassifier
 from api.services.field_mapper import field_mapper
+# Enhanced service classification and storage
+from api.services.enhanced_service_classifier import EnhancedServiceClassifier
+from database.enhanced_lead_storage import EnhancedLeadStorage
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/webhooks", tags=["Enhanced Elementor Webhooks (DSP)"])
+# Initialize enhanced services
+enhanced_classifier = EnhancedServiceClassifier()
+enhanced_storage = EnhancedLeadStorage()
 
 # --- REMOVED CONFLICTING FIELD REFERENCE LOADING ---
 # Now using field_mapper service exclusively for all field operations
@@ -955,41 +961,24 @@ async def trigger_enhanced_lead_routing_workflow(
         else:
             account_id = account["id"]
         
-        # Prepare lead data for database
-        lead_data = {
-            "service_category": classification_result.get("category", form_config.get("service_category")),
-            "customer_name": f"{form_data.get('firstName', '')} {form_data.get('lastName', '')}".strip(),
-            "customer_email": form_data.get("email", ""),
-            "customer_phone": form_data.get("phone", ""),
-            "service_details": {
-                "form_identifier": form_identifier,
-                "service_requested": form_data.get("specific_service_needed", ""),
-                "vessel_info": {
-                    "make": form_data.get("vessel_make", ""),
-                    "model": form_data.get("vessel_model", ""),
-                    "year": form_data.get("vessel_year", ""),
-                    "length_ft": form_data.get("vessel_length_ft", "")
-                },
-                "location": {
-                    "zip_code": form_data.get("zip_code_of_service", ""),
-                    "vessel_location": form_data.get("vessel_location__slip", "")
-                },
-                "timeline": form_data.get("desired_timeline", ""),
-                "budget_range": form_data.get("budget_range", ""),
-                "special_requests": form_data.get("special_requests__notes", ""),
-                "classification": classification_result
-            }
+        # Enhanced service classification with detailed breakdown
+        enhanced_classification = enhanced_classifier.classify_service_detailed(form_data)
+        logger.info(f"🔍 Enhanced classification: {enhanced_classification}")
+        
+        # Extract customer data
+        customer_data = {
+            "name": f"{form_data.get('firstName', '')} {form_data.get('lastName', '')}".strip(),
+            "email": form_data.get("email", ""),
+            "phone": form_data.get("phone", "")
         }
         
-        # Create lead in database
-        lead_id = simple_db_instance.create_lead(
-            service_category=lead_data["service_category"],
-            customer_name=lead_data["customer_name"],
-            customer_email=lead_data["customer_email"],
-            customer_phone=lead_data["customer_phone"],
-            service_details=lead_data["service_details"],
+        # Create lead with enhanced storage
+        lead_id = enhanced_storage.create_enhanced_lead(
+            customer_data=customer_data,
+            classification_result=enhanced_classification,
             account_id=account_id,
-            ghl_contact_id=ghl_contact_id
+            ghl_contact_id=ghl_contact_id,
+            source=form_identifier
         )
         
         # Step 2: Create an Opportunity in GHL Pipeline (SKIP FOR VENDOR APPLICATIONS)
@@ -1098,8 +1087,8 @@ async def trigger_enhanced_lead_routing_workflow(
             # Find matching vendors for this service category and location using enhanced routing
             available_vendors = lead_routing_service.find_matching_vendors(
                 account_id=account_id,
-                service_category=lead_data["service_category"],
-                zip_code=form_data.get("zip_code_of_service", ""),
+                service_category=enhanced_classification["primary_category"],
+                zip_code=enhanced_classification["coverage_area"]["zip_code"],
                 priority=priority
             )
             
@@ -1120,7 +1109,72 @@ async def trigger_enhanced_lead_routing_workflow(
                 # Notify vendor (implement based on your notification preferences)
                 await notify_vendor_of_new_lead(
                     vendor=selected_vendor,
-                    lead_data=lead_data,
+                    lead_data=enhanced_classification,  # Pass enhanced classification instead of old lead_data
+                    ghl_contact_id=ghl_contact_id
+                )
+            else:
+                logger.warning(f"⚠️ No matching vendors found for service '{enhanced_classification['primary_category']}' in area '{enhanced_classification['coverage_area']['zip_code']}'")
+                
+                # FIXED: Notify admin of unmatched lead instead of creating new contacts
+                await notify_admin_of_unmatched_lead(
+                    lead_data=enhanced_classification,
+                    ghl_contact_id=ghl_contact_id,
+                    service_category=enhanced_classification["primary_category"],
+                    location=enhanced_classification["coverage_area"]["zip_code"]
+                )
+        
+        # Log successful routing
+        simple_db_instance.log_activity(
+            event_type="enhanced_lead_routing_completed",
+            event_data={
+                "ghl_location_id": AppConfig.GHL_LOCATION_ID,
+                "ghl_contact_id": ghl_contact_id,
+                "lead_id": lead_id,
+                "form_identifier": form_identifier,
+                "form_type": form_type,
+                "priority": priority,
+                "service_category": enhanced_classification["primary_category"],
+                "classification_confidence": enhanced_classification.get("confidence", 0),
+                "timestamp": time.time()
+            },
+            lead_id=ghl_contact_id,
+            success=True
+        )
+        
+        logger.info(f"✅ Enhanced lead routing completed for {ghl_contact_id} with priority: {priority}")
+        
+    except Exception as e:
+        logger.error(f"❌ Error in enhanced lead routing workflow for {ghl_contact_id}: {e}")
+        simple_db_instance.log_activity(
+            event_type="enhanced_lead_routing_error",
+            event_data={
+                "ghl_contact_id": ghl_contact_id,
+                "form_identifier": form_identifier,
+                "error": str(e)
+            },
+            lead_id=ghl_contact_id,
+            success=False,
+            error_message=str(e)
+        )
+            
+            if available_vendors:
+                logger.info(f"🎯 Found {len(available_vendors)} matching vendors for lead {lead_id}")
+                
+                # Use enhanced vendor selection with dual routing logic
+                selected_vendor = lead_routing_service.select_vendor_from_pool(
+                    available_vendors, account_id
+                )
+                
+                # Update lead with vendor assignment
+                try:
+                    simple_db_instance.assign_lead_to_vendor(lead_id, selected_vendor["id"])
+                except Exception as e:
+                    logger.warning(f"⚠️ Could not assign lead to vendor: {e}")
+                
+                # Notify vendor (implement based on your notification preferences)
+                await notify_vendor_of_new_lead(
+                    vendor=selected_vendor,
+                    lead_data=enhanced_classification,  # Pass enhanced classification instead of old lead_data
                     ghl_contact_id=ghl_contact_id
                 )
             else:
