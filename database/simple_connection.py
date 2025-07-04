@@ -413,6 +413,74 @@ class SimpleDatabase:
             if conn:
                 conn.close()
 
+    def create_routing_vendor(self, vendor_data: Dict[str, Any]) -> str:
+        """
+        Create optimized vendor record for efficient lead routing.
+        This is used by the county-based vendor creation system.
+        
+        Args:
+            vendor_data: Dictionary containing all vendor routing data
+                - account_id: Account ID
+                - name: Vendor name
+                - email: Vendor email
+                - ghl_user_id: GHL User ID for assignments
+                - ghl_contact_id: GHL Contact ID
+                - primary_service_category: Primary service category
+                - secondary_service_categories: JSON array of secondary services
+                - service_coverage_type: "county" (or "zip" for legacy)
+                - service_counties: JSON array of "County, State" entries
+                - service_states: JSON array of state abbreviations
+                - status: Vendor status ("active", "pending", etc.)
+                - taking_new_work: Boolean for availability
+                
+        Returns:
+            Vendor ID string
+        """
+        conn = None
+        try:
+            vendor_id = str(uuid.uuid4())
+            conn = self._get_conn()
+            cursor = conn.cursor()
+            
+            # Validate required fields
+            required_fields = ['account_id', 'name', 'email', 'ghl_contact_id']
+            for field in required_fields:
+                if not vendor_data.get(field):
+                    raise ValueError(f"Required field '{field}' is missing from vendor_data")
+            
+            cursor.execute('''
+                INSERT INTO vendors (
+                    id, account_id, name, email, ghl_user_id, ghl_contact_id,
+                    services_provided, service_coverage_type, service_counties, service_states,
+                    status, taking_new_work, performance_score, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            ''', (
+                vendor_id,
+                vendor_data['account_id'],
+                vendor_data['name'],
+                vendor_data['email'],
+                vendor_data.get('ghl_user_id'),
+                vendor_data['ghl_contact_id'],
+                vendor_data.get('secondary_service_categories', '[]'),  # Store as JSON for services_provided field
+                vendor_data.get('service_coverage_type', 'county'),
+                vendor_data.get('service_counties', '[]'),
+                vendor_data.get('service_states', '[]'),
+                vendor_data.get('status', 'active'),
+                vendor_data.get('taking_new_work', True),
+                vendor_data.get('performance_score', 0.8)
+            ))
+            
+            conn.commit()
+            logger.info(f"✅ Routing vendor created: {vendor_id}")
+            return vendor_id
+            
+        except Exception as e:
+            logger.error(f"❌ Routing vendor creation error: {e}")
+            raise
+        finally:
+            if conn:
+                conn.close()
+
     # =======================
     # ORIGINAL LEAD MANAGEMENT (LEGACY)
     # =======================

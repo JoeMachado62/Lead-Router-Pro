@@ -16,6 +16,10 @@ from database.simple_connection import db as simple_db_instance
 from api.services.ghl_api import GoHighLevelAPI
 from api.services.ai_classifier import AIServiceClassifier
 from api.services.field_mapper import field_mapper
+from api.services.lead_routing_service import lead_routing_service  # FIXED: Added missing import
+from api.services.location_service import location_service
+# Import the existing assignment function from routing_admin
+from api.routes.routing_admin import _update_ghl_opportunity_assignment
 
 
 logger = logging.getLogger(__name__)
@@ -802,33 +806,11 @@ async def handle_enhanced_elementor_webhook(
         if operation_successful and final_ghl_contact_id:
             logger.info(f"✅ Successfully {action_taken} GHL contact {final_ghl_contact_id} for form '{form_identifier}' in {processing_time}s")
             
-            # If this was a vendor application, create a vendor record in the local database
+            # Vendor applications only create GHL contacts initially
+            # Database vendor records are created later during user creation webhook when approved
             if form_config.get("form_type") == "vendor_application":
-                try:
-                    account = simple_db_instance.get_account_by_ghl_location_id(AppConfig.GHL_LOCATION_ID)
-                    if not account:
-                        account_id = simple_db_instance.create_account(
-                            company_name="Digital Marine LLC",
-                            industry="marine",
-                            ghl_location_id=AppConfig.GHL_LOCATION_ID,
-                            ghl_private_token=AppConfig.GHL_PRIVATE_TOKEN
-                        )
-                    else:
-                        account_id = account["id"]
-                    
-                    simple_db_instance.create_vendor(
-                        account_id=account_id,
-                        name=f"{elementor_payload.get('firstName', '')} {elementor_payload.get('lastName', '')}".strip(),
-                        email=elementor_payload.get('email', ''),
-                        company_name=elementor_payload.get('vendor_company_name', ''),
-                        phone=elementor_payload.get('phone', ''),
-                        ghl_contact_id=final_ghl_contact_id,
-                        status="pending",
-                        services_provided=elementor_payload.get('services_provided', ''),
-                        service_areas=elementor_payload.get('service_zip_codes', '')
-                    )
-                except Exception as e:
-                    logger.error(f"Error creating local vendor record: {e}")
+                logger.info(f"✅ Vendor application processed - GHL contact created: {final_ghl_contact_id}")
+                logger.info(f"📋 Database vendor record will be created during approval/user creation webhook")
 
             # Log successful activity to database
             simple_db_instance.log_activity(
@@ -957,10 +939,12 @@ async def trigger_enhanced_lead_routing_workflow(
         
         # Enhanced service classification with detailed breakdown
         ai_classifier = AIServiceClassifier(industry="marine")
-        enhanced_classification = await ai_classifier.classify_service_detailed(form_data)
+        enhanced_form_data = form_data.copy()
+        enhanced_form_data['form_identifier'] = form_identifier
+        enhanced_classification = await ai_classifier.classify_service_detailed(enhanced_form_data)
         logger.info(f"🔍 Enhanced classification: {enhanced_classification}")
         
-        # Extract customer data
+        # FIXED: Extract customer data correctly
         customer_data = {
             "name": f"{form_data.get('firstName', '')} {form_data.get('lastName', '')}".strip(),
             "email": form_data.get("email", ""),
@@ -976,6 +960,9 @@ async def trigger_enhanced_lead_routing_workflow(
             source=form_identifier
         )
         
+        # FIXED: Initialize opportunity_id before opportunity creation
+        opportunity_id = None
+        
         # Step 2: Create an Opportunity in GHL Pipeline (SKIP FOR VENDOR APPLICATIONS)
         if AppConfig.PIPELINE_ID and AppConfig.NEW_LEAD_STAGE_ID:
             # Check if this is a vendor application by looking for vendor_company_name field
@@ -987,8 +974,9 @@ async def trigger_enhanced_lead_routing_workflow(
                 logger.info(f"📈 Creating opportunity in pipeline '{AppConfig.PIPELINE_ID}'")
                 ghl_api_client = GoHighLevelAPI(private_token=AppConfig.GHL_PRIVATE_TOKEN, location_id=AppConfig.GHL_LOCATION_ID)
                 
-                customer_name = lead_data["customer_name"]
-                service_category = lead_data["service_category"]
+                # FIXED: Use correct variable names
+                customer_name = customer_data["name"]
+                service_category = enhanced_classification["primary_category"]
                 
                 # Fetch full contact details to get custom field values for opportunity
                 contact_details = ghl_api_client.get_contact_by_id(ghl_contact_id)
@@ -1031,8 +1019,7 @@ async def trigger_enhanced_lead_routing_workflow(
                                 if field_value:  # Only include if there's actually a value after stripping
                                     opportunity_custom_fields.append({
                                         "id": ghl_field_id,
-                                        "key": short_key,
-                                        "field_value": field_value
+                                        "value": field_value
                                     })
                                     logger.debug(f"Added custom field to opportunity: {short_key} = {field_value} (type: {type(raw_value)})")
                             break
@@ -1077,16 +1064,32 @@ async def trigger_enhanced_lead_routing_workflow(
         priority = form_config.get("priority", "normal")
         form_type = form_config.get("form_type", "unknown")
         
-        # Enhanced vendor matching logic
+        # FIXED: Enhanced vendor matching logic with proper indentation and opportunity assignment
         if form_type == "client_lead" or form_type == "emergency_service":
-            # Find matching vendors for this service category and location using enhanced routing
-            available_vendors = lead_routing_service.find_matching_vendors(
-                account_id=account_id,
-                service_category=enhanced_classification["primary_category"],
-                zip_code=enhanced_classification["coverage_area"]["zip_code"],
-                priority=priority
-            )
+            # Extract location data from enhanced classification
+            zip_code = enhanced_classification.get("coverage_area", {}).get("zip_code", "")
+            service_category = enhanced_classification.get("primary_category", "Boater Resources")
             
+            logger.info(f"🎯 Lead routing: Category='{service_category}', ZIP='{zip_code}'")
+            
+            if not zip_code:
+                logger.warning(f"⚠️ No ZIP code found in enhanced classification: {enhanced_classification}")
+                # Try to get ZIP from original form data as fallback
+                zip_code = form_data.get("zip_code_of_service") or form_data.get("zip_code") or ""
+                logger.info(f"🔄 Fallback ZIP code from form: '{zip_code}'")
+            
+            if zip_code and service_category:
+                # Find matching vendors for this service category and location using enhanced routing
+                available_vendors = lead_routing_service.find_matching_vendors(
+                    account_id=account_id,
+                    service_category=service_category,
+                    zip_code=zip_code,
+                    priority=priority
+                )
+            else:
+                logger.error(f"❌ Cannot route lead: missing ZIP code ('{zip_code}') or service category ('{service_category}')")
+                available_vendors = []
+                
             if available_vendors:
                 logger.info(f"🎯 Found {len(available_vendors)} matching vendors for lead {lead_id}")
                 
@@ -1095,18 +1098,32 @@ async def trigger_enhanced_lead_routing_workflow(
                     available_vendors, account_id
                 )
                 
-                # Update lead with vendor assignment
-                try:
-                    simple_db_instance.assign_lead_to_vendor(lead_id, selected_vendor["id"])
-                except Exception as e:
-                    logger.warning(f"⚠️ Could not assign lead to vendor: {e}")
-                
-                # Notify vendor (implement based on your notification preferences)
-                await notify_vendor_of_new_lead(
-                    vendor=selected_vendor,
-                    lead_data=enhanced_classification,  # Pass enhanced classification instead of old lead_data
-                    ghl_contact_id=ghl_contact_id
-                )
+                # FIXED: Assign opportunity to vendor instead of direct notification
+                # This triggers GHL automations which handle vendor notifications
+                vendor_ghl_user_id = selected_vendor.get("ghl_user_id")
+                if vendor_ghl_user_id and opportunity_id:
+                    logger.info(f"🎯 Assigning opportunity {opportunity_id} to vendor user {vendor_ghl_user_id}")
+                    
+                    
+                    try:
+                        assignment_success = await _update_ghl_opportunity_assignment(
+                            opportunity_id, 
+                            selected_vendor
+                        )
+                        
+                        if assignment_success:
+                            logger.info(f"✅ Successfully assigned opportunity {opportunity_id} to vendor {selected_vendor['name']}")
+                            logger.info(f"🔔 GHL automations will handle vendor notifications")
+                        else:
+                            logger.error(f"❌ Failed to assign opportunity to vendor {selected_vendor['name']}")
+                            
+                    except Exception as e:
+                        logger.error(f"❌ Error assigning opportunity to vendor: {e}")
+                        
+                elif not vendor_ghl_user_id:
+                    logger.warning(f"⚠️ Vendor {selected_vendor['name']} has no GHL User ID - cannot assign opportunity")
+                elif not opportunity_id:
+                    logger.warning(f"⚠️ No opportunity ID available - cannot assign to vendor")
             else:
                 logger.warning(f"⚠️ No matching vendors found for service '{enhanced_classification['primary_category']}' in area '{enhanced_classification['coverage_area']['zip_code']}'")
                 
@@ -1151,68 +1168,6 @@ async def trigger_enhanced_lead_routing_workflow(
             success=False,
             error_message=str(e)
         )
-
-
-# Import the new lead routing service
-from api.services.lead_routing_service import lead_routing_service
-
-
-async def notify_vendor_of_new_lead(vendor: Dict[str, Any], lead_data: Dict[str, Any], ghl_contact_id: str):
-    """
-    Notify vendor of new lead assignment
-    """
-    try:
-        # Initialize GHL API for notifications
-        ghl_api_client = GoHighLevelAPI(private_token=AppConfig.GHL_PRIVATE_TOKEN, location_id=AppConfig.GHL_LOCATION_ID)
-        
-        vendor_contact_id = vendor.get("ghl_contact_id")
-        if not vendor_contact_id:
-            logger.warning(f"⚠️ Vendor {vendor.get('name')} has no GHL contact ID for notifications")
-            return
-        
-        # Prepare notification message
-        service_category = lead_data.get("service_category", "Service Request")
-        customer_name = lead_data.get("customer_name", "Customer")
-        location = lead_data.get("service_details", {}).get("location", {}).get("zip_code", "Unknown")
-        
-        notification_message = f"""
-🚤 NEW LEAD ALERT - {service_category}
-
-Customer: {customer_name}
-Service: {lead_data.get('service_details', {}).get('service_requested', service_category)}
-Location: {location}
-Timeline: {lead_data.get('service_details', {}).get('timeline', 'Not specified')}
-
-Please respond quickly to secure this lead!
-Contact customer: {lead_data.get('customer_phone', 'No phone provided')}
-
-- Dockside Pros Lead Router
-        """.strip()
-        
-        # Send SMS notification
-        sms_sent = ghl_api_client.send_sms(vendor_contact_id, notification_message)
-        
-        if sms_sent:
-            logger.info(f"📱 SMS notification sent to vendor {vendor.get('name')} for lead {ghl_contact_id}")
-        else:
-            logger.warning(f"⚠️ Failed to send SMS notification to vendor {vendor.get('name')}")
-        
-        # Log notification attempt
-        simple_db_instance.log_activity(
-            event_type="vendor_notification_sent",
-            event_data={
-                "vendor_id": vendor.get("id"),
-                "vendor_name": vendor.get("name"),
-                "lead_contact_id": ghl_contact_id,
-                "notification_type": "SMS",
-                "success": sms_sent
-            },
-            vendor_id=vendor.get("id"),
-            success=sms_sent
-        )
-        
-    except Exception as e:
-        logger.error(f"Error notifying vendor {vendor.get('name', 'Unknown')}: {e}")
 
 
 async def notify_admin_of_unmatched_lead(lead_data: Dict[str, Any], ghl_contact_id: str, service_category: str, location: str):
@@ -1579,8 +1534,92 @@ async def handle_vendor_user_creation_webhook(request: Request):
         
         logger.info(f"✅ Successfully created GHL user: {user_id} for {vendor_email}")
 
-        # CREATE VENDOR RECORD IN LOCAL DATABASE
+        # CREATE COUNTY-NORMALIZED VENDOR RECORD
         try:
+            # Fetch full contact record from GHL to get vendor data
+            logger.info(f"📋 Extracting vendor data from GHL contact {contact_id}")
+            contact_details = ghl_api_client.get_contact_by_id(contact_id)
+            
+            if not contact_details:
+                logger.error(f"❌ Could not fetch contact details for {contact_id}")
+                raise Exception("Unable to fetch vendor contact data from GHL")
+            
+            # Extract routing data from GHL custom fields
+            custom_fields = contact_details.get('customFields', [])
+            
+            primary_service_category = ""
+            secondary_service_categories = []
+            raw_coverage_data = ""
+            
+            # Extract from GHL custom fields
+            for field in custom_fields:
+                field_id = field.get('id', '')
+                field_value = str(field.get('value', '') or field.get('fieldValue', '')).strip()
+                
+                if not field_value:
+                    continue
+                    
+                # Get field details to identify the field
+                field_details = field_mapper.get_ghl_field_details_by_id(field_id)
+                if not field_details:
+                    continue
+                    
+                field_key = field_details.get('key', '')
+                
+                # Extract service categories
+                if field_key == 'services_provided':
+                    services = [s.strip() for s in field_value.split(',') if s.strip()]
+                    if services:
+                        primary_service_category = services[0]
+                        secondary_service_categories = services[1:] if len(services) > 1 else []
+                        
+                # Extract coverage areas (could be ZIP codes or counties)
+                elif field_key in ['service_zip_codes', 'service_areas', 'service_counties']:
+                    raw_coverage_data = field_value
+            
+            # Normalize geographic coverage using LocationService
+            service_coverage_type = "county"  # Default to county-based
+            service_counties = []
+            service_states = []
+            
+            if raw_coverage_data:
+                coverage_items = [item.strip() for item in raw_coverage_data.split(',') if item.strip()]
+                
+                for item in coverage_items:
+                    # Check if it's already in county format (contains comma)
+                    if ',' in item and len(item.split(',')) == 2:
+                        # Already in "County, State" format
+                        service_counties.append(item.strip())
+                    elif item.isdigit() and len(item) == 5:
+                        # ZIP code - convert to county
+                        logger.info(f"📍 Converting ZIP code {item} to county")
+                        location_data = location_service.zip_to_location(item)
+                        
+                        if not location_data.get('error'):
+                            county = location_data.get('county')
+                            state = location_data.get('state')
+                            if county and state:
+                                county_entry = f"{county}, {state}"
+                                if county_entry not in service_counties:
+                                    service_counties.append(county_entry)
+                                    logger.info(f"✅ ZIP {item} → {county_entry}")
+                        else:
+                            logger.warning(f"⚠️ Could not convert ZIP {item}: {location_data['error']}")
+                    else:
+                        # Assume it's a county name - add default state if needed
+                        if 'FL' not in item and 'florida' not in item.lower():
+                            item = f"{item}, FL"  # Default to Florida
+                        service_counties.append(item.strip())
+            
+            # Set defaults if no coverage found
+            if not service_counties:
+                logger.warning(f"⚠️ No coverage area found for {vendor_email}, defaulting to Miami-Dade, FL")
+                service_counties = ["Miami-Dade, FL"]
+            
+            if not primary_service_category:
+                logger.warning(f"⚠️ No primary service found for {vendor_email}, defaulting to General Services")
+                primary_service_category = "General Services"
+            
             # Get or create account
             account_record = simple_db_instance.get_account_by_ghl_location_id(AppConfig.GHL_LOCATION_ID)
             if not account_record:
@@ -1591,28 +1630,34 @@ async def handle_vendor_user_creation_webhook(request: Request):
                 )
             else:
                 account_id = account_record["id"]
-
-            # Check if vendor already exists
-            existing_vendor = simple_db_instance.get_vendor_by_email_and_account(vendor_email, account_id)
             
-            if existing_vendor:
-                # Update existing vendor with GHL User ID
-                simple_db_instance.update_vendor_status(existing_vendor["id"], "active", user_id)
-                logger.info(f"✅ Updated existing vendor record: {existing_vendor['id']}")
-            else:
-                # Create new vendor record
-                vendor_db_id = simple_db_instance.create_vendor(
-                    account_id=account_id,
-                    name=f"{vendor_first_name} {vendor_last_name}".strip(),
-                    email=vendor_email,
-                    company_name=vendor_company_name,
-                    phone=vendor_phone,
-                    ghl_contact_id=contact_id,
-                    status="active"
-                )
-                logger.info(f"✅ Created vendor record: {vendor_db_id}")
+            # Create vendor record with county-based coverage
+            vendor_data = {
+                'account_id': account_id,
+                'name': f"{vendor_first_name} {vendor_last_name}".strip(),
+                'email': vendor_email,
+                'ghl_user_id': user_id,
+                'ghl_contact_id': contact_id,
+                'primary_service_category': primary_service_category,
+                'secondary_service_categories': json.dumps(secondary_service_categories),
+                'service_coverage_type': service_coverage_type,
+                'service_counties': json.dumps(service_counties),
+                'service_states': json.dumps(service_states),
+                'status': 'active',
+                'taking_new_work': True
+            }
+            
+            vendor_db_id = simple_db_instance.create_routing_vendor(vendor_data)
+            
+            logger.info(f"✅ Created county-based vendor record: {vendor_db_id}")
+            logger.info(f"   👤 Name: {vendor_data['name']}")
+            logger.info(f"   🔑 GHL User ID: {user_id}")
+            logger.info(f"   🎯 Primary Service: {primary_service_category}")
+            logger.info(f"   📋 Secondary Services: {secondary_service_categories}")
+            logger.info(f"   🏛️ Counties: {service_counties}")
+            
         except Exception as e:
-            logger.error(f"⚠️ Vendor DB creation failed: {e}")
+            logger.error(f"❌ Failed to create county-based vendor record: {e}")
         
         # FIXED: Update the contact record with the GHL User ID
         if contact_id:
@@ -1641,8 +1686,8 @@ async def handle_vendor_user_creation_webhook(request: Request):
         else:
             logger.warning(f"⚠️ No contact ID provided - cannot update contact record with User ID")
         
-        # Update vendor record in database
-        vendor_record = simple_db_instance.get_vendor_by_email_and_account(vendor_email, AppConfig.GHL_LOCATION_ID)
+        # Update vendor record in database - FIXED: Use account_id instead of GHL_LOCATION_ID
+        vendor_record = simple_db_instance.get_vendor_by_email_and_account(vendor_email, account_id)
         if vendor_record:
             simple_db_instance.update_vendor_status(vendor_record["id"], "active", user_id)
             logger.info(f"✅ Updated vendor record with user ID: {user_id}")

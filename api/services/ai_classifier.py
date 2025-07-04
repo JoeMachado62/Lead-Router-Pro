@@ -618,10 +618,10 @@ class AIServiceClassifier:
         Enhanced service classification that returns detailed service breakdown.
         This is the main method for the enhanced system.
         """
-        # Clean and normalize input
-        form_source = form_data.get('form_source', '').lower().strip()
-        service_requested = form_data.get('service_requested', '').lower().strip()
-        special_requests = form_data.get('special_requests', '').lower().strip()
+        # Clean and normalize input - FIXED: Use correct field names from webhook normalization
+        form_source = form_data.get('form_identifier', '').lower().strip()
+        service_requested = form_data.get('specific_service_needed', '').lower().strip()
+        special_requests = form_data.get('special_requests__notes', '').lower().strip()
         
         # Extract coverage area
         coverage_area = self.extract_coverage_area(form_data)
@@ -671,8 +671,9 @@ class AIServiceClassifier:
         
         # Extract ZIP code from various field names
         zip_fields = [
-            'zip_code', 'zipCode', 'zip_code_of_service', 'serviceZipCode',
-            'postal_code', 'postalCode', 'zip', 'service_zip'
+            'zip_code_of_service',  # Mapped field from webhook
+            'zip_code',             # Secondary mapped field
+            'zipCode', 'serviceZipCode', 'postal_code', 'postalCode', 'zip', 'service_zip'
         ]
         
         for field in zip_fields:

@@ -252,6 +252,25 @@ class FieldMapper:
         """
         return self._ghl_field_mapping.get(field_key)
     
+    def get_ghl_field_details_by_id(self, field_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get GHL field details by field ID.
+        
+        This is used by the county-based vendor creation system to extract data
+        from GHL contact records when we know the field ID but need the key.
+        """
+        for field_key, field_details in self._ghl_field_mapping.items():
+            if field_details.get("id") == field_id:
+                return {
+                    "key": field_key,
+                    "id": field_id,
+                    "fieldKey": field_details.get("fieldKey"),
+                    "name": field_details.get("name"),
+                    "dataType": field_details.get("dataType", "TEXT"),
+                    "model": field_details.get("model", "contact")
+                }
+        return None
+    
     def get_all_ghl_field_keys(self) -> Set[str]:
         """
         Get all valid GHL field keys (standard + custom).
