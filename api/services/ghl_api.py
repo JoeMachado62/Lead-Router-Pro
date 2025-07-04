@@ -331,6 +331,47 @@ class GoHighLevelAPI:
                 "message": f"Exception occurred: {str(e)}"
             }
     
+    def update_opportunity(self, opportunity_id: str, update_data: Dict) -> bool:
+        """Update opportunity in GHL with fallback authentication"""
+        try:
+            url = f"{self.base_url}/opportunities/{opportunity_id}"
+            
+            # For updates, we don't include locationId in the body, just the data to update
+            payload = update_data.copy()
+            # Remove locationId if it exists in update_data
+            payload.pop("locationId", None)
+            payload.pop("id", None)
+            
+            logger.info(f"🔄 Updating GHL opportunity {opportunity_id} with payload: {payload}")
+            
+            response = self._make_request_with_fallback("PUT", url, json=payload)
+            
+            if response.status_code == 200:
+                logger.info(f"✅ Successfully updated opportunity {opportunity_id}")
+                return True
+            else:
+                logger.error(f"❌ Failed to update opportunity: {response.status_code} - {response.text}")
+                return False
+        except Exception as e:
+            logger.error(f"❌ Error updating opportunity: {str(e)}")
+            return False
+    
+    def get_opportunity_by_id(self, opportunity_id: str) -> Optional[Dict]:
+        """Get opportunity details by ID with fallback authentication"""
+        try:
+            url = f"{self.base_url}/opportunities/{opportunity_id}"
+            response = self._make_request_with_fallback("GET", url)
+            
+            if response.status_code == 200:
+                data = response.json()
+                return data.get('opportunity', {})
+            else:
+                logger.error(f"Failed to get opportunity: {response.status_code} - {response.text}")
+                return None
+        except Exception as e:
+            logger.error(f"Error getting opportunity: {str(e)}")
+            return None
+    
     def get_pipelines(self) -> List[Dict]:
         """Get all pipelines for the location"""
         try:

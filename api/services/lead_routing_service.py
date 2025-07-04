@@ -84,20 +84,20 @@ class LeadRoutingService:
     
     def _vendor_matches_service(self, vendor: Dict[str, Any], service_category: str) -> bool:
         """
-        Check if vendor provides the requested service category
-        
-        Args:
-            vendor: Vendor data
-            service_category: Requested service category
-            
-        Returns:
-            True if vendor provides this service
+        Check if vendor provides the requested service category, with improved data validation.
         """
         services_provided = vendor.get("services_provided", [])
+        
+        # Improved validation: Ensure services_provided is a list
         if isinstance(services_provided, str):
+            # If it's a string, split it into a list
             services_provided = [s.strip() for s in services_provided.split(',')]
         
-        # Simple service matching (can be enhanced with AI later)
+        if not isinstance(services_provided, list):
+            # If it's still not a list, treat it as no services provided
+            logger.warning(f"Vendor {vendor.get('name')} has malformed services_provided: {services_provided}")
+            return False
+
         service_category_lower = service_category.lower()
         for service in services_provided:
             service_lower = service.lower()
@@ -134,16 +134,7 @@ class LeadRoutingService:
     def _vendor_covers_location(self, vendor: Dict[str, Any], zip_code: str, 
                               target_state: Optional[str], target_county: Optional[str]) -> bool:
         """
-        Check if vendor covers the specified location based on their coverage type
-        
-        Args:
-            vendor: Vendor data
-            zip_code: ZIP code to check
-            target_state: State of the ZIP code
-            target_county: County of the ZIP code
-            
-        Returns:
-            True if vendor covers this location
+        Check if vendor covers the specified location, with improved data validation.
         """
         coverage_type = vendor.get('service_coverage_type', 'zip')
         
@@ -151,39 +142,40 @@ class LeadRoutingService:
             return True
         
         if coverage_type == 'national':
-            # Check if ZIP code is in US (has valid state)
             return target_state is not None
         
         if coverage_type == 'state':
             if not target_state:
                 return False
             service_states = vendor.get('service_states', [])
+            if not isinstance(service_states, list):
+                logger.warning(f"Vendor {vendor.get('name')} has malformed service_states: {service_states}")
+                return False
             return target_state in service_states
         
         if coverage_type == 'county':
             if not target_county or not target_state:
                 return False
             service_counties = vendor.get('service_counties', [])
+            if not isinstance(service_counties, list):
+                logger.warning(f"Vendor {vendor.get('name')} has malformed service_counties: {service_counties}")
+                return False
             
-            # Check for county matches (format: "County Name, ST" or just "County Name")
             for coverage_area in service_counties:
                 if ',' in coverage_area:
                     county_part, state_part = coverage_area.split(',', 1)
-                    county_part = county_part.strip()
-                    state_part = state_part.strip()
-                    
-                    if (target_county.lower() == county_part.lower() and
-                        target_state.lower() == state_part.lower()):
+                    if (target_county.lower() == county_part.strip().lower() and
+                        target_state.lower() == state_part.strip().lower()):
                         return True
-                else:
-                    # Fallback: just match county name
-                    if target_county.lower() == coverage_area.strip().lower():
-                        return True
+                elif target_county.lower() == coverage_area.strip().lower():
+                    return True
             return False
         
         if coverage_type == 'zip':
-            # Legacy ZIP code matching
             service_areas = vendor.get('service_areas', [])
+            if not isinstance(service_areas, list):
+                logger.warning(f"Vendor {vendor.get('name')} has malformed service_areas: {service_areas}")
+                return False
             normalized_zip = self.location_service.normalize_zip_code(zip_code)
             normalized_service_areas = [
                 self.location_service.normalize_zip_code(z) for z in service_areas
@@ -297,7 +289,7 @@ class LeadRoutingService:
             vendors,
             key=lambda v: (
                 -v.get('lead_close_percentage', 0),  # Higher percentage first
-                v.get('last_lead_assigned', '1900-01-01')  # Older assignment first for ties
+                v.get('last_lead_assigned') or '1900-01-01'  # Older assignment first for ties
             )
         )
         
@@ -319,7 +311,7 @@ class LeadRoutingService:
         # Sort by last_lead_assigned (asc) - oldest first
         sorted_vendors = sorted(
             vendors,
-            key=lambda v: v.get('last_lead_assigned', '1900-01-01')
+            key=lambda v: v.get('last_lead_assigned') or '1900-01-01'
         )
         
         selected = sorted_vendors[0]
@@ -407,7 +399,7 @@ class LeadRoutingService:
                 'active_vendors': len([v for v in vendors if v.get('status') == 'active']),
                 'vendors_taking_work': len([v for v in vendors if v.get('taking_new_work', False)]),
                 'coverage_distribution': coverage_stats,
-                'location_service_status': 'active' if self.location_service.zcdb else 'inactive'
+                'location_service_status': 'active' if self.location_service.geo_us else 'inactive'
             }
             
         except Exception as e:

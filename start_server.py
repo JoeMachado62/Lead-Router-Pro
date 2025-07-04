@@ -60,7 +60,7 @@ def main():
         print("-" * 50)
         
         # Run the main application
-        subprocess.run([python_cmd, "main_working_final.py"], check=True)
+        subprocess.run([python_cmd, "-m", "uvicorn", "main_working_final:app", "--host", "0.0.0.0", "--port", "8000", "--log-level", "trace"], check=True)
         
     except KeyboardInterrupt:
         print("\n\n⏹️  Server stopped by user")

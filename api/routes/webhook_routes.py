@@ -139,6 +139,7 @@ def normalize_field_names(payload: Dict[str, Any]) -> Dict[str, Any]:
         "Service Needed": "specific_service_needed",
         "Service Request": "specific_service_needed",
         "Services": "specific_service_needed",
+        "What Specific Service(s) Do You Request?": "specific_service_needed",
         
         "Your Vessel Manufacturer? ": "vessel_make",
         "Vessel Make": "vessel_make",
@@ -801,6 +802,34 @@ async def handle_enhanced_elementor_webhook(
         if operation_successful and final_ghl_contact_id:
             logger.info(f"✅ Successfully {action_taken} GHL contact {final_ghl_contact_id} for form '{form_identifier}' in {processing_time}s")
             
+            # If this was a vendor application, create a vendor record in the local database
+            if form_config.get("form_type") == "vendor_application":
+                try:
+                    account = simple_db_instance.get_account_by_ghl_location_id(AppConfig.GHL_LOCATION_ID)
+                    if not account:
+                        account_id = simple_db_instance.create_account(
+                            company_name="Digital Marine LLC",
+                            industry="marine",
+                            ghl_location_id=AppConfig.GHL_LOCATION_ID,
+                            ghl_private_token=AppConfig.GHL_PRIVATE_TOKEN
+                        )
+                    else:
+                        account_id = account["id"]
+                    
+                    simple_db_instance.create_vendor(
+                        account_id=account_id,
+                        name=f"{elementor_payload.get('firstName', '')} {elementor_payload.get('lastName', '')}".strip(),
+                        email=elementor_payload.get('email', ''),
+                        company_name=elementor_payload.get('vendor_company_name', ''),
+                        phone=elementor_payload.get('phone', ''),
+                        ghl_contact_id=final_ghl_contact_id,
+                        status="pending",
+                        services_provided=elementor_payload.get('services_provided', ''),
+                        service_areas=elementor_payload.get('service_zip_codes', '')
+                    )
+                except Exception as e:
+                    logger.error(f"Error creating local vendor record: {e}")
+
             # Log successful activity to database
             simple_db_instance.log_activity(
                 event_type=f"elementor_webhook_{action_taken}",

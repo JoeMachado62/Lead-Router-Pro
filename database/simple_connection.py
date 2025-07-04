@@ -77,6 +77,8 @@ class SimpleDatabase:
                     service_details TEXT DEFAULT '{}',
                     estimated_value REAL DEFAULT 0,
                     priority_score REAL DEFAULT 0,
+                    priority TEXT DEFAULT 'normal',
+                    source TEXT DEFAULT 'normal',
                     status TEXT DEFAULT 'new', 
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -383,21 +385,22 @@ class SimpleDatabase:
                    customer_email: str = "", customer_phone: Optional[str] = None, 
                    service_details: Optional[Dict] = None,
                    account_id: Optional[str] = None, vendor_id: Optional[str] = None,
-                   ghl_contact_id: Optional[str] = None) -> str: # Added customer_phone, ghl_contact_id
+                   ghl_contact_id: Optional[str] = None, ghl_opportunity_id: Optional[str] = None,
+                   priority: str = "normal", source: str = "normal") -> str:
         conn = None
         try:
             lead_id_str = str(uuid.uuid4())
             conn = self._get_conn()
             cursor = conn.cursor()
             cursor.execute('''
-                INSERT INTO leads (id, account_id, vendor_id, ghl_contact_id, service_category, 
-                                 customer_name, customer_email, customer_phone, service_details, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-            ''', (lead_id_str, account_id, vendor_id, ghl_contact_id, service_category,
+                INSERT INTO leads (id, account_id, vendor_id, ghl_contact_id, ghl_opportunity_id, service_category, 
+                                 customer_name, customer_email, customer_phone, service_details, priority, source, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            ''', (lead_id_str, account_id, vendor_id, ghl_contact_id, ghl_opportunity_id, service_category,
                   customer_name, customer_email.lower().strip() if customer_email else None, customer_phone,
-                  json.dumps(service_details or {})))
+                  json.dumps(service_details or {}), priority, source))
             conn.commit()
-            logger.info(f"✅ Lead created: {lead_id_str}")
+            logger.info(f"✅ Lead created: {lead_id_str}" + (f" with opportunity ID: {ghl_opportunity_id}" if ghl_opportunity_id else ""))
             return lead_id_str
         except Exception as e:
             logger.error(f"Lead creation error: {str(e)}")

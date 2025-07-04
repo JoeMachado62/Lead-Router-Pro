@@ -8,6 +8,7 @@ import requests
 import json
 from database.simple_connection import db
 from api.services.lead_routing_service import lead_routing_service
+from api.services.ghl_api import GoHighLevelAPI
 from config import AppConfig
 
 logger = logging.getLogger(__name__)
@@ -294,27 +295,17 @@ async def _get_unassigned_leads_from_ghl() -> List[Dict[str, Any]]:
     Returns leads that don't have a vendor assigned in the assignedTo field
     """
     try:
-        headers = {
-            'Authorization': f'Bearer {AppConfig.GHL_LOCATION_API}',
-            'Content-Type': 'application/json',
-            'Version': '2021-07-28'
-        }
+        # Initialize GHL API client
+        ghl_api = GoHighLevelAPI(
+            location_api_key=AppConfig.GHL_LOCATION_API,
+            private_token=AppConfig.GHL_PRIVATE_TOKEN,
+            location_id=AppConfig.GHL_LOCATION_ID,
+            agency_api_key=AppConfig.GHL_AGENCY_API_KEY,
+            company_id=AppConfig.GHL_COMPANY_ID
+        )
         
         # Get contacts from GHL that are leads but don't have assigned vendors
-        url = 'https://services.leadconnectorhq.com/contacts/'
-        params = {
-            'limit': 100,  # Process up to 100 unassigned leads at a time
-            'query': 'lead'  # Filter for leads
-        }
-        
-        response = requests.get(url, headers=headers, params=params, timeout=30)
-        
-        if response.status_code != 200:
-            logger.error(f"Failed to fetch leads from GHL: {response.status_code} - {response.text}")
-            return []
-        
-        data = response.json()
-        contacts = data.get('contacts', [])
+        contacts = ghl_api.search_contacts(query="lead", limit=100)
         
         # Filter for unassigned leads (no assignedTo or assignedTo is empty)
         unassigned_leads = []
@@ -354,6 +345,7 @@ async def _get_unassigned_leads_from_ghl() -> List[Dict[str, Any]]:
 async def _process_single_unassigned_lead(ghl_lead: Dict[str, Any], account_id: str) -> Dict[str, Any]:
     """
     Process a single unassigned lead and attempt to assign it to a vendor
+    COUNTY-BASED ARCHITECTURE: Now properly converts ZIP → County and uses county-based matching
     """
     lead_result = {
         "ghl_contact_id": ghl_lead.get('ghl_contact_id'),
@@ -363,7 +355,10 @@ async def _process_single_unassigned_lead(ghl_lead: Dict[str, Any], account_id: 
         "matching_vendors_count": 0,
         "error_message": None,
         "service_category": None,
-        "zip_code": None
+        "zip_code": None,
+        "county": None,
+        "state": None,
+        "ghl_opportunity_id": None
     }
     
     try:
@@ -371,25 +366,49 @@ async def _process_single_unassigned_lead(ghl_lead: Dict[str, Any], account_id: 
         service_category = _extract_service_category(ghl_lead)
         lead_result["service_category"] = service_category
         
-        # Extract ZIP code from address
-        zip_code = ghl_lead.get('postal_code') or '33101'  # Default to Miami if no ZIP
+        # Extract ZIP code from multiple sources (custom fields first, then standard fields)
+        zip_code = _extract_location_data(ghl_lead)
         lead_result["zip_code"] = zip_code
         
         if not service_category:
             lead_result["error_message"] = "Could not determine service category"
             return lead_result
         
-        # Find matching vendors
+        if not zip_code:
+            lead_result["error_message"] = "Could not determine service location"
+            return lead_result
+        
+        # CRITICAL: Convert ZIP → County using LocationService (ALIGN WITH ARCHITECTURE)
+        from api.services.location_service import location_service
+        location_data = location_service.zip_to_location(zip_code)
+        
+        if location_data.get('error'):
+            lead_result["error_message"] = f"Could not resolve ZIP {zip_code} to county: {location_data['error']}"
+            logger.warning(f"⚠️ Location resolution failed for ZIP {zip_code}: {location_data['error']}")
+            return lead_result
+        
+        county = location_data.get('county')
+        state = location_data.get('state')
+        lead_result["county"] = county
+        lead_result["state"] = state
+        
+        if not county or not state:
+            lead_result["error_message"] = f"ZIP {zip_code} did not resolve to valid county/state"
+            return lead_result
+        
+        logger.info(f"📍 Lead location: {zip_code} → {state}, {county} County")
+        
+        # Find matching vendors using existing county-based system
         matching_vendors = lead_routing_service.find_matching_vendors(
             account_id=account_id,
             service_category=service_category,
-            zip_code=zip_code
+            zip_code=zip_code  # LeadRoutingService handles ZIP→County conversion internally
         )
         
         lead_result["matching_vendors_count"] = len(matching_vendors)
         
         if not matching_vendors:
-            lead_result["error_message"] = "No matching vendors found"
+            lead_result["error_message"] = f"No matching vendors found for {service_category} in {county}, {state}"
             return lead_result
         
         # Select vendor using routing logic
@@ -399,7 +418,22 @@ async def _process_single_unassigned_lead(ghl_lead: Dict[str, Any], account_id: 
             lead_result["error_message"] = "Vendor selection failed"
             return lead_result
         
-        # Create lead in local database
+        # Create GHL opportunity with COUNTY information (not just ZIP)
+        ghl_opportunity_id = await _create_ghl_opportunity_for_contact(
+            ghl_lead.get('ghl_contact_id'),
+            service_category,
+            county,
+            state,
+            zip_code
+        )
+        
+        if not ghl_opportunity_id:
+            lead_result["error_message"] = "Failed to create GHL opportunity"
+            return lead_result
+        
+        lead_result["ghl_opportunity_id"] = ghl_opportunity_id
+        
+        # Create lead in local database WITH county information
         lead_id = db.create_lead(
             account_id=account_id,
             customer_name=ghl_lead.get('name'),
@@ -410,32 +444,40 @@ async def _process_single_unassigned_lead(ghl_lead: Dict[str, Any], account_id: 
                 'location': {
                     'address': ghl_lead.get('address'),
                     'city': ghl_lead.get('city'),
-                    'state': ghl_lead.get('state'),
+                    'state': state,
+                    'county': county,  # CRITICAL: Store county information
                     'zip_code': zip_code
                 },
                 'source': 'GoHighLevel Unassigned Lead Processing',
-                'ghl_contact_id': ghl_lead.get('ghl_contact_id')
+                'ghl_contact_id': ghl_lead.get('ghl_contact_id'),
+                'ghl_opportunity_id': ghl_opportunity_id
             },
             priority='normal',
-            source='ghl_unassigned_processing'
+            source='ghl_unassigned_processing',
+            ghl_opportunity_id=ghl_opportunity_id
         )
         
-        # Assign lead to vendor
+        # Assign lead to vendor in database
         assignment_success = db.assign_lead_to_vendor(lead_id, selected_vendor['id'])
         
         if assignment_success:
-            # Update GoHighLevel contact with assigned vendor
-            await _update_ghl_contact_assignment(
-                ghl_lead.get('ghl_contact_id'),
+            # Assign the GHL opportunity to the vendor
+            ghl_assignment_success = await _update_ghl_opportunity_assignment(
+                ghl_opportunity_id,
                 selected_vendor
             )
             
-            lead_result["assignment_successful"] = True
-            lead_result["assigned_vendor"] = {
-                "id": selected_vendor['id'],
-                "name": selected_vendor['name'],
-                "email": selected_vendor.get('email')
-            }
+            if ghl_assignment_success:
+                logger.info(f"✅ Successfully assigned opportunity {ghl_opportunity_id} to vendor {selected_vendor['name']}")
+                lead_result["assignment_successful"] = True
+                lead_result["assigned_vendor"] = {
+                    "id": selected_vendor['id'],
+                    "name": selected_vendor['name'],
+                    "email": selected_vendor.get('email')
+                }
+            else:
+                logger.warning(f"⚠️ Lead assigned in database but GHL opportunity assignment failed")
+                lead_result["error_message"] = "Database assignment successful, but GHL opportunity assignment failed"
         else:
             lead_result["error_message"] = "Failed to assign lead in database"
         
@@ -445,69 +487,223 @@ async def _process_single_unassigned_lead(ghl_lead: Dict[str, Any], account_id: 
     
     return lead_result
 
+def _extract_location_data(ghl_lead: Dict[str, Any]) -> Optional[str]:
+    """
+    ENHANCED: Extract ZIP code from multiple sources - custom fields first, then standard fields
+    This fixes the hardcoded 33101 issue by checking actual lead location data
+    """
+    # Priority 1: Check custom fields for ZIP code (most reliable)
+    custom_fields = ghl_lead.get('custom_fields', {})
+    
+    # Common custom field names for ZIP codes
+    zip_field_names = [
+        'service_zip_code',
+        'zip_code',
+        'postal_code',
+        'service_location',
+        'what_zip_code_are_you_requesting_service_in',
+        'service_area_zip',
+        'location_zip'
+    ]
+    
+    # Check if any custom field contains ZIP code data
+    if isinstance(custom_fields, list):
+        # Handle array format custom fields
+        for field in custom_fields:
+            field_name = field.get('name', '').lower().replace(' ', '_').replace('?', '').replace(',', '')
+            field_value = field.get('value', '')
+            
+            # CRITICAL FIX: Handle both integer and string values
+            if isinstance(field_value, int):
+                field_value = str(field_value)
+            elif isinstance(field_value, str):
+                field_value = field_value.strip()
+            else:
+                continue  # Skip non-string, non-int values
+            
+            if any(zip_name in field_name for zip_name in zip_field_names):
+                if field_value and len(field_value) == 5 and field_value.isdigit():
+                    logger.info(f"📍 Found ZIP from custom field '{field.get('name')}': {field_value}")
+                    return field_value
+    elif isinstance(custom_fields, dict):
+        # Handle dictionary format custom fields
+        for field_key, field_value in custom_fields.items():
+            field_key_clean = field_key.lower().replace(' ', '_').replace('?', '').replace(',', '')
+            if any(zip_name in field_key_clean for zip_name in zip_field_names):
+                # CRITICAL FIX: Handle both integer and string values
+                if isinstance(field_value, int):
+                    zip_value = str(field_value)
+                elif isinstance(field_value, str):
+                    zip_value = field_value.strip()
+                else:
+                    continue  # Skip non-string, non-int values
+                
+                if zip_value and len(zip_value) == 5 and zip_value.isdigit():
+                    logger.info(f"📍 Found ZIP from custom field '{field_key}': {zip_value}")
+                    return zip_value
+    
+    # Priority 2: Check standard GHL contact fields
+    standard_zip = ghl_lead.get('postal_code')
+    if standard_zip and len(standard_zip) == 5 and standard_zip.isdigit():
+        logger.info(f"📍 Found ZIP from standard postalCode field: {standard_zip}")
+        return standard_zip
+    
+    # Priority 3: Extract from address field
+    address = ghl_lead.get('address', '')
+    if address:
+        import re
+        zip_match = re.search(r'\b(\d{5})\b', address)
+        if zip_match:
+            zip_code = zip_match.group(1)
+            logger.info(f"📍 Extracted ZIP from address '{address}': {zip_code}")
+            return zip_code
+    
+    # Priority 4: Check tags for ZIP codes
+    tags = ghl_lead.get('tags', [])
+    for tag in tags:
+        import re
+        zip_match = re.search(r'\b(\d{5})\b', tag)
+        if zip_match:
+            zip_code = zip_match.group(1)
+            logger.info(f"📍 Found ZIP in tag '{tag}': {zip_code}")
+            return zip_code
+    
+    # If no ZIP code found, log available data for debugging
+    logger.warning(f"⚠️ No ZIP code found for lead {ghl_lead.get('name', 'Unknown')}")
+    logger.warning(f"   Available location data: postalCode={ghl_lead.get('postal_code')}, address={ghl_lead.get('address')}")
+    logger.warning(f"   Custom fields: {list(custom_fields.keys()) if isinstance(custom_fields, dict) else [f.get('name') for f in custom_fields] if isinstance(custom_fields, list) else 'None'}")
+    
+    return None
+
+async def _create_ghl_opportunity_for_contact(contact_id: str, service_category: str, county: str, state: str, zip_code: str) -> Optional[str]:
+    """
+    COUNTY-BASED ARCHITECTURE: Create a GHL opportunity for the contact with county information
+    This aligns with the county-based matching system for consistent location representation
+    """
+    try:
+        # Initialize GHL API client
+        ghl_api = GoHighLevelAPI(
+            private_token=AppConfig.GHL_PRIVATE_TOKEN,
+            location_id=AppConfig.GHL_LOCATION_ID
+        )
+        
+        # COUNTY-BASED: Use county information in opportunity title for consistency
+        location_description = f"{county}, {state}" if county and state else zip_code
+        
+        # Prepare opportunity data with county-based location information
+        opportunity_data = {
+            'contactId': contact_id,
+            'pipelineId': AppConfig.PIPELINE_ID,
+            'pipelineStageId': AppConfig.NEW_LEAD_STAGE_ID,
+            'title': f"{service_category} Service Request - {location_description}",
+            'name': f"{service_category} Service Request",
+            'value': 0,  # Default value, can be updated later
+            'status': 'open',
+            'source': 'Lead Router - County-Based Assignment'
+        }
+        
+        logger.info(f"🔄 Creating GHL opportunity for contact {contact_id}")
+        logger.info(f"📊 Pipeline: {AppConfig.PIPELINE_ID}, Stage: {AppConfig.NEW_LEAD_STAGE_ID}")
+        logger.info(f"🎯 Service: {service_category}, Location: {location_description} (ZIP: {zip_code})")
+        
+        # Create opportunity using GHL API
+        opportunity_response = ghl_api.create_opportunity(opportunity_data)
+        
+        if opportunity_response and 'id' in opportunity_response:
+            opportunity_id = opportunity_response['id']
+            logger.info(f"✅ Successfully created GHL opportunity: {opportunity_id}")
+            return opportunity_id
+        else:
+            logger.error(f"❌ Failed to create GHL opportunity - invalid response: {opportunity_response}")
+            return None
+            
+    except Exception as e:
+        logger.error(f"❌ Error creating GHL opportunity for contact {contact_id}: {e}")
+        return None
+
 def _extract_service_category(ghl_lead: Dict[str, Any]) -> Optional[str]:
     """
-    Extract service category from lead tags or custom fields
+    Extract service category from lead tags or custom fields using a comprehensive keyword search.
     """
     # Check custom fields first
     custom_fields = ghl_lead.get('custom_fields', {})
     if 'service_category' in custom_fields:
         return custom_fields['service_category']
-    
+
     # Check tags for service-related keywords
     tags = ghl_lead.get('tags', [])
-    service_keywords = {
-        'boat maintenance': 'Boat Maintenance',
-        'marine systems': 'Marine Systems',
-        'engine': 'Engines and Generators',
-        'generator': 'Engines and Generators',
-        'repair': 'Boat and Yacht Repair',
-        'yacht': 'Boat and Yacht Repair'
-    }
+    
+    # Use the same comprehensive service category mapping as the webhook
+    from api.routes.webhook_routes import COMPLETE_SERVICE_CATEGORIES
     
     for tag in tags:
         tag_lower = tag.lower()
-        for keyword, category in service_keywords.items():
-            if keyword in tag_lower:
-                return category
-    
-    # Default to most common service
-    return 'Boat Maintenance'
+        for category_key, category_data in COMPLETE_SERVICE_CATEGORIES.items():
+            # Check keywords
+            for keyword in category_data.get("keywords", []):
+                if keyword in tag_lower:
+                    return category_data["name"]
+            # Check subcategories
+            for subcategory in category_data.get("subcategories", []):
+                if subcategory in tag_lower:
+                    return category_data["name"]
 
-async def _update_ghl_contact_assignment(ghl_contact_id: str, vendor: Dict[str, Any]) -> bool:
+    # Default to a more generic category if no match is found
+    return 'Boater Resources'
+
+async def _update_ghl_opportunity_assignment(ghl_opportunity_id: str, vendor: Dict[str, Any]) -> bool:
     """
-    Update GoHighLevel contact with assigned vendor information
+    Update GoHighLevel opportunity with assigned vendor using opportunity API (CORRECT METHOD)
+    This assigns the opportunity to the vendor's GHL User ID, making it appear in their pipeline
     """
     try:
-        headers = {
-            'Authorization': f'Bearer {AppConfig.GHL_LOCATION_API}',
-            'Content-Type': 'application/json',
-            'Version': '2021-07-28'
-        }
+        # Use the working Private Token instead of expired Location API token
+        working_token = AppConfig.GHL_PRIVATE_TOKEN
+        if not working_token:
+            logger.error("No working GHL token available for opportunity assignment")
+            return False
         
-        # Update contact with assigned vendor
-        url = f'https://services.leadconnectorhq.com/contacts/{ghl_contact_id}'
+        # Check if vendor has a GHL User ID (required for opportunity assignment)
+        vendor_user_id = vendor.get('ghl_user_id')
+        if not vendor_user_id:
+            logger.error(f"❌ Vendor {vendor.get('name')} has no GHL User ID - cannot assign opportunity")
+            return False
+        
+        # Initialize GHL API client for opportunity update
+        ghl_api = GoHighLevelAPI(
+            private_token=working_token,
+            location_id=AppConfig.GHL_LOCATION_ID
+        )
+        
+        # Prepare opportunity update data
         update_data = {
-            'assignedTo': vendor.get('ghl_contact_id'),  # Assign to vendor's GHL contact ID
-            'customFields': {
-                'assigned_vendor_name': vendor.get('name'),
-                'assigned_vendor_email': vendor.get('email'),
-                'assignment_date': json.dumps({'date': 'now'}),
-                'assignment_method': 'Automated Lead Router'
-            }
+            'assignedTo': vendor_user_id,  # CORRECT: Use vendor's GHL User ID
+            'pipelineId': AppConfig.PIPELINE_ID,
+            'pipelineStageId': AppConfig.NEW_LEAD_STAGE_ID,
+            'customFields': [
+                {
+                    'id': 'assignment_method_field_id',  # This would need the actual custom field ID
+                    'value': 'Automated Lead Router'
+                }
+            ]
         }
         
-        response = requests.put(url, json=update_data, headers=headers, timeout=30)
+        logger.info(f"🔄 Updating GHL opportunity {ghl_opportunity_id} with vendor {vendor.get('name')}")
+        logger.info(f"👤 Assigning to vendor User ID: {vendor_user_id}")
+        logger.info(f"📊 Pipeline: {AppConfig.PIPELINE_ID}, Stage: {AppConfig.NEW_LEAD_STAGE_ID}")
         
-        if response.status_code == 200:
-            logger.info(f"Successfully updated GHL contact {ghl_contact_id} with vendor assignment")
+        # Use the new update_opportunity method
+        success = ghl_api.update_opportunity(ghl_opportunity_id, update_data)
+        
+        if success:
+            logger.info(f"✅ Successfully assigned opportunity {ghl_opportunity_id} to vendor {vendor.get('name')}")
             return True
         else:
-            logger.error(f"Failed to update GHL contact assignment: {response.status_code} - {response.text}")
+            logger.error(f"❌ Failed to update GHL opportunity assignment")
             return False
             
     except Exception as e:
-        logger.error(f"Error updating GHL contact assignment: {e}")
+        logger.error(f"❌ Error updating GHL opportunity assignment: {e}")
         return False
 
 def _get_coverage_summary(vendor: Dict[str, Any]) -> str:
@@ -542,3 +738,63 @@ def _get_coverage_summary(vendor: Dict[str, Any]) -> str:
             return f"ZIP code coverage: {len(zip_codes)} ZIP codes"
     else:
         return f"Coverage: {coverage_type}"
+
+@router.post("/sync-performance-data")
+async def sync_performance_data():
+    """
+    Sync lead_close_percentage for all vendors from GHL.
+    """
+    try:
+        # Get all vendors
+        vendors = db.get_vendors()
+        
+        # Initialize GHL API client
+        ghl_api = GoHighLevelAPI(
+            location_api_key=AppConfig.GHL_LOCATION_API,
+            private_token=AppConfig.GHL_PRIVATE_TOKEN,
+            location_id=AppConfig.GHL_LOCATION_ID,
+            agency_api_key=AppConfig.GHL_AGENCY_API_KEY,
+            company_id=AppConfig.GHL_COMPANY_ID
+        )
+        
+        updated_count = 0
+        for vendor in vendors:
+            ghl_contact_id = vendor.get("ghl_contact_id")
+            if not ghl_contact_id:
+                continue
+            
+            # Get contact from GHL
+            contact = ghl_api.get_contact_by_id(ghl_contact_id)
+            if not contact:
+                continue
+            
+            # Get lead_close_percentage from custom fields
+            custom_fields = contact.get("customFields", [])
+            lead_close_percentage = 0.0
+            for field in custom_fields:
+                if field.get("name") == "Lead Close %":
+                    try:
+                        lead_close_percentage = float(field.get("value", 0.0))
+                    except (ValueError, TypeError):
+                        lead_close_percentage = 0.0
+                    break
+            
+            # Update vendor in database
+            conn = db._get_conn()
+            cursor = conn.cursor()
+            cursor.execute(
+                "UPDATE vendors SET lead_close_percentage = ? WHERE id = ?",
+                (lead_close_percentage, vendor["id"])
+            )
+            conn.commit()
+            conn.close()
+            updated_count += 1
+            
+        return {
+            "status": "success",
+            "message": f"Successfully updated performance data for {updated_count} vendors."
+        }
+        
+    except Exception as e:
+        logger.error(f"Error syncing performance data: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to sync performance data")
