@@ -489,89 +489,160 @@ async def _process_single_unassigned_lead(ghl_lead: Dict[str, Any], account_id: 
 
 def _extract_location_data(ghl_lead: Dict[str, Any]) -> Optional[str]:
     """
-    ENHANCED: Extract ZIP code from multiple sources - custom fields first, then standard fields
-    This fixes the hardcoded 33101 issue by checking actual lead location data
+    ENHANCED: Extract ZIP code from multiple sources with robust type handling
+    Fixes integer ZIP code crashes and expands field coverage with intelligent fallbacks
+    
+    Args:
+        ghl_lead: GHL lead data dictionary
+        
+    Returns:
+        ZIP code as string or None if not found
     """
     # Priority 1: Check custom fields for ZIP code (most reliable)
     custom_fields = ghl_lead.get('custom_fields', {})
     
-    # Common custom field names for ZIP codes
+    # Comprehensive custom field names for ZIP codes
     zip_field_names = [
-        'service_zip_code',
-        'zip_code',
-        'postal_code',
-        'service_location',
-        'what_zip_code_are_you_requesting_service_in',
-        'service_area_zip',
-        'location_zip'
+        'service_zip_code', 'zip_code', 'postal_code', 'service_location',
+        'what_zip_code_are_you_requesting_service_in', 'service_area_zip',
+        'location_zip', 'zip_code_of_service', 'zipcode', 'zip',
+        'service_zip', 'delivery_zip', 'installation_zip', 'work_location',
+        'job_zip', 'customer_zip', 'billing_zip', 'shipping_zip'
     ]
     
     # Check if any custom field contains ZIP code data
     if isinstance(custom_fields, list):
         # Handle array format custom fields
         for field in custom_fields:
-            field_name = field.get('name', '').lower().replace(' ', '_').replace('?', '').replace(',', '')
-            field_value = field.get('value', '')
+            if not isinstance(field, dict):
+                continue
+                
+            field_name = field.get('name', '').lower().replace(' ', '_').replace('?', '').replace(',', '').replace('-', '_')
+            field_value = field.get('value')
             
-            # CRITICAL FIX: Handle both integer and string values
-            if isinstance(field_value, int):
-                field_value = str(field_value)
+            # CRITICAL FIX: Handle both integer and string values + None values
+            if field_value is None:
+                continue
+            elif isinstance(field_value, (int, float)):
+                field_value = str(int(field_value))  # Convert to string, remove decimal
             elif isinstance(field_value, str):
                 field_value = field_value.strip()
             else:
-                continue  # Skip non-string, non-int values
+                continue  # Skip other types
             
             if any(zip_name in field_name for zip_name in zip_field_names):
                 if field_value and len(field_value) == 5 and field_value.isdigit():
                     logger.info(f"📍 Found ZIP from custom field '{field.get('name')}': {field_value}")
                     return field_value
+    
     elif isinstance(custom_fields, dict):
         # Handle dictionary format custom fields
         for field_key, field_value in custom_fields.items():
-            field_key_clean = field_key.lower().replace(' ', '_').replace('?', '').replace(',', '')
+            field_key_clean = field_key.lower().replace(' ', '_').replace('?', '').replace(',', '').replace('-', '_')
+            
+            # CRITICAL FIX: Handle both integer and string values + None values
+            if field_value is None:
+                continue
+            elif isinstance(field_value, (int, float)):
+                zip_value = str(int(field_value))  # Convert to string, remove decimal
+            elif isinstance(field_value, str):
+                zip_value = field_value.strip()
+            else:
+                continue  # Skip other types
+            
             if any(zip_name in field_key_clean for zip_name in zip_field_names):
-                # CRITICAL FIX: Handle both integer and string values
-                if isinstance(field_value, int):
-                    zip_value = str(field_value)
-                elif isinstance(field_value, str):
-                    zip_value = field_value.strip()
-                else:
-                    continue  # Skip non-string, non-int values
-                
                 if zip_value and len(zip_value) == 5 and zip_value.isdigit():
                     logger.info(f"📍 Found ZIP from custom field '{field_key}': {zip_value}")
                     return zip_value
     
     # Priority 2: Check standard GHL contact fields
-    standard_zip = ghl_lead.get('postal_code')
-    if standard_zip and len(standard_zip) == 5 and standard_zip.isdigit():
-        logger.info(f"📍 Found ZIP from standard postalCode field: {standard_zip}")
-        return standard_zip
+    standard_zip_fields = ['postalCode', 'postal_code', 'zipCode', 'zip_code']
+    for zip_field in standard_zip_fields:
+        standard_zip = ghl_lead.get(zip_field)
+        if standard_zip:
+            # Handle integer postal codes
+            if isinstance(standard_zip, (int, float)):
+                standard_zip = str(int(standard_zip))
+            elif isinstance(standard_zip, str):
+                standard_zip = standard_zip.strip()
+            
+            if standard_zip and len(standard_zip) == 5 and standard_zip.isdigit():
+                logger.info(f"📍 Found ZIP from standard field '{zip_field}': {standard_zip}")
+                return standard_zip
     
-    # Priority 3: Extract from address field
-    address = ghl_lead.get('address', '')
-    if address:
-        import re
-        zip_match = re.search(r'\b(\d{5})\b', address)
-        if zip_match:
-            zip_code = zip_match.group(1)
-            logger.info(f"📍 Extracted ZIP from address '{address}': {zip_code}")
-            return zip_code
+    # Priority 3: Extract from address field using regex
+    address_fields = ['address', 'address1', 'address_1', 'full_address', 'street_address']
+    for addr_field in address_fields:
+        address = ghl_lead.get(addr_field, '')
+        if address and isinstance(address, str):
+            import re
+            # Match 5-digit ZIP codes, optionally followed by +4
+            zip_match = re.search(r'\b(\d{5})(?:-\d{4})?\b', address)
+            if zip_match:
+                zip_code = zip_match.group(1)
+                logger.info(f"📍 Extracted ZIP from address field '{addr_field}' ('{address}'): {zip_code}")
+                return zip_code
     
     # Priority 4: Check tags for ZIP codes
     tags = ghl_lead.get('tags', [])
-    for tag in tags:
-        import re
-        zip_match = re.search(r'\b(\d{5})\b', tag)
-        if zip_match:
-            zip_code = zip_match.group(1)
-            logger.info(f"📍 Found ZIP in tag '{tag}': {zip_code}")
-            return zip_code
+    if isinstance(tags, list):
+        for tag in tags:
+            if isinstance(tag, str):
+                import re
+                zip_match = re.search(r'\b(\d{5})\b', tag)
+                if zip_match:
+                    zip_code = zip_match.group(1)
+                    logger.info(f"📍 Extracted ZIP from tag '{tag}': {zip_code}")
+                    return zip_code
     
-    # If no ZIP code found, log available data for debugging
-    logger.warning(f"⚠️ No ZIP code found for lead {ghl_lead.get('name', 'Unknown')}")
-    logger.warning(f"   Available location data: postalCode={ghl_lead.get('postal_code')}, address={ghl_lead.get('address')}")
-    logger.warning(f"   Custom fields: {list(custom_fields.keys()) if isinstance(custom_fields, dict) else [f.get('name') for f in custom_fields] if isinstance(custom_fields, list) else 'None'}")
+    # Priority 5: Check city/state for major metropolitan areas (fallback)
+    city = ghl_lead.get('city', '').lower().strip() if ghl_lead.get('city') else ''
+    state = ghl_lead.get('state', '').upper().strip() if ghl_lead.get('state') else ''
+    
+    if city and state:
+        # Major city fallback mapping for common metro areas
+        metro_fallbacks = {
+            ('miami', 'FL'): '33101', ('miami beach', 'FL'): '33139',
+            ('fort lauderdale', 'FL'): '33301', ('hollywood', 'FL'): '33020',
+            ('tampa', 'FL'): '33601', ('orlando', 'FL'): '32801',
+            ('jacksonville', 'FL'): '32202', ('naples', 'FL'): '34102',
+            ('key west', 'FL'): '33040', ('west palm beach', 'FL'): '33401',
+            ('new york', 'NY'): '10001', ('manhattan', 'NY'): '10001',
+            ('brooklyn', 'NY'): '11201', ('bronx', 'NY'): '10451',
+            ('los angeles', 'CA'): '90210', ('san diego', 'CA'): '92101',
+            ('san francisco', 'CA'): '94102', ('chicago', 'IL'): '60601',
+            ('houston', 'TX'): '77001', ('dallas', 'TX'): '75201',
+            ('austin', 'TX'): '78701', ('atlanta', 'GA'): '30301',
+            ('seattle', 'WA'): '98101', ('boston', 'MA'): '02101'
+        }
+        
+        fallback_zip = metro_fallbacks.get((city, state))
+        if fallback_zip:
+            logger.info(f"📍 Using metro area fallback ZIP for {city}, {state}: {fallback_zip}")
+            return fallback_zip
+    
+    # Priority 6: Look for partial matches in location-related text fields
+    text_fields = ['description', 'notes', 'message', 'comment', 'details']
+    for text_field in text_fields:
+        text_content = ghl_lead.get(text_field, '')
+        if text_content and isinstance(text_content, str):
+            import re
+            # Look for patterns like "in 33101" or "ZIP: 33101"
+            zip_pattern = re.search(r'(?:zip|postal|area|location|service)[\s:]*(\d{5})\b', text_content.lower())
+            if zip_pattern:
+                zip_code = zip_pattern.group(1)
+                logger.info(f"📍 Extracted ZIP from text field '{text_field}': {zip_code}")
+                return zip_code
+    
+    # Log detailed failure information for debugging
+    logger.warning(f"⚠️ Could not extract ZIP code from lead: {ghl_lead.get('ghl_contact_id')}")
+    logger.debug(f"   Available fields: {list(ghl_lead.keys())}")
+    logger.debug(f"   Custom fields type: {type(custom_fields)}")
+    
+    if isinstance(custom_fields, list) and custom_fields:
+        logger.debug(f"   Custom field names: {[f.get('name') for f in custom_fields if isinstance(f, dict)]}")
+    elif isinstance(custom_fields, dict):
+        logger.debug(f"   Custom field keys: {list(custom_fields.keys())}")
     
     return None
 

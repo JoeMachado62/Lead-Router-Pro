@@ -645,6 +645,166 @@ async def handle_enhanced_elementor_webhook(
         # Process payload into GHL format
         final_ghl_payload = process_payload_to_ghl_format(elementor_payload, form_config)
         
+        # === ENHANCED COUNTY CONVERSION LOGIC FOR VENDOR APPLICATIONS ===
+        def convert_service_areas_to_counties(zip_codes_str: str) -> Dict[str, Any]:
+            """
+            Convert ZIP codes to counties for vendor application
+            
+            Args:
+                zip_codes_str: Comma-separated ZIP codes string
+                
+            Returns:
+                Dictionary with county information and conversion details
+            """
+            if not zip_codes_str:
+                return {"counties": [], "zip_codes": [], "conversion_success": False}
+            
+            # Parse ZIP codes
+            zip_codes = [zip_code.strip() for zip_code in zip_codes_str.split(',') if zip_code.strip()]
+            
+            if not zip_codes:
+                return {"counties": [], "zip_codes": [], "conversion_success": False}
+            
+            # Convert ZIP codes to counties
+            counties = []
+            successful_conversions = 0
+            conversion_details = []
+            
+            for zip_code in zip_codes:
+                zip_str = zip_code.strip()
+                
+                # Validate ZIP code format
+                if len(zip_str) == 5 and zip_str.isdigit():
+                    location_data = location_service.zip_to_location(zip_str)
+                    
+                    if not location_data.get('error'):
+                        county = location_data.get('county')
+                        state = location_data.get('state')
+                        city = location_data.get('city')
+                        
+                        if county and state:
+                            county_entry = f"{county}, {state}"
+                            if county_entry not in counties:
+                                counties.append(county_entry)
+                            
+                            conversion_details.append({
+                                "zip_code": zip_str,
+                                "county": county,
+                                "state": state,
+                                "city": city,
+                                "success": True
+                            })
+                            successful_conversions += 1
+                            logger.info(f"🗺️ Vendor Application: ZIP {zip_str} → {county_entry}")
+                        else:
+                            conversion_details.append({
+                                "zip_code": zip_str,
+                                "error": "No county/state data",
+                                "success": False
+                            })
+                            logger.warning(f"⚠️ Vendor Application: ZIP {zip_str} resolved but missing county/state")
+                    else:
+                        conversion_details.append({
+                            "zip_code": zip_str,
+                            "error": location_data['error'],
+                            "success": False
+                        })
+                        logger.warning(f"⚠️ Vendor Application: Could not convert ZIP {zip_str}: {location_data['error']}")
+                else:
+                    conversion_details.append({
+                        "zip_code": zip_str,
+                        "error": "Invalid ZIP code format",
+                        "success": False
+                    })
+                    logger.warning(f"⚠️ Vendor Application: Invalid ZIP code format: '{zip_str}'")
+            
+            conversion_rate = (successful_conversions / len(zip_codes)) * 100 if zip_codes else 0
+            
+            return {
+                "counties": counties,
+                "zip_codes": zip_codes,
+                "conversion_success": successful_conversions > 0,
+                "conversion_rate": conversion_rate,
+                "conversion_details": conversion_details,
+                "successful_conversions": successful_conversions,
+                "total_zip_codes": len(zip_codes)
+            }
+
+        # Apply county conversion to vendor applications with service ZIP codes
+        if form_config.get("form_type") == "vendor_application":
+            # Check for service ZIP codes in both original payload and final GHL payload
+            service_zip_codes = elementor_payload.get('service_zip_codes') or elementor_payload.get('Service Areas')
+            
+            if service_zip_codes:
+                logger.info(f"🔄 Converting service ZIP codes to counties for vendor application")
+                
+                county_conversion = convert_service_areas_to_counties(service_zip_codes)
+                
+                if county_conversion['conversion_success']:
+                    # Add county information to GHL payload for storage
+                    counties_str = ', '.join(county_conversion['counties'])
+                    
+                    # Find the appropriate custom field IDs for county data
+                    service_counties_field = field_mapper.get_ghl_field_details("service_counties")
+                    service_coverage_type_field = field_mapper.get_ghl_field_details("service_coverage_type")
+                    zip_conversion_field = field_mapper.get_ghl_field_details("zip_to_county_conversion")
+                    
+                    # Add to customFields array if field mappings exist
+                    if not final_ghl_payload.get("customFields"):
+                        final_ghl_payload["customFields"] = []
+                    
+                    if service_counties_field and service_counties_field.get("id"):
+                        final_ghl_payload["customFields"].append({
+                            "id": service_counties_field["id"],
+                            "value": counties_str
+                        })
+                        logger.info(f"✅ Added service_counties to GHL payload: {counties_str}")
+                    
+                    if service_coverage_type_field and service_coverage_type_field.get("id"):
+                        final_ghl_payload["customFields"].append({
+                            "id": service_coverage_type_field["id"],
+                            "value": "county"
+                        })
+                        logger.info(f"✅ Set service_coverage_type to 'county'")
+                    
+                    # Add detailed conversion info for debugging
+                    if zip_conversion_field and zip_conversion_field.get("id"):
+                        from datetime import datetime
+                        conversion_data = {
+                            "original_zip_codes": county_conversion['zip_codes'],
+                            "converted_counties": county_conversion['counties'],
+                            "conversion_rate": f"{county_conversion['conversion_rate']:.1f}%",
+                            "successful_conversions": county_conversion['successful_conversions'],
+                            "total_zip_codes": county_conversion['total_zip_codes'],
+                            "converted_at": datetime.utcnow().isoformat()
+                        }
+                        final_ghl_payload["customFields"].append({
+                            "id": zip_conversion_field["id"],
+                            "value": json.dumps(conversion_data)
+                        })
+                    
+                    logger.info(f"✅ Vendor Application: Converted {county_conversion['successful_conversions']}/{county_conversion['total_zip_codes']} ZIP codes")
+                    logger.info(f"📍 Vendor Application: Service counties: {', '.join(county_conversion['counties'])}")
+                    
+                    # Log detailed conversion for debugging
+                    for detail in county_conversion['conversion_details']:
+                        if detail['success']:
+                            logger.debug(f"   ✅ {detail['zip_code']} → {detail['county']}, {detail['state']}")
+                        else:
+                            logger.debug(f"   ❌ {detail['zip_code']}: {detail['error']}")
+                else:
+                    logger.warning(f"⚠️ Vendor Application: Could not convert any ZIP codes to counties")
+                    # Keep original ZIP codes as fallback - set coverage type to ZIP-based
+                    service_coverage_type_field = field_mapper.get_ghl_field_details("service_coverage_type")
+                    if service_coverage_type_field and service_coverage_type_field.get("id"):
+                        if not final_ghl_payload.get("customFields"):
+                            final_ghl_payload["customFields"] = []
+                        final_ghl_payload["customFields"].append({
+                            "id": service_coverage_type_field["id"],
+                            "value": "zip"
+                        })
+                        logger.info(f"⚠️ Fallback: Set service_coverage_type to 'zip' (county conversion failed)")
+        
         # VERBOSE DEBUG: Check custom fields structure before sending to GHL
         if 'customFields' in final_ghl_payload:
             custom_fields = final_ghl_payload['customFields']

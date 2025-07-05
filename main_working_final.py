@@ -1,4 +1,11 @@
-# main.py - Enhanced with Admin Dashboard
+# Lead Router Pro - Main Application Entry Point
+import sys  
+from utils.dependency_manager import print_startup_report, can_start_application
+
+# Print startup report
+if not print_startup_report():
+    print("💥 Cannot start application due to missing critical dependencies")
+    sys.exit(1)
 
 # Load environment variables FIRST (before any other imports that use config)
 from dotenv import load_dotenv

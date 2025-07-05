@@ -268,6 +268,86 @@ class SimpleDatabase:
             if conn:
                 conn.close()
 
+    def get_account_setting(self, account_id: str, setting_key: str) -> Optional[Any]:
+        """
+        Get a specific account setting by key
+        
+        Args:
+            account_id: Account UUID
+            setting_key: Setting key to retrieve (e.g., 'lead_routing_performance_percentage')
+            
+        Returns:
+            Setting value or None if not found
+        """
+        conn = None
+        try:
+            conn = self._get_conn()
+            cursor = conn.cursor()
+            
+            # Get settings JSON from accounts table
+            cursor.execute('SELECT settings FROM accounts WHERE id = ?', (account_id,))
+            result = cursor.fetchone()
+            
+            if not result:
+                logger.warning(f"Account {account_id} not found")
+                return None
+                
+            settings = json.loads(result[0] or '{}')
+            return settings.get(setting_key)
+            
+        except Exception as e:
+            logger.error(f"Error getting account setting {setting_key} for {account_id}: {e}")
+            return None
+        finally:
+            if conn:
+                conn.close()
+
+    def upsert_account_setting(self, account_id: str, setting_key: str, setting_value: Any) -> bool:
+        """
+        Create or update a specific account setting
+        
+        Args:
+            account_id: Account UUID
+            setting_key: Setting key to update (e.g., 'lead_routing_performance_percentage')
+            setting_value: New setting value (can be int, string, bool, etc.)
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        conn = None
+        try:
+            conn = self._get_conn()
+            cursor = conn.cursor()
+            
+            # Get current settings
+            cursor.execute('SELECT settings FROM accounts WHERE id = ?', (account_id,))
+            result = cursor.fetchone()
+            
+            if not result:
+                logger.error(f"Account {account_id} not found - cannot update setting")
+                return False
+                
+            # Update settings JSON
+            current_settings = json.loads(result[0] or '{}')
+            current_settings[setting_key] = setting_value
+            
+            # Save back to database
+            cursor.execute(
+                'UPDATE accounts SET settings = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+                (json.dumps(current_settings), account_id)
+            )
+            
+            conn.commit()
+            logger.debug(f"✅ Updated account setting {setting_key} = {setting_value} for {account_id}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error updating account setting {setting_key} for {account_id}: {e}")
+            return False
+        finally:
+            if conn:
+                conn.close()
+
     # =======================
     # VENDOR MANAGEMENT
     # =======================

@@ -1,10 +1,9 @@
-# api/services/location_service.py
+# File: Lead-Router-Pro/api/services/location_service.py
 
 import logging
 from typing import Dict, Optional, List
 import re
-import pgeocode
-import pandas as pd
+from utils.dependency_manager import get_module, is_available
 
 logger = logging.getLogger(__name__)
 
@@ -14,16 +13,23 @@ class LocationService:
     Uses pgeocode library for offline, fast, and reliable lookups.
     """
     
-    def __init__(self):
+    def __init__(self):  # ← Fixed: was **init** (markdown formatting issue)
         """Initialize the geocoding engine for the US."""
-        try:
-            # pgeocode automatically downloads data on first use.
-            # We initialize it for the United States.
-            self.geo_us = pgeocode.Nominatim('us')
-            logger.info("✅ LocationService initialized with pgeocode for US lookups.")
-        except Exception as e:
-            logger.error(f"❌ Failed to initialize LocationService with pgeocode: {e}")
+        if not is_available('pgeocode'):
+            logger.warning("⚠️ LocationService initialized without pgeocode")
             self.geo_us = None
+            self.pgeocode_available = False
+            return
+        
+        try:
+            pgeocode = get_module('pgeocode')
+            self.geo_us = pgeocode.Nominatim('us')
+            self.pgeocode_available = True
+            logger.info("✅ LocationService initialized with pgeocode")
+        except Exception as e:
+            logger.error(f"❌ Failed to initialize LocationService: {e}")
+            self.geo_us = None
+            self.pgeocode_available = False
 
     def normalize_zip_code(self, zip_code: str) -> str:
         """
@@ -37,8 +43,15 @@ class LocationService:
         """
         Convert a ZIP code to its corresponding geographic information.
         """
+        if not is_available('pgeocode'):
+            return {
+                'error': 'pgeocode library not installed. Install with: pip install pgeocode pandas',
+                'zip_code': zip_code,
+                'requires_installation': True
+            }
+        
         if not self.geo_us:
-            return {'error': 'LocationService not initialized'}
+            return {'error': 'LocationService not initialized properly'}
 
         normalized_zip = self.normalize_zip_code(zip_code)
         if not normalized_zip:
@@ -47,7 +60,11 @@ class LocationService:
         try:
             location_data = self.geo_us.query_postal_code(normalized_zip)
             
-            if pd.isna(location_data.county_name):
+            # Handle pandas checking gracefully
+            pd = get_module('pandas')
+            if pd and pd.isna(location_data.county_name):
+                return {'error': f'ZIP code not found: {normalized_zip}'}
+            elif not pd and not location_data.county_name:
                 return {'error': f'ZIP code not found: {normalized_zip}'}
 
             return {
@@ -68,6 +85,10 @@ class LocationService:
         """
         Get all unique counties for a given state abbreviation.
         """
+        if not is_available('pgeocode'):
+            logger.warning("⚠️ get_state_counties requires pgeocode installation")
+            return []
+        
         if not self.geo_us:
             return []
         
