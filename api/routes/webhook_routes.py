@@ -18,6 +18,7 @@ from api.services.ai_classifier import AIServiceClassifier
 from api.services.field_mapper import field_mapper
 from api.services.lead_routing_service import lead_routing_service  # FIXED: Added missing import
 from api.services.location_service import location_service
+from api.services.service_categories import service_manager  # NEW: Import service manager
 # Import the existing assignment function from routing_admin
 from api.routes.routing_admin import _update_ghl_opportunity_assignment
 
@@ -218,143 +219,13 @@ def normalize_field_names(payload: Dict[str, Any]) -> Dict[str, Any]:
     
     return normalized_payload
 
-# Enhanced Service Category Mapping (All 17 Categories)
-COMPLETE_SERVICE_CATEGORIES = {
-    "boat_maintenance": {
-        "name": "Boat Maintenance",
-        "keywords": ["ceramic", "detailing", "cleaning", "oil change", "bilge", "maintenance", "wash", "wax", "bottom"],
-        "subcategories": ["ceramic_coating", "boat_detailing", "bottom_cleaning", "oil_change", "bilge_cleaning", 
-                         "jet_ski_maintenance", "barnacle_cleaning", "fire_detection", "boat_wrapping"]
-    },
-    "marine_systems": {
-        "name": "Marine Systems", 
-        "keywords": ["electrical", "plumbing", "hvac", "ac", "systems", "instrument", "lighting", "stabilizers"],
-        "subcategories": ["electrical_service", "plumbing", "ac_sales", "ac_service", "sound_systems", 
-                         "lighting", "refrigeration", "watermakers", "stabilizers", "dashboard"]
-    },
-    "engines_generators": {
-        "name": "Engines and Generators",
-        "keywords": ["engine", "generator", "motor", "outboard", "inboard", "service", "sales"],
-        "subcategories": ["engine_service", "engine_sales", "generator_service", "generator_sales"]
-    },
-    "boat_yacht_repair": {
-        "name": "Boat and Yacht Repair", 
-        "keywords": ["repair", "fiberglass", "welding", "carpentry", "canvas", "upholstery", "decking", "flooring"],
-        "subcategories": ["fiberglass_repair", "welding_fabrication", "carpentry_woodwork", "riggers_masts",
-                         "jet_ski_repair", "canvas_upholstery", "decking_flooring"]
-    },
-    "boat_hauling_delivery": {
-        "name": "Boat Hauling and Yacht Delivery",
-        "keywords": ["delivery", "transport", "hauling", "yacht_delivery", "boat_transport"],
-        "subcategories": ["yacht_delivery", "boat_hauling", "boat_transport"]
-    },
-    "boat_towing": {
-        "name": "Boat Towing", 
-        "keywords": ["towing", "emergency", "tow", "breakdown"],
-        "subcategories": ["emergency_tow", "towing_membership"]
-    },
-    "boat_charters_rentals": {
-        "name": "Boat Charters and Rentals",
-        "keywords": ["charter", "rental", "fishing", "dive", "sailboat", "catamaran", "efoil"],
-        "subcategories": ["boat_charters", "boat_clubs", "fishing_charters", "yacht_charters", 
-                         "sailboat_charters", "efoil_kiteboarding", "dive_equipment"]
-    },
-    "buying_selling_boats": {
-        "name": "Buying or Selling a Boat",
-        "keywords": ["buy", "sell", "broker", "dealer", "insurance", "financing", "surveyor"],
-        "subcategories": ["boat_sales", "boat_insurance", "yacht_insurance", "boat_broker", 
-                         "yacht_broker", "boat_financing", "boat_surveyors", "yacht_dealers", "boat_dealers"]
-    },
-    "dock_slip_rental": {
-        "name": "Dock and Slip Rental",
-        "keywords": ["dock", "slip", "marina", "rent", "rental"],
-        "subcategories": ["dock_slip_rental", "rent_my_dock"]
-    },
-    "docks_seawalls_lifts": {
-        "name": "Docks, Seawalls and Lifts",
-        "keywords": ["dock build", "seawall", "lift", "floating", "davit", "hydraulic"],
-        "subcategories": ["dock_seawall_builders", "boat_lift_installers", "floating_dock_sales",
-                         "davit_hydraulic", "hull_dock_cleaning"]
-    },
-    "fuel_delivery": {
-        "name": "Fuel Delivery",
-        "keywords": ["fuel", "gas", "diesel", "delivery"],
-        "subcategories": ["fuel_delivery"]
-    },
-    "boater_resources": {
-        "name": "Boater Resources", 
-        "keywords": ["parts", "wifi", "provisioning", "photography", "crew", "advertising", "accounting"],
-        "subcategories": ["yacht_wifi", "provisioning", "yacht_parts", "yacht_photography", 
-                         "yacht_videography", "maritime_advertising", "yacht_crew", "yacht_accounting", "boat_salvage"]
-    },
-    "maritime_education": {
-        "name": "Maritime Education and Training",
-        "keywords": ["education", "training", "captain", "lessons"],
-        "subcategories": ["maritime_education"]
-    },
-    "waterfront_property": {
-        "name": "Waterfront Property",
-        "keywords": ["waterfront", "property", "homes", "real estate"],
-        "subcategories": ["waterfront_homes_sale", "sell_waterfront_home", "waterfront_developments"]
-    },
-    "yacht_management": {
-        "name": "Yacht Management",
-        "keywords": ["management", "yacht_management"],
-        "subcategories": ["yacht_management"]
-    },
-    "wholesale_dealer": {
-        "name": "Wholesale or Dealer Product Pricing",
-        "keywords": ["wholesale", "dealer", "pricing"],
-        "subcategories": ["wholesale_dealer_pricing"]
-    },
-    "general_forms": {
-        "name": "General",
-        "keywords": ["subscribe", "email", "network", "contact", "inquiry"],
-        "subcategories": ["email_subscribe", "join_network", "general_contact"]
-    }
-}
-
 def extract_service_category_from_form_identifier(form_identifier: str) -> str:
     """
-    Extract service category from form identifier using intelligent matching
+    Extract service category from form identifier using the new service_manager
     """
-    form_lower = form_identifier.lower()
-    
-    # Direct category matches
-    for category_key, category_data in COMPLETE_SERVICE_CATEGORIES.items():
-        if category_key in form_lower:
-            return category_data["name"]
-        
-        # Check subcategories
-        for subcategory in category_data.get("subcategories", []):
-            if subcategory in form_lower:
-                return category_data["name"]
-        
-        # Check keywords
-        for keyword in category_data.get("keywords", []):
-            if keyword in form_lower:
-                return category_data["name"]
-    
-    # Specific form pattern matching
-    if "ceramic" in form_lower or "coating" in form_lower:
-        return "Boat Maintenance"
-    elif "emergency" in form_lower or "tow" in form_lower:
-        return "Boat Towing"
-    elif "delivery" in form_lower or "transport" in form_lower:
-        return "Boat Hauling and Yacht Delivery"
-    elif "engine" in form_lower or "generator" in form_lower:
-        return "Engines and Generators"
-    elif "vendor" in form_lower or "network" in form_lower:
-        return "General"
-    elif "maintenance" in form_lower or "detailing" in form_lower:
-        return "Boat Maintenance"
-    elif "repair" in form_lower:
-        return "Boat and Yacht Repair"
-    elif "charter" in form_lower or "rental" in form_lower:
-        return "Boat Charters and Rentals"
-    
-    # Default fallback
-    return "Boater Resources"
+    # Use the service_manager to get the primary category from form identifier
+    # This now uses the single source of truth from service_categories.py
+    return service_manager.classify_form_identifier(form_identifier)
 
 def get_dynamic_form_configuration(form_identifier: str) -> Dict[str, Any]:
     """
@@ -1239,12 +1110,18 @@ async def trigger_enhanced_lead_routing_workflow(
                 logger.info(f"🔄 Fallback ZIP code from form: '{zip_code}'")
             
             if zip_code and service_category:
+                # NEW: Extract specific service from form data for multi-level routing
+                specific_service = form_data.get("specific_service_needed", "")
+                
+                logger.info(f"🎯 Enhanced lead routing: Category='{service_category}', Service='{specific_service}', ZIP='{zip_code}'")
+                
                 # Find matching vendors for this service category and location using enhanced routing
                 available_vendors = lead_routing_service.find_matching_vendors(
                     account_id=account_id,
                     service_category=service_category,
                     zip_code=zip_code,
-                    priority=priority
+                    priority=priority,
+                    specific_service=specific_service  # NEW: Pass specific service for exact matching
                 )
             else:
                 logger.error(f"❌ Cannot route lead: missing ZIP code ('{zip_code}') or service category ('{service_category}')")
@@ -1417,7 +1294,7 @@ async def enhanced_webhook_health_check():
         "pipeline_configured": AppConfig.PIPELINE_ID is not None and AppConfig.NEW_LEAD_STAGE_ID is not None,
         "valid_field_count": len(field_mapper.get_all_ghl_field_keys()),
         "custom_field_mappings": field_mapper_stats.get("ghl_fields_loaded", 0),
-        "service_categories": len(COMPLETE_SERVICE_CATEGORIES),
+        "service_categories": len(service_manager.SERVICE_CATEGORIES),
         "database_status": "healthy" if db_healthy else "error",
         "database_stats": db_stats,
         "field_reference_status": "loaded" if field_reference_healthy else "missing",
@@ -1435,21 +1312,26 @@ async def enhanced_webhook_health_check():
 async def get_service_categories():
     """Return all supported service categories and their details"""
     
+    # Use the new service_manager to get categories
     categories_info = {}
-    for category_key, category_data in COMPLETE_SERVICE_CATEGORIES.items():
+    for category_name, services_list in service_manager.SERVICE_CATEGORIES.items():
+        # Create a simple key from the category name
+        category_key = category_name.lower().replace(" ", "_").replace("&", "and")
+        
         categories_info[category_key] = {
-            "name": category_data["name"],
-            "subcategories": category_data.get("subcategories", []),
-            "keywords": category_data.get("keywords", []),
+            "name": category_name,
+            "services": services_list,
+            "service_count": len(services_list),
             "example_webhook_url": f"https://dockside.life/api/v1/webhooks/elementor/{category_key}_example"
         }
     
     return {
         "status": "success",
         "service_categories": categories_info,
-        "total_categories": len(COMPLETE_SERVICE_CATEGORIES),
+        "total_categories": len(service_manager.SERVICE_CATEGORIES),
+        "total_services": sum(len(services) for services in service_manager.SERVICE_CATEGORIES.values()),
         "dynamic_form_processing": "enabled",
-        "message": "All 17 marine service categories supported with dynamic form handling"
+        "message": f"All {len(service_manager.SERVICE_CATEGORIES)} marine service categories supported with dynamic form handling"
     }
 
 
@@ -1663,7 +1545,7 @@ async def handle_vendor_user_creation_webhook(request: Request):
             }
         }
         
-        # Create user in GHL
+       # Create user in GHL
         logger.info(f"🔐 Creating GHL user for vendor: {vendor_email}")
         created_user = ghl_api_client.create_user(user_data)
         
@@ -1693,6 +1575,12 @@ async def handle_vendor_user_creation_webhook(request: Request):
             raise HTTPException(status_code=502, detail="User created but no ID returned from GHL")
         
         logger.info(f"✅ Successfully created GHL user: {user_id} for {vendor_email}")
+        
+        # ADD 10-SECOND DELAY FOR GHL USER PROPAGATION
+        import asyncio
+        logger.info(f"⏳ Waiting 10 seconds for GHL user propagation...")
+        await asyncio.sleep(10)
+        logger.info(f"✅ User propagation delay complete, proceeding with database updates")
 
         # CREATE COUNTY-NORMALIZED VENDOR RECORD
         try:

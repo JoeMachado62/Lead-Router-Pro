@@ -21,6 +21,7 @@ class RoutingConfigRequest(BaseModel):
 class VendorMatchingRequest(BaseModel):
     zip_code: str
     service_category: str
+    specific_service: Optional[str] = None  # NEW: Support for specific service testing
 
 @router.get("/configuration")
 async def get_routing_configuration():
@@ -198,11 +199,33 @@ async def test_vendor_matching(request: VendorMatchingRequest):
         
         account_id = account["id"]
         
-        # Find matching vendors
+        # NEW: Extract specific service parameter for enhanced testing
+        specific_service = request.specific_service
+        
+        # Validate service category and specific service against service hierarchy
+        from api.services.service_categories import service_manager
+        
+        if not service_manager.is_valid_category(service_category):
+            return {
+                "status": "error",
+                "message": f"Invalid service category: {service_category}",
+                "available_categories": service_manager.get_all_categories()
+            }
+        
+        # If specific service is provided, validate it
+        if specific_service and not service_manager.is_service_in_category(specific_service, service_category):
+            return {
+                "status": "error", 
+                "message": f"Service '{specific_service}' not found in category '{service_category}'",
+                "available_services": service_manager.get_services_for_category(service_category)
+            }
+        
+        # Find matching vendors using enhanced multi-level routing
         matching_vendors = lead_routing_service.find_matching_vendors(
             account_id=account_id,
             service_category=service_category,
-            zip_code=zip_code
+            zip_code=zip_code,
+            specific_service=specific_service  # NEW: Pass specific service for exact matching
         )
         
         # Select vendor using routing logic
@@ -212,16 +235,22 @@ async def test_vendor_matching(request: VendorMatchingRequest):
                 matching_vendors, account_id
             )
         
+        # Enhanced response with routing details
+        routing_method = "exact_service_match" if specific_service else "category_match"
+        
         return {
             "status": "success",
             "data": {
                 "zip_code": zip_code,
                 "service_category": service_category,
+                "specific_service": specific_service,
+                "routing_method": routing_method,
                 "matching_vendors": matching_vendors,
                 "selected_vendor": selected_vendor,
                 "match_count": len(matching_vendors)
             },
-            "message": f"Found {len(matching_vendors)} matching vendors for {service_category} in {zip_code}"
+            "message": f"Found {len(matching_vendors)} matching vendors for {service_category}" + 
+                      (f" -> {specific_service}" if specific_service else "") + f" in {zip_code}"
         }
         
     except Exception as e:
@@ -366,9 +395,21 @@ async def _process_single_unassigned_lead(ghl_lead: Dict[str, Any], account_id: 
         service_category = _extract_service_category(ghl_lead)
         lead_result["service_category"] = service_category
         
-        # Extract ZIP code from multiple sources (custom fields first, then standard fields)
+        # ENHANCED DEBUG: Extract ZIP code from multiple sources (custom fields first, then standard fields)
         zip_code = _extract_location_data(ghl_lead)
         lead_result["zip_code"] = zip_code
+        
+        # DEBUG: Log the actual lead data structure for debugging
+        logger.info(f"🔍 DEBUG - Lead data structure for {ghl_lead.get('ghl_contact_id')}:")
+        logger.info(f"   Standard fields: {list(ghl_lead.keys())}")
+        logger.info(f"   postal_code: {ghl_lead.get('postal_code')}")
+        logger.info(f"   postalCode: {ghl_lead.get('postalCode')}")
+        logger.info(f"   address: {ghl_lead.get('address')}")
+        logger.info(f"   custom_fields type: {type(ghl_lead.get('custom_fields'))}")
+        if isinstance(ghl_lead.get('custom_fields'), list):
+            logger.info(f"   custom_fields sample: {ghl_lead.get('custom_fields')[:2] if ghl_lead.get('custom_fields') else 'empty'}")
+        elif isinstance(ghl_lead.get('custom_fields'), dict):
+            logger.info(f"   custom_fields keys: {list(ghl_lead.get('custom_fields').keys())}")
         
         if not service_category:
             lead_result["error_message"] = "Could not determine service category"
@@ -398,11 +439,18 @@ async def _process_single_unassigned_lead(ghl_lead: Dict[str, Any], account_id: 
         
         logger.info(f"📍 Lead location: {zip_code} → {state}, {county} County")
         
-        # Find matching vendors using existing county-based system
+        # NEW: Extract specific service from lead data for multi-level routing
+        specific_service = _extract_specific_service(ghl_lead)
+        lead_result["specific_service"] = specific_service
+        
+        logger.info(f"🎯 Enhanced routing: Category='{service_category}', Service='{specific_service}', ZIP='{zip_code}'")
+        
+        # Find matching vendors using enhanced multi-level routing
         matching_vendors = lead_routing_service.find_matching_vendors(
             account_id=account_id,
             service_category=service_category,
-            zip_code=zip_code  # LeadRoutingService handles ZIP→County conversion internally
+            zip_code=zip_code,  # LeadRoutingService handles ZIP→County conversion internally
+            specific_service=specific_service  # NEW: Pass specific service for exact matching
         )
         
         lead_result["matching_vendors_count"] = len(matching_vendors)
@@ -517,6 +565,7 @@ def _extract_location_data(ghl_lead: Dict[str, Any]) -> Optional[str]:
             if not isinstance(field, dict):
                 continue
                 
+            field_id = field.get('id', '')
             field_name = field.get('name', '').lower().replace(' ', '_').replace('?', '').replace(',', '').replace('-', '_')
             field_value = field.get('value')
             
@@ -530,10 +579,23 @@ def _extract_location_data(ghl_lead: Dict[str, Any]) -> Optional[str]:
             else:
                 continue  # Skip other types
             
-            if any(zip_name in field_name for zip_name in zip_field_names):
+            # CRITICAL FIX: Check for known ZIP code field ID first
+            if field_id == 'y3Xo7qsFEQumoFugTeCq':  # Known ZIP code field ID from debug output
+                if field_value and len(field_value) == 5 and field_value.isdigit():
+                    logger.info(f"📍 Found ZIP from known field ID '{field_id}': {field_value}")
+                    return field_value
+            
+            # Also check field names as fallback
+            if field_name and any(zip_name in field_name for zip_name in zip_field_names):
                 if field_value and len(field_value) == 5 and field_value.isdigit():
                     logger.info(f"📍 Found ZIP from custom field '{field.get('name')}': {field_value}")
                     return field_value
+            
+            # ENHANCED: Check any field that contains a 5-digit number as potential ZIP
+            if field_value and len(field_value) == 5 and field_value.isdigit():
+                # Log potential ZIP codes for debugging
+                logger.info(f"📍 Found potential ZIP code in field '{field_id}' (name: '{field.get('name', 'unknown')}'): {field_value}")
+                return field_value
     
     elif isinstance(custom_fields, dict):
         # Handle dictionary format custom fields
@@ -694,32 +756,38 @@ async def _create_ghl_opportunity_for_contact(contact_id: str, service_category:
 
 def _extract_service_category(ghl_lead: Dict[str, Any]) -> Optional[str]:
     """
-    Extract service category from lead tags or custom fields using a comprehensive keyword search.
+    Extract service category from lead tags or custom fields using the new service_manager.
+    FIXED: Now uses service_manager instead of removed COMPLETE_SERVICE_CATEGORIES.
     """
+    # Import the service manager
+    from api.services.service_categories import service_manager
+    
     # Check custom fields first
     custom_fields = ghl_lead.get('custom_fields', {})
     if 'service_category' in custom_fields:
-        return custom_fields['service_category']
-
+        category = custom_fields['service_category']
+        # Validate against service hierarchy
+        if service_manager.is_valid_category(category):
+            return category
+    
     # Check tags for service-related keywords
     tags = ghl_lead.get('tags', [])
     
-    # Use the same comprehensive service category mapping as the webhook
-    from api.routes.webhook_routes import COMPLETE_SERVICE_CATEGORIES
-    
+    # Try to find best category match from tags
     for tag in tags:
-        tag_lower = tag.lower()
-        for category_key, category_data in COMPLETE_SERVICE_CATEGORIES.items():
-            # Check keywords
-            for keyword in category_data.get("keywords", []):
-                if keyword in tag_lower:
-                    return category_data["name"]
-            # Check subcategories
-            for subcategory in category_data.get("subcategories", []):
-                if subcategory in tag_lower:
-                    return category_data["name"]
-
-    # Default to a more generic category if no match is found
+        # Use service_manager to find best category match
+        best_match = service_manager.find_best_category_match(tag)
+        if best_match:
+            return best_match
+    
+    # Try combining all tags into search text
+    if tags:
+        combined_tags = ' '.join(tags)
+        best_match = service_manager.find_best_category_match(combined_tags)
+        if best_match:
+            return best_match
+    
+    # Default to a category that exists in the service hierarchy
     return 'Boater Resources'
 
 async def _update_ghl_opportunity_assignment(ghl_opportunity_id: str, vendor: Dict[str, Any]) -> bool:

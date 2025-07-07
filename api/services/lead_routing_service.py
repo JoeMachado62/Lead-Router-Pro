@@ -5,6 +5,7 @@ import random
 from typing import Dict, List, Any, Optional, Tuple
 from datetime import datetime
 from api.services.location_service import location_service
+from api.services.service_categories import service_manager
 from database.simple_connection import db as simple_db_instance
 
 logger = logging.getLogger(__name__)
@@ -21,15 +22,18 @@ class LeadRoutingService:
         self.location_service = location_service
     
     def find_matching_vendors(self, account_id: str, service_category: str, 
-                            zip_code: str, priority: str = "normal") -> List[Dict[str, Any]]:
+                            zip_code: str, priority: str = "normal",
+                            specific_service: str = None) -> List[Dict[str, Any]]:
         """
-        Find all vendors that can serve the specified location and service category
+        Find all vendors that can serve the specified location and service category.
+        Enhanced with multi-level service matching for precise vendor routing.
         
         Args:
             account_id: Account ID to search within
-            service_category: Service category requested
+            service_category: Primary service category (e.g., "Marine Systems")
             zip_code: ZIP code where service is needed
             priority: Priority level of the request
+            specific_service: Specific service needed (e.g., "AC Service") - NEW
             
         Returns:
             List of matching vendors with coverage verification
@@ -49,7 +53,7 @@ class LeadRoutingService:
                 logger.info(f"📍 Lead location: {zip_code} → {target_state}, {target_county} County")
             
             # Get all active vendors for this account
-            all_vendors = simple_db_instance.get_vendors(account_id=account_id)
+            all_vendors = self._get_vendors_from_new_schema(account_id)
             eligible_vendors = []
             
             for vendor in all_vendors:
@@ -58,10 +62,21 @@ class LeadRoutingService:
                     logger.debug(f"Skipping vendor {vendor.get('name')} - not active or not taking work")
                     continue
                 
-                # Check if vendor provides this service category
-                if not self._vendor_matches_service(vendor, service_category):
-                    logger.debug(f"Skipping vendor {vendor.get('name')} - service mismatch")
-                    continue
+                # Multi-level service matching: try exact matching first, then fallback
+                if specific_service:
+                    # Try exact service matching first
+                    if self._vendor_matches_service_exact(vendor, service_category, specific_service):
+                        logger.debug(f"✅ Vendor {vendor.get('name')} - EXACT service match: {specific_service}")
+                    elif self._vendor_matches_service_legacy(vendor, service_category):
+                        logger.debug(f"⚠️ Vendor {vendor.get('name')} - FALLBACK category match only: {service_category}")
+                    else:
+                        logger.debug(f"Skipping vendor {vendor.get('name')} - no service match")
+                        continue
+                else:
+                    # No specific service provided, use legacy category matching
+                    if not self._vendor_matches_service_legacy(vendor, service_category):
+                        logger.debug(f"Skipping vendor {vendor.get('name')} - service mismatch")
+                        continue
                 
                 # Check if vendor can serve this location
                 if self._vendor_covers_location(vendor, zip_code, target_state, target_county):
@@ -82,22 +97,92 @@ class LeadRoutingService:
             logger.error(f"❌ Error finding matching vendors: {e}")
             return []
     
-    def _vendor_matches_service(self, vendor: Dict[str, Any], service_category: str) -> bool:
+    def _get_vendors_from_new_schema(self, account_id: str) -> List[Dict[str, Any]]:
         """
-        Check if vendor provides the requested service category, with improved data validation.
+        Get vendors from the new database schema with proper field mappings.
+        UPDATED: Works with new column names (services_offered, coverage_counties, etc.)
         """
-        services_provided = vendor.get("services_provided", [])
+        try:
+            import sqlite3
+            import json
+            
+            conn = sqlite3.connect('smart_lead_router.db')
+            cursor = conn.cursor()
+            
+            # Query vendors with new schema column names
+            cursor.execute("""
+                SELECT id, account_id, ghl_contact_id, ghl_user_id, name, email, phone,
+                       company_name, service_categories, services_offered, coverage_type,
+                       coverage_states, coverage_counties, last_lead_assigned,
+                       lead_close_percentage, status, taking_new_work
+                FROM vendors
+                WHERE account_id = ?
+            """, (account_id,))
+            
+            vendors = []
+            for row in cursor.fetchall():
+                vendor = {
+                    'id': row[0],
+                    'account_id': row[1],
+                    'ghl_contact_id': row[2],
+                    'ghl_user_id': row[3],
+                    'name': row[4],
+                    'email': row[5],
+                    'phone': row[6],
+                    'company_name': row[7],
+                    'service_categories': json.loads(row[8]) if row[8] else [],
+                    'services_offered': json.loads(row[9]) if row[9] else [],  # NEW COLUMN NAME
+                    'coverage_type': row[10] or 'county',
+                    'coverage_states': json.loads(row[11]) if row[11] else [],
+                    'coverage_counties': json.loads(row[12]) if row[12] else [],  # NEW COLUMN NAME
+                    'last_lead_assigned': row[13],
+                    'lead_close_percentage': row[14] or 0.0,
+                    'status': row[15] or 'active',
+                    'taking_new_work': bool(row[16]) if row[16] is not None else True,
+                    
+                    # Map to old field names for backward compatibility
+                    'services_provided': json.loads(row[9]) if row[9] else [],  # Map services_offered → services_provided
+                    'service_coverage_type': row[10] or 'county',  # Map coverage_type → service_coverage_type
+                    'service_counties': json.loads(row[12]) if row[12] else [],  # Map coverage_counties → service_counties
+                    'service_states': json.loads(row[11]) if row[11] else []  # Map coverage_states → service_states
+                }
+                vendors.append(vendor)
+            
+            conn.close()
+            logger.debug(f"📊 Retrieved {len(vendors)} vendors from new schema for account {account_id}")
+            return vendors
+            
+        except Exception as e:
+            logger.error(f"❌ Error getting vendors from new schema: {e}")
+            return []
+    
+    def _vendor_matches_service_exact(self, vendor: Dict[str, Any], 
+                                    primary_category: str, specific_service: str) -> bool:
+        """
+        NEW: Check if vendor matches both primary category AND specific service exactly.
+        This is the core method for multi-level routing precision.
+        """
+        # Get vendor services as list
+        services_provided = self._get_vendor_services_list(vendor)
         
-        # Improved validation: Ensure services_provided is a list
-        if isinstance(services_provided, str):
-            # If it's a string, split it into a list
-            services_provided = [s.strip() for s in services_provided.split(',')]
+        # Use service_manager for exact matching
+        return service_manager.vendor_matches_service_exact(
+            services_provided, primary_category, specific_service
+        )
+    
+    def _vendor_matches_service_legacy(self, vendor: Dict[str, Any], service_category: str) -> bool:
+        """
+        LEGACY: Check if vendor provides the requested service category (fallback method).
+        Renamed from _vendor_matches_service for clarity. Used when no specific service 
+        is provided or when exact matching finds no results.
+        """
+        services_provided = self._get_vendor_services_list(vendor)
         
-        if not isinstance(services_provided, list):
-            # If it's still not a list, treat it as no services provided
-            logger.warning(f"Vendor {vendor.get('name')} has malformed services_provided: {services_provided}")
-            return False
-
+        # Try service_manager category matching first
+        if service_manager.vendor_matches_category_only(services_provided, service_category):
+            return True
+        
+        # Fallback to legacy keyword matching for backward compatibility
         service_category_lower = service_category.lower()
         for service in services_provided:
             service_lower = service.lower()
@@ -107,6 +192,32 @@ class LeadRoutingService:
                 return True
         
         return False
+    
+    def _get_vendor_services_list(self, vendor: Dict[str, Any]) -> List[str]:
+        """
+        Helper method to get vendor services as a clean list.
+        Handles various data formats and validates the structure.
+        """
+        services_provided = vendor.get("services_provided", [])
+        
+        # Handle different data formats
+        if isinstance(services_provided, str):
+            # If it's a string, split it into a list
+            services_provided = [s.strip() for s in services_provided.split(',')]
+        elif not isinstance(services_provided, list):
+            # If it's still not a list, treat it as no services provided
+            logger.warning(f"Vendor {vendor.get('name')} has malformed services_provided: {services_provided}")
+            return []
+        
+        # Clean and filter the list
+        cleaned_services = []
+        for service in services_provided:
+            if service and isinstance(service, str):
+                cleaned_service = service.strip()
+                if cleaned_service:  # Only add non-empty services
+                    cleaned_services.append(cleaned_service)
+        
+        return cleaned_services
     
     def _services_are_related(self, requested: str, provided: str) -> bool:
         """
