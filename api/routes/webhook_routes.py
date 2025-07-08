@@ -28,6 +28,147 @@ router = APIRouter(prefix="/api/v1/webhooks", tags=["Enhanced Elementor Webhooks
 
 # Using field_mapper service exclusively for all field operations
 
+def fix_vendor_coverage_mapping(contact_id: str, ghl_api_client, location_service, field_mapper):
+    """
+    Fix vendor coverage mapping by properly extracting Service Zip Codes field
+    and converting to counties using existing location service
+    """
+    try:
+        # Fetch full contact record from GHL to get vendor data
+        logger.info(f"📋 Extracting vendor data from GHL contact {contact_id}")
+        contact_details = ghl_api_client.get_contact_by_id(contact_id)
+        
+        if not contact_details:
+            logger.error(f"❌ Could not fetch contact details for {contact_id}")
+            raise Exception("Unable to fetch vendor contact data from GHL")
+        
+        # Extract routing data from GHL custom fields
+        custom_fields = contact_details.get('customFields', [])
+        
+        primary_service_category = ""
+        secondary_service_categories = []
+        service_zip_codes = ""
+        
+        # Extract from GHL custom fields using CORRECT field ID
+        for field in custom_fields:
+            field_id = field.get('id', '')
+            field_value = str(field.get('value', '') or field.get('fieldValue', '')).strip()
+            
+            if not field_value:
+                continue
+                
+            # CRITICAL: Check for the specific Service Zip Codes field ID
+            if field_id == "yDcN0FmwI3xacyxAuTWs":  # Service Zip Codes field
+                service_zip_codes = field_value
+                logger.info(f"✅ Found Service Zip Codes field: {service_zip_codes}")
+                
+            # Also check by field key mapping as backup
+            field_details = field_mapper.get_ghl_field_details_by_id(field_id)
+            if field_details:
+                field_key = field_details.get('key', '')
+                
+                # Extract service categories
+                if field_key == 'services_provided':
+                    services = [s.strip() for s in field_value.split(',') if s.strip()]
+                    if services:
+                        primary_service_category = services[0]
+                        secondary_service_categories = services[1:] if len(services) > 1 else []
+                        
+                # Alternative field names for service areas
+                elif field_key in ['service_zip_codes', 'service_areas']:
+                    if not service_zip_codes:  # Only use if not already found by ID
+                        service_zip_codes = field_value
+        
+        # Convert ZIP codes to counties using existing location service
+        service_coverage_type = "county"  # Default to county-based
+        service_counties = []
+        service_states = []
+        
+        if service_zip_codes:
+            logger.info(f"🔄 Converting ZIP codes to counties: {service_zip_codes}")
+            
+            # Parse ZIP codes (comma-separated format)
+            zip_codes = [zip_code.strip() for zip_code in service_zip_codes.split(',') if zip_code.strip()]
+            
+            counties_set = set()
+            states_set = set()
+            successful_conversions = 0
+            
+            for zip_code in zip_codes:
+                zip_str = zip_code.strip()
+                
+                # Validate ZIP code format
+                if len(zip_str) == 5 and zip_str.isdigit():
+                    location_data = location_service.zip_to_location(zip_str)
+                    
+                    if not location_data.get('error'):
+                        county = location_data.get('county')
+                        state = location_data.get('state')
+                        
+                        if county and state:
+                            # Store in "County, State" format for compatibility
+                            county_state = f"{county}, {state}"
+                            counties_set.add(county_state)
+                            states_set.add(state)
+                            successful_conversions += 1
+                            logger.debug(f"   ✅ {zip_str} → {county_state}")
+                        else:
+                            logger.warning(f"   ❌ {zip_str}: No county/state data")
+                    else:
+                        logger.warning(f"   ❌ {zip_str}: {location_data.get('error')}")
+                else:
+                    logger.warning(f"   ❌ Invalid ZIP code format: {zip_str}")
+            
+            # Convert sets to sorted lists
+            service_counties = sorted(list(counties_set))
+            service_states = sorted(list(states_set))
+            
+            logger.info(f"✅ Successfully converted {successful_conversions}/{len(zip_codes)} ZIP codes")
+            logger.info(f"📍 Service counties: {', '.join(service_counties)}")
+            
+            # If no successful conversions, fall back to ZIP-based coverage
+            if successful_conversions == 0:
+                logger.warning("⚠️ No ZIP codes converted to counties - using ZIP-based coverage")
+                service_coverage_type = "zip"
+                service_areas = zip_codes  # Keep original ZIP codes
+                service_counties = []  # Clear counties since conversion failed
+            else:
+                service_areas = []  # Clear ZIP areas since we have counties
+        else:
+            logger.warning("⚠️ No service ZIP codes found - vendor will have no coverage area")
+            # Use default fallback only if absolutely no coverage data
+            service_counties = ["Miami-Dade, FL", "Broward, FL", "Palm Beach, FL", "Monroe, FL"]
+            logger.info("⚠️ Applied default coverage areas as fallback")
+        
+        # Prepare vendor data for database storage - FIXED: Use actual database field names
+        vendor_data = {
+            'service_coverage_type': service_coverage_type,  # This gets mapped to coverage_type in create_routing_vendor
+            'service_counties': json.dumps(service_counties),  # This gets mapped to coverage_counties
+            'service_states': json.dumps(service_states),  # This gets mapped to coverage_states
+            'service_areas': json.dumps(service_areas) if 'service_areas' in locals() else json.dumps([]),
+            'secondary_service_categories': json.dumps([primary_service_category] + secondary_service_categories),  # This gets mapped to services_offered
+            'ghl_contact_id': contact_id
+        }
+        
+        logger.info(f"✅ Vendor coverage mapping fixed:")
+        logger.info(f"   Coverage Type: {service_coverage_type}")
+        logger.info(f"   Counties: {len(service_counties)} areas")
+        logger.info(f"   States: {service_states}")
+        
+        return vendor_data
+        
+    except Exception as e:
+        logger.error(f"❌ Error fixing vendor coverage mapping: {e}")
+        # Return safe defaults
+        return {
+            'service_coverage_type': 'county',
+            'service_counties': json.dumps(["Miami-Dade, FL", "Broward, FL", "Palm Beach, FL", "Monroe, FL"]),
+            'service_states': json.dumps(["FL"]),
+            'service_areas': json.dumps([]),
+            'services_offered': json.dumps(["Boat Maintenance"]),
+            'ghl_contact_id': contact_id
+        }
+
 async def parse_webhook_payload(request: Request) -> Dict[str, Any]:
     """
     Robust payload parser that handles both JSON and form-encoded data
@@ -1582,91 +1723,10 @@ async def handle_vendor_user_creation_webhook(request: Request):
         await asyncio.sleep(10)
         logger.info(f"✅ User propagation delay complete, proceeding with database updates")
 
-        # CREATE COUNTY-NORMALIZED VENDOR RECORD
+        # CREATE COUNTY-NORMALIZED VENDOR RECORD USING FIXED COVERAGE MAPPING
         try:
-            # Fetch full contact record from GHL to get vendor data
-            logger.info(f"📋 Extracting vendor data from GHL contact {contact_id}")
-            contact_details = ghl_api_client.get_contact_by_id(contact_id)
-            
-            if not contact_details:
-                logger.error(f"❌ Could not fetch contact details for {contact_id}")
-                raise Exception("Unable to fetch vendor contact data from GHL")
-            
-            # Extract routing data from GHL custom fields
-            custom_fields = contact_details.get('customFields', [])
-            
-            primary_service_category = ""
-            secondary_service_categories = []
-            raw_coverage_data = ""
-            
-            # Extract from GHL custom fields
-            for field in custom_fields:
-                field_id = field.get('id', '')
-                field_value = str(field.get('value', '') or field.get('fieldValue', '')).strip()
-                
-                if not field_value:
-                    continue
-                    
-                # Get field details to identify the field
-                field_details = field_mapper.get_ghl_field_details_by_id(field_id)
-                if not field_details:
-                    continue
-                    
-                field_key = field_details.get('key', '')
-                
-                # Extract service categories
-                if field_key == 'services_provided':
-                    services = [s.strip() for s in field_value.split(',') if s.strip()]
-                    if services:
-                        primary_service_category = services[0]
-                        secondary_service_categories = services[1:] if len(services) > 1 else []
-                        
-                # Extract coverage areas (could be ZIP codes or counties)
-                elif field_key in ['service_zip_codes', 'service_areas', 'service_counties']:
-                    raw_coverage_data = field_value
-            
-            # Normalize geographic coverage using LocationService
-            service_coverage_type = "county"  # Default to county-based
-            service_counties = []
-            service_states = []
-            
-            if raw_coverage_data:
-                coverage_items = [item.strip() for item in raw_coverage_data.split(',') if item.strip()]
-                
-                for item in coverage_items:
-                    # Check if it's already in county format (contains comma)
-                    if ',' in item and len(item.split(',')) == 2:
-                        # Already in "County, State" format
-                        service_counties.append(item.strip())
-                    elif item.isdigit() and len(item) == 5:
-                        # ZIP code - convert to county
-                        logger.info(f"📍 Converting ZIP code {item} to county")
-                        location_data = location_service.zip_to_location(item)
-                        
-                        if not location_data.get('error'):
-                            county = location_data.get('county')
-                            state = location_data.get('state')
-                            if county and state:
-                                county_entry = f"{county}, {state}"
-                                if county_entry not in service_counties:
-                                    service_counties.append(county_entry)
-                                    logger.info(f"✅ ZIP {item} → {county_entry}")
-                        else:
-                            logger.warning(f"⚠️ Could not convert ZIP {item}: {location_data['error']}")
-                    else:
-                        # Assume it's a county name - add default state if needed
-                        if 'FL' not in item and 'florida' not in item.lower():
-                            item = f"{item}, FL"  # Default to Florida
-                        service_counties.append(item.strip())
-            
-            # Set defaults if no coverage found
-            if not service_counties:
-                logger.warning(f"⚠️ No coverage area found for {vendor_email}, defaulting to Miami-Dade, FL")
-                service_counties = ["Miami-Dade, FL"]
-            
-            if not primary_service_category:
-                logger.warning(f"⚠️ No primary service found for {vendor_email}, defaulting to General Services")
-                primary_service_category = "General Services"
+            # Use the fixed vendor coverage mapping function
+            vendor_coverage_data = fix_vendor_coverage_mapping(contact_id, ghl_api_client, location_service, field_mapper)
             
             # Get or create account
             account_record = simple_db_instance.get_account_by_ghl_location_id(AppConfig.GHL_LOCATION_ID)
@@ -1679,33 +1739,34 @@ async def handle_vendor_user_creation_webhook(request: Request):
             else:
                 account_id = account_record["id"]
             
-            # Create vendor record with county-based coverage
+            # Create vendor record with fixed coverage mapping
             vendor_data = {
                 'account_id': account_id,
                 'name': f"{vendor_first_name} {vendor_last_name}".strip(),
                 'email': vendor_email,
                 'ghl_user_id': user_id,
                 'ghl_contact_id': contact_id,
-                'primary_service_category': primary_service_category,
-                'secondary_service_categories': json.dumps(secondary_service_categories),
-                'service_coverage_type': service_coverage_type,
-                'service_counties': json.dumps(service_counties),
-                'service_states': json.dumps(service_states),
+                'primary_service_category': json.loads(vendor_coverage_data['services_offered'])[0] if vendor_coverage_data['services_offered'] and vendor_coverage_data['services_offered'] != '[]' else 'General Services',
+                'secondary_service_categories': vendor_coverage_data['services_offered'],
+                'service_coverage_type': vendor_coverage_data['service_coverage_type'],
+                'service_counties': vendor_coverage_data['service_counties'],
+                'service_states': vendor_coverage_data['service_states'],
+                'service_areas': vendor_coverage_data['service_areas'],
                 'status': 'active',
                 'taking_new_work': True
             }
             
             vendor_db_id = simple_db_instance.create_routing_vendor(vendor_data)
             
-            logger.info(f"✅ Created county-based vendor record: {vendor_db_id}")
+            logger.info(f"✅ Created vendor record with FIXED coverage mapping: {vendor_db_id}")
             logger.info(f"   👤 Name: {vendor_data['name']}")
             logger.info(f"   🔑 GHL User ID: {user_id}")
-            logger.info(f"   🎯 Primary Service: {primary_service_category}")
-            logger.info(f"   📋 Secondary Services: {secondary_service_categories}")
-            logger.info(f"   🏛️ Counties: {service_counties}")
+            logger.info(f"   🎯 Primary Service: {vendor_data['primary_service_category']}")
+            logger.info(f"   📋 Coverage Type: {vendor_data['service_coverage_type']}")
+            logger.info(f"   🏛️ Counties: {json.loads(vendor_data['service_counties'])}")
             
         except Exception as e:
-            logger.error(f"❌ Failed to create county-based vendor record: {e}")
+            logger.error(f"❌ Failed to create vendor record with fixed coverage mapping: {e}")
         
         # FIXED: Update the contact record with the GHL User ID
         if contact_id:

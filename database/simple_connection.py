@@ -43,7 +43,7 @@ class SimpleDatabase:
                 )
             ''')
             
-            # Create vendors table
+            # Create vendors table - FIXED to use actual field names
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS vendors (
                     id TEXT PRIMARY KEY,
@@ -54,16 +54,15 @@ class SimpleDatabase:
                     phone TEXT,
                     ghl_contact_id TEXT UNIQUE, 
                     ghl_user_id TEXT UNIQUE,    
-                    services_provided TEXT DEFAULT '[]',
-                    service_areas TEXT DEFAULT '[]',
-                    service_coverage_type TEXT DEFAULT 'zip',
-                    service_states TEXT DEFAULT '[]',
-                    service_counties TEXT DEFAULT '[]',
+                    service_categories TEXT DEFAULT '[]',
+                    services_offered TEXT DEFAULT '[]',  -- ACTUAL field name
+                    coverage_type TEXT DEFAULT 'county',  -- ACTUAL field name
+                    coverage_states TEXT DEFAULT '[]',   -- ACTUAL field name
+                    coverage_counties TEXT DEFAULT '[]', -- ACTUAL field name
                     last_lead_assigned TIMESTAMP,
                     lead_close_percentage REAL DEFAULT 0.0,
                     status TEXT DEFAULT 'pending', 
                     taking_new_work BOOLEAN DEFAULT 1,
-                    performance_score REAL DEFAULT 0.8,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (account_id) REFERENCES accounts (id)
@@ -382,7 +381,7 @@ class SimpleDatabase:
                 conn.close()
 
     def get_vendors(self, account_id: str = None, status: str = None) -> List[Dict[str, Any]]:
-        """Get vendors with optional filtering"""
+        """Get vendors with optional filtering - FIXED to use actual database field names"""
         conn = None
         try:
             conn = self._get_conn()
@@ -402,27 +401,30 @@ class SimpleDatabase:
             
             where_clause = " WHERE " + " AND ".join(conditions) if conditions else ""
             
+            # FIXED: Use actual database field names
             cursor.execute(f'''
                 SELECT id, account_id, name, company_name, email, phone, ghl_contact_id, 
-                       ghl_user_id, services_provided, service_areas, service_coverage_type,
-                       service_states, service_counties, last_lead_assigned, lead_close_percentage,
-                       status, taking_new_work, performance_score, created_at, updated_at
+                       ghl_user_id, service_categories, services_offered, coverage_type,
+                       coverage_states, coverage_counties, last_lead_assigned, lead_close_percentage,
+                       status, taking_new_work, created_at, updated_at
                 FROM vendors{where_clause}
             ''', params)
             
             vendors_list = []
             for row in cursor.fetchall():
-                vendors_list.append({
+                vendor = {
                     "id": row[0], "account_id": row[1], "name": row[2], "company_name": row[3],
                     "email": row[4], "phone": row[5], "ghl_contact_id": row[6], "ghl_user_id": row[7],
-                    "services_provided": json.loads(row[8]) if row[8] else [],
-                    "service_areas": json.loads(row[9]) if row[9] else [],
-                    "service_coverage_type": row[10], "service_states": json.loads(row[11]) if row[11] else [],
-                    "service_counties": json.loads(row[12]) if row[12] else [],
+                    "service_categories": json.loads(row[8]) if row[8] else [],
+                    "services_offered": json.loads(row[9]) if row[9] else [],  # ACTUAL field name
+                    "coverage_type": row[10], # ACTUAL field name
+                    "coverage_states": json.loads(row[11]) if row[11] else [],  # ACTUAL field name  
+                    "coverage_counties": json.loads(row[12]) if row[12] else [],  # ACTUAL field name
                     "last_lead_assigned": row[13], "lead_close_percentage": row[14],
-                    "status": row[15], "taking_new_work": bool(row[16]), "performance_score": row[17],
-                    "created_at": row[18], "updated_at": row[19]
-                })
+                    "status": row[15], "taking_new_work": bool(row[16]),
+                    "created_at": row[17], "updated_at": row[18]
+                }
+                vendors_list.append(vendor)
             
             return vendors_list
             
@@ -528,12 +530,13 @@ class SimpleDatabase:
                 if not vendor_data.get(field):
                     raise ValueError(f"Required field '{field}' is missing from vendor_data")
             
+            # FIXED: Use actual database field names  
             cursor.execute('''
                 INSERT INTO vendors (
                     id, account_id, name, email, ghl_user_id, ghl_contact_id,
-                    services_provided, service_coverage_type, service_counties, service_states,
-                    status, taking_new_work, performance_score, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    services_offered, coverage_type, coverage_counties, coverage_states,
+                    status, taking_new_work, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
             ''', (
                 vendor_id,
                 vendor_data['account_id'],
@@ -541,13 +544,12 @@ class SimpleDatabase:
                 vendor_data['email'],
                 vendor_data.get('ghl_user_id'),
                 vendor_data['ghl_contact_id'],
-                vendor_data.get('secondary_service_categories', '[]'),  # Store as JSON for services_provided field
+                vendor_data.get('secondary_service_categories', '[]'),  # Store as JSON for services_offered field
                 vendor_data.get('service_coverage_type', 'county'),
                 vendor_data.get('service_counties', '[]'),
                 vendor_data.get('service_states', '[]'),
                 vendor_data.get('status', 'active'),
-                vendor_data.get('taking_new_work', True),
-                vendor_data.get('performance_score', 0.8)
+                vendor_data.get('taking_new_work', True)
             ))
             
             conn.commit()

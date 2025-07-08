@@ -2,6 +2,7 @@
 
 import logging
 import random
+import json
 from typing import Dict, List, Any, Optional, Tuple
 from datetime import datetime
 from api.services.location_service import location_service
@@ -16,6 +17,7 @@ class LeadRoutingService:
     - Geographic coverage types (global, national, state, county, zip)
     - Dual routing methods (round-robin vs performance-based)
     - Configurable routing distribution percentages
+    - DIRECT STRING MATCHING for service matching (no keyword matching)
     """
     
     def __init__(self):
@@ -53,7 +55,7 @@ class LeadRoutingService:
                 logger.info(f"📍 Lead location: {zip_code} → {target_state}, {target_county} County")
             
             # Get all active vendors for this account
-            all_vendors = self._get_vendors_from_new_schema(account_id)
+            all_vendors = self._get_vendors_from_database(account_id)
             eligible_vendors = []
             
             for vendor in all_vendors:
@@ -62,21 +64,10 @@ class LeadRoutingService:
                     logger.debug(f"Skipping vendor {vendor.get('name')} - not active or not taking work")
                     continue
                 
-                # Multi-level service matching: try exact matching first, then fallback
-                if specific_service:
-                    # Try exact service matching first
-                    if self._vendor_matches_service_exact(vendor, service_category, specific_service):
-                        logger.debug(f"✅ Vendor {vendor.get('name')} - EXACT service match: {specific_service}")
-                    elif self._vendor_matches_service_legacy(vendor, service_category):
-                        logger.debug(f"⚠️ Vendor {vendor.get('name')} - FALLBACK category match only: {service_category}")
-                    else:
-                        logger.debug(f"Skipping vendor {vendor.get('name')} - no service match")
-                        continue
-                else:
-                    # No specific service provided, use legacy category matching
-                    if not self._vendor_matches_service_legacy(vendor, service_category):
-                        logger.debug(f"Skipping vendor {vendor.get('name')} - service mismatch")
-                        continue
+                # DIRECT SERVICE MATCHING - no keyword matching allowed
+                if not self._vendor_matches_service(vendor, service_category):
+                    logger.debug(f"Skipping vendor {vendor.get('name')} - no exact service match for '{service_category}'")
+                    continue
                 
                 # Check if vendor can serve this location
                 if self._vendor_covers_location(vendor, zip_code, target_state, target_county):
@@ -97,19 +88,18 @@ class LeadRoutingService:
             logger.error(f"❌ Error finding matching vendors: {e}")
             return []
     
-    def _get_vendors_from_new_schema(self, account_id: str) -> List[Dict[str, Any]]:
+    def _get_vendors_from_database(self, account_id: str) -> List[Dict[str, Any]]:
         """
-        Get vendors from the new database schema with proper field mappings.
-        UPDATED: Works with new column names (services_offered, coverage_counties, etc.)
+        Get vendors from database using ACTUAL field names (no incorrect mapping).
+        FIXED: Uses the field names that actually exist in the database.
         """
         try:
             import sqlite3
-            import json
             
             conn = sqlite3.connect('smart_lead_router.db')
             cursor = conn.cursor()
             
-            # Query vendors with new schema column names
+            # Query vendors using ACTUAL database field names
             cursor.execute("""
                 SELECT id, account_id, ghl_contact_id, ghl_user_id, name, email, phone,
                        company_name, service_categories, services_offered, coverage_type,
@@ -131,123 +121,75 @@ class LeadRoutingService:
                     'phone': row[6],
                     'company_name': row[7],
                     'service_categories': json.loads(row[8]) if row[8] else [],
-                    'services_offered': json.loads(row[9]) if row[9] else [],  # NEW COLUMN NAME
-                    'coverage_type': row[10] or 'county',
-                    'coverage_states': json.loads(row[11]) if row[11] else [],
-                    'coverage_counties': json.loads(row[12]) if row[12] else [],  # NEW COLUMN NAME
+                    'services_offered': json.loads(row[9]) if row[9] else [],  # ACTUAL field name
+                    'coverage_type': row[10] or 'county',  # ACTUAL field name
+                    'coverage_states': json.loads(row[11]) if row[11] else [],  # ACTUAL field name
+                    'coverage_counties': json.loads(row[12]) if row[12] else [],  # ACTUAL field name
                     'last_lead_assigned': row[13],
                     'lead_close_percentage': row[14] or 0.0,
                     'status': row[15] or 'active',
-                    'taking_new_work': bool(row[16]) if row[16] is not None else True,
-                    
-                    # Map to old field names for backward compatibility
-                    'services_provided': json.loads(row[9]) if row[9] else [],  # Map services_offered → services_provided
-                    'service_coverage_type': row[10] or 'county',  # Map coverage_type → service_coverage_type
-                    'service_counties': json.loads(row[12]) if row[12] else [],  # Map coverage_counties → service_counties
-                    'service_states': json.loads(row[11]) if row[11] else []  # Map coverage_states → service_states
+                    'taking_new_work': bool(row[16]) if row[16] is not None else True
                 }
                 vendors.append(vendor)
             
             conn.close()
-            logger.debug(f"📊 Retrieved {len(vendors)} vendors from new schema for account {account_id}")
+            logger.debug(f"📊 Retrieved {len(vendors)} vendors using actual field names for account {account_id}")
             return vendors
             
         except Exception as e:
-            logger.error(f"❌ Error getting vendors from new schema: {e}")
+            logger.error(f"❌ Error getting vendors from database: {e}")
             return []
     
-    def _vendor_matches_service_exact(self, vendor: Dict[str, Any], 
-                                    primary_category: str, specific_service: str) -> bool:
+    def _vendor_matches_service(self, vendor: Dict[str, Any], service_category: str) -> bool:
         """
-        NEW: Check if vendor matches both primary category AND specific service exactly.
-        This is the core method for multi-level routing precision.
+        Check if vendor provides the requested service using DIRECT STRING MATCHING ONLY.
+        
+        NO keyword matching, NO AI, NO parsing - just exact string comparison.
+        
+        Args:
+            vendor: Vendor dictionary with services_offered field
+            service_category: Exact service name requested (e.g., "Inboard Engine Service")
+            
+        Returns:
+            bool: True if vendor offers the exact service, False otherwise
         """
-        # Get vendor services as list
-        services_provided = self._get_vendor_services_list(vendor)
-        
-        # Use service_manager for exact matching
-        return service_manager.vendor_matches_service_exact(
-            services_provided, primary_category, specific_service
-        )
-    
-    def _vendor_matches_service_legacy(self, vendor: Dict[str, Any], service_category: str) -> bool:
-        """
-        LEGACY: Check if vendor provides the requested service category (fallback method).
-        Renamed from _vendor_matches_service for clarity. Used when no specific service 
-        is provided or when exact matching finds no results.
-        """
-        services_provided = self._get_vendor_services_list(vendor)
-        
-        # Try service_manager category matching first
-        if service_manager.vendor_matches_category_only(services_provided, service_category):
-            return True
-        
-        # Fallback to legacy keyword matching for backward compatibility
-        service_category_lower = service_category.lower()
-        for service in services_provided:
-            service_lower = service.lower()
-            if (service_category_lower in service_lower or 
-                service_lower in service_category_lower or
-                self._services_are_related(service_category_lower, service_lower)):
-                return True
-        
-        return False
-    
-    def _get_vendor_services_list(self, vendor: Dict[str, Any]) -> List[str]:
-        """
-        Helper method to get vendor services as a clean list.
-        Handles various data formats and validates the structure.
-        """
-        services_provided = vendor.get("services_provided", [])
-        
-        # Handle different data formats
-        if isinstance(services_provided, str):
-            # If it's a string, split it into a list
-            services_provided = [s.strip() for s in services_provided.split(',')]
-        elif not isinstance(services_provided, list):
-            # If it's still not a list, treat it as no services provided
-            logger.warning(f"Vendor {vendor.get('name')} has malformed services_provided: {services_provided}")
-            return []
-        
-        # Clean and filter the list
-        cleaned_services = []
-        for service in services_provided:
-            if service and isinstance(service, str):
-                cleaned_service = service.strip()
-                if cleaned_service:  # Only add non-empty services
-                    cleaned_services.append(cleaned_service)
-        
-        return cleaned_services
-    
-    def _services_are_related(self, requested: str, provided: str) -> bool:
-        """
-        Check if two services are related (basic keyword matching)
-        This can be enhanced with more sophisticated matching logic
-        """
-        # Basic keyword matching for marine services
-        marine_service_groups = {
-            'maintenance': ['maintenance', 'cleaning', 'detailing', 'wash', 'wax', 'service'],
-            'repair': ['repair', 'fix', 'restoration', 'fiberglass', 'welding'],
-            'engine': ['engine', 'motor', 'outboard', 'inboard', 'generator'],
-            'electrical': ['electrical', 'electronics', 'wiring', 'instrument'],
-            'marine_systems': ['plumbing', 'hvac', 'ac', 'systems', 'refrigeration'],
-            'transport': ['delivery', 'transport', 'hauling', 'towing', 'tow'],
-            'charter': ['charter', 'rental', 'fishing', 'boat_rental']
-        }
-        
-        for group_services in marine_service_groups.values():
-            if (any(keyword in requested for keyword in group_services) and 
-                any(keyword in provided for keyword in group_services)):
-                return True
-        
-        return False
+        try:
+            services_offered = vendor.get('services_offered', [])
+            
+            # Handle string format (convert to list)
+            if isinstance(services_offered, str):
+                try:
+                    services_offered = json.loads(services_offered)
+                except (json.JSONDecodeError, TypeError):
+                    # If JSON parsing fails, treat as comma-separated string
+                    services_offered = [s.strip() for s in services_offered.split(',') if s.strip()]
+            
+            # Ensure it's a list
+            if not isinstance(services_offered, list):
+                logger.warning(f"Vendor {vendor.get('name')} has malformed services_offered: {services_offered}")
+                return False
+            
+            # DIRECT STRING MATCHING ONLY - exact match required
+            for offered_service in services_offered:
+                if str(offered_service).strip() == str(service_category).strip():
+                    logger.debug(f"✅ Exact service match: '{service_category}' in vendor services")
+                    return True
+            
+            # No exact match found
+            logger.debug(f"❌ No exact match for '{service_category}' in {services_offered}")
+            return False
+            
+        except Exception as e:
+            logger.error(f"❌ Error in service matching for vendor {vendor.get('name')}: {e}")
+            return False
     
     def _vendor_covers_location(self, vendor: Dict[str, Any], zip_code: str, 
                               target_state: Optional[str], target_county: Optional[str]) -> bool:
         """
         Check if vendor covers the specified location, with improved data validation.
+        FIXED: Uses actual database field names (coverage_type, coverage_states, coverage_counties)
         """
-        coverage_type = vendor.get('service_coverage_type', 'zip')
+        coverage_type = vendor.get('coverage_type', 'zip')  # FIXED: Use actual field name
         
         if coverage_type == 'global':
             return True
@@ -258,21 +200,21 @@ class LeadRoutingService:
         if coverage_type == 'state':
             if not target_state:
                 return False
-            service_states = vendor.get('service_states', [])
-            if not isinstance(service_states, list):
-                logger.warning(f"Vendor {vendor.get('name')} has malformed service_states: {service_states}")
+            coverage_states = vendor.get('coverage_states', [])  # FIXED: Use actual field name
+            if not isinstance(coverage_states, list):
+                logger.warning(f"Vendor {vendor.get('name')} has malformed coverage_states: {coverage_states}")
                 return False
-            return target_state in service_states
+            return target_state in coverage_states
         
         if coverage_type == 'county':
             if not target_county or not target_state:
                 return False
-            service_counties = vendor.get('service_counties', [])
-            if not isinstance(service_counties, list):
-                logger.warning(f"Vendor {vendor.get('name')} has malformed service_counties: {service_counties}")
+            coverage_counties = vendor.get('coverage_counties', [])  # FIXED: Use actual field name
+            if not isinstance(coverage_counties, list):
+                logger.warning(f"Vendor {vendor.get('name')} has malformed coverage_counties: {coverage_counties}")
                 return False
             
-            for coverage_area in service_counties:
+            for coverage_area in coverage_counties:
                 if ',' in coverage_area:
                     county_part, state_part = coverage_area.split(',', 1)
                     if (target_county.lower() == county_part.strip().lower() and
@@ -283,7 +225,7 @@ class LeadRoutingService:
             return False
         
         if coverage_type == 'zip':
-            service_areas = vendor.get('service_areas', [])
+            service_areas = vendor.get('service_areas', [])  # NOTE: This field doesn't exist in vendors table
             if not isinstance(service_areas, list):
                 logger.warning(f"Vendor {vendor.get('name')} has malformed service_areas: {service_areas}")
                 return False
@@ -299,8 +241,9 @@ class LeadRoutingService:
                                  target_state: Optional[str], target_county: Optional[str]) -> str:
         """
         Get human-readable reason for why vendor matches the location
+        FIXED: Uses actual database field name (coverage_type)
         """
-        coverage_type = vendor.get('service_coverage_type', 'zip')
+        coverage_type = vendor.get('coverage_type', 'zip')  # FIXED: Use actual field name
         
         if coverage_type == 'global':
             return "Global coverage"
@@ -498,7 +441,7 @@ class LeadRoutingService:
             # Count vendors by coverage type
             coverage_stats = {}
             for vendor in vendors:
-                coverage_type = vendor.get('service_coverage_type', 'zip')
+                coverage_type = vendor.get('coverage_type', 'zip')  # FIXED: Use actual field name
                 coverage_stats[coverage_type] = coverage_stats.get(coverage_type, 0) + 1
             
             # Get recent lead assignments (would need to track this in activity log)
@@ -516,6 +459,50 @@ class LeadRoutingService:
         except Exception as e:
             logger.error(f"❌ Error getting routing stats for account {account_id}: {e}")
             return {}
+
+
+# COMPREHENSIVE SERVICE LIST FOR VALIDATION
+COMPLETE_SERVICES_LIST = [
+    "Barnacle Cleaning", "Boat and Yacht Maintenance", "Boat and Yacht Parts", 
+    "Boat Bilge Cleaning", "Boat Bottom Cleaning", "Boat Brokers", "Boat Builders", 
+    "Boat Canvas and Upholstery", "Boat Charters and Rentals", "Boat Clubs", 
+    "Boat Dealers", "Boat Decking and Yacht Flooring", "Boat Detailing", 
+    "Boat Electrical Service", "Boat Financing", "Boat Hauling and Transport", 
+    "Boat Insurance", "Boat Lift Installers", "Boat Lighting", "Boat Oil Change", 
+    "Boat Salvage", "Boat Sound Systems", "Boat Surveyors", 
+    "Boat Wrapping and Marine Protection Film", "Carpentry & Woodwork", 
+    "Ceramic Coating", "Davit and Hydraulic Platform", "Diesel Engine Sales", 
+    "Diesel Engine Service", "Dive Equipment and Services", 
+    "Dock and Seawall Builders or Repair", "Dock and Slip Rental", 
+    "eFoil, Kiteboarding & Wing Surfing", "Fiberglass Repair", "Fishing Charters", 
+    "Floating Dock Sales", "Fuel Delivery", "Generator Sales", 
+    "Generator Service and Repair", "Get Emergency Tow", "Get Towing Membership", 
+    "Inboard Engine Sales", "Inboard Engine Service", "Jet Ski Maintenance", 
+    "Jet Ski Repair", "Maritime Academy", "Maritime Certification", 
+    "New Waterfront Developments", "Outboard Engine Sales", "Outboard Engine Service", 
+    "Provisioning", "Rent My Dock", "Riggers & Masts", "Sailboat Charters", 
+    "Sailing Schools", "Sell Your Waterfront Home", "Waterfront Homes For Sale", 
+    "Welding & Metal Fabrication", "Wholesale or Dealer Product Pricing", 
+    "Yacht AC Sales", "Yacht AC Service", "Yacht Account Management and Bookkeeping", 
+    "Yacht and Catamaran Charters", "Yacht Armor", "Yacht Brokers", 
+    "Yacht Builders", "Yacht Crew Placement", "Yacht Dealers", "Yacht Delivery", 
+    "Yacht Fire Detection Systems", "Yacht Insurance", "Yacht Management", 
+    "Yacht Photography", "Yacht Plumbing", "Yacht Refrigeration & Watermakers", 
+    "Yacht Stabilizers & Seakeepers", "Yacht Training", "Yacht Videography", 
+    "Yacht Wi-Fi"
+]
+
+def validate_service_name(service_name: str) -> bool:
+    """
+    Validate that a service name is in the approved comprehensive list
+    
+    Args:
+        service_name: Service name to validate
+        
+    Returns:
+        bool: True if service is in approved list, False otherwise
+    """
+    return service_name.strip() in COMPLETE_SERVICES_LIST
 
 
 # Global instance for use throughout the application
