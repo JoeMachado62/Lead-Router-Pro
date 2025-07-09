@@ -354,8 +354,8 @@ class SimpleDatabase:
     def create_vendor(self, account_id: str, name: str, email: str, 
                      company_name: str = "", phone: str = "",
                      ghl_contact_id: str = None, status: str = "pending",
-                     services_provided: str = "", service_areas: str = "") -> str:
-        """Create new vendor"""
+                     service_categories: str = "", coverage_counties: str = "") -> str:
+        """Create new vendor - FIXED to use correct column names"""
         conn = None
         try:
             vendor_id = str(uuid.uuid4())
@@ -364,10 +364,10 @@ class SimpleDatabase:
             
             cursor.execute('''
                 INSERT INTO vendors (id, account_id, name, company_name, email, phone, 
-                                   ghl_contact_id, status, services_provided, service_areas)
+                                   ghl_contact_id, status, service_categories, coverage_counties)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (vendor_id, account_id, name, company_name, email, phone,
-                  ghl_contact_id, status, services_provided, service_areas))
+                  ghl_contact_id, status, service_categories, coverage_counties))
             
             conn.commit()
             logger.info(f"✅ Vendor created: {vendor_id}")

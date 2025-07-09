@@ -165,7 +165,11 @@ class FieldMapper:
         """Build efficient mapping from GHL field keys to field details (ID, name, etc.)"""
         self._ghl_field_mapping = {}
         
-        all_ghl_fields = self._field_reference.get("all_ghl_fields", {})
+        # FIXED: Combine client_fields and vendor_fields into all_ghl_fields
+        all_ghl_fields = {}
+        all_ghl_fields.update(self._field_reference.get("client_fields", {}))
+        all_ghl_fields.update(self._field_reference.get("vendor_fields", {}))
+        
         processed_count = 0
         
         for field_name, field_details in all_ghl_fields.items():

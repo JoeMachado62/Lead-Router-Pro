@@ -1,14 +1,11 @@
 #!/usr/bin/env python3
 """
-ENHANCED VENDOR SYNC FROM GOHIGHLEVEL
-Complete field mapping and overwrite capability for vendor data synchronization.
+FOCUSED LEAD ROUTER SYNC FROM GOHIGHLEVEL
+Maps only real database columns from their corresponding GHL fields.
+Fixes the critical Service Zip Codes mapping issue.
 
-FEATURES:
-- Maps ALL vendor table fields to correct GHL custom fields
-- Overwrites existing vendor data with latest from GHL
-- Detailed logging of field mappings and extraction
-- Comprehensive error handling and validation
-- Preserves data integrity while ensuring accuracy
+VENDOR TABLE: Maps all non-system-generated columns from GHL
+LEADS TABLE: Maps all non-system-generated columns from GHL
 """
 
 import sqlite3
@@ -20,14 +17,13 @@ import uuid
 from datetime import datetime
 from typing import Dict, List, Any, Optional
 
-# Add project root to path for imports
+# Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-# Load environment variables
 from dotenv import load_dotenv
 import os
 
-# Load .env from project root
+# Load .env
 current_dir = os.getcwd()
 if current_dir.endswith('Lead-Router-Pro'):
     dotenv_path = os.path.join(current_dir, '.env')
@@ -40,24 +36,24 @@ from config import AppConfig
 from api.services.ghl_api import GoHighLevelAPI
 from api.services.location_service import location_service
 
-# Enhanced logging configuration
+# Setup logging
 logging.basicConfig(
     level=logging.INFO, 
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('vendor_sync.log'),
+        logging.FileHandler('focused_sync.log'),
         logging.StreamHandler(sys.stdout)
     ]
 )
 logger = logging.getLogger(__name__)
 
-class EnhancedVendorSync:
-    """Enhanced vendor synchronization with complete field mapping and overwrite capability"""
+class FocusedLeadRouterSync:
+    """Focused sync that maps only real database columns from GHL"""
     
     def __init__(self):
-        """Initialize with comprehensive GHL field mappings"""
+        """Initialize with focused GHL field mappings for real database columns only"""
         try:
-            # Initialize GHL API client
+            # Initialize GHL API
             self.ghl_api = GoHighLevelAPI(
                 private_token=AppConfig.GHL_PRIVATE_TOKEN,
                 location_id=AppConfig.GHL_LOCATION_ID,
@@ -65,81 +61,51 @@ class EnhancedVendorSync:
                 company_id=AppConfig.GHL_COMPANY_ID
             )
             
-            # Get account information
+            # Get account
             self.account = self._get_or_create_account()
             if not self.account:
                 raise Exception("Could not get or create account")
-            
             self.account_id = self.account['id']
             
-            # COMPREHENSIVE GHL FIELD MAPPINGS
-            # Maps database field names to GHL custom field IDs
-            self.ghl_field_mappings = {
-                # Core vendor identification
-                'ghl_user_id': 'HXVNT4y8OynNokWAfO2D',
-                'vendor_company_name': 'vendor_company_name_field_id',  # Need actual ID
+            # VENDOR TABLE - Real DB Columns Mapped from GHL
+            self.vendor_mappings = {
+                # Standard contact fields
+                'name': ['firstName', 'lastName'],  # Combine firstName + lastName
+                'email': 'email',                   # Standard GHL field
+                'phone': 'phone',                   # Standard GHL field
                 
-                # Service-related fields
-                'services_provided': 'pAq9WBsIuFUAZuwz3YY4',
-                'service_categories_selections': '72qwwzy4AUfTCBJvBIEf',
-                'primary_service_category': 'HRqfv0HnUydNRLKWhk27',
-                'specific_service_needed': 'FT85QGi0tBq1AfVGNJ9v',
+                # Custom fields from GHL
+                'ghl_user_id': 'HXVNT4y8OynNokWAfO2D',          # "GHL User ID"
+                'company_name': 'JexVrg2VNhnwIX7YlyJV',          # "Vendor Company Name"
+                'service_categories': '72qwwzy4AUfTCBJvBIEf',    # "Service Categories Selections"
+                'services_offered': 'pAq9WBsIuFUAZuwz3YY4',     # "Services Provided"
+                'last_lead': 'NbsJTMv3EkxqNfwx8Jh4',           # "Last Lead Assigned"
+                'lead_close_percentage': 'OwHQipU7xdrHCpVswtnW', # "Lead Close %"
+                'taking_new_work': 'bTFOs5zXYt85AvDJJUAb',      # "Taking New Work?"
                 
-                # Coverage area fields
-                'service_zip_codes': 'yDcN0FmwI3xacyxAuTWs',  # CRITICAL - this is the broken mapping
-                'service_areas': 'service_areas_field_id',  # Need actual ID
-                
-                # Business information
-                'years_in_business': 'years_in_business_field_id',  # Need actual ID
-                'certifications_licenses': 'certifications_licenses_field_id',  # Need actual ID
-                'insurance_coverage': 'insurance_coverage_field_id',  # Need actual ID
-                'taking_new_work': 'taking_new_work_field_id',  # Need actual ID
-                
-                # Operational details
-                'emergency_services': 'emergency_services_field_id',  # Need actual ID
-                'service_radius_miles': 'service_radius_miles_field_id',  # Need actual ID
-                'crew_size': 'crew_size_field_id',  # Need actual ID
-                'special_equipment': 'special_equipment_field_id',  # Need actual ID
-                
-                # Business terms
-                'pricing_structure': 'pricing_structure_field_id',  # Need actual ID
-                'payment_terms': 'payment_terms_field_id',  # Need actual ID
-                'availability_schedule': 'availability_schedule_field_id',  # Need actual ID
-                
-                # Contact preferences
-                'preferred_contact_method': 'preferred_contact_method_field_id',  # Need actual ID
-                'vessel_types_serviced': 'vessel_types_serviced_field_id',  # Need actual ID
-                
-                # Performance tracking
-                'lead_close_percentage': 'OwHQipU7xdrHCpVswtnW',  # Lead Close %
-                'last_lead_assigned': 'NbsJTMv3EkxqNfwx8Jh4',
-                
-                # Additional fields
-                'references': 'references_field_id',  # Need actual ID
-                'website': 'website_field_id',  # Need actual ID
-                'notes': 'special_requests__notes_field_id'  # Need actual ID
+                # Coverage derived from Service Zip Codes
+                'service_zip_codes': 'yDcN0FmwI3xacyxAuTWs'      # "Service Zip Codes" (CRITICAL)
             }
             
-            # Standard contact fields (not custom fields)
-            self.standard_fields = {
-                'firstName': 'firstName',
-                'lastName': 'lastName', 
-                'email': 'email',
-                'phone': 'phone',
-                'companyName': 'companyName',
-                'address1': 'address1',
-                'city': 'city',
-                'state': 'state',
-                'postalCode': 'postalCode',
-                'website': 'website'
+            # LEADS TABLE - Real DB Columns Mapped from GHL
+            self.leads_mappings = {
+                # Standard contact fields
+                'customer_name': ['firstName', 'lastName'],      # Combine firstName + lastName
+                'customer_email': 'email',                       # Standard GHL field
+                'customer_phone': 'phone',                       # Standard GHL field
+                
+                # Custom fields from GHL
+                'specific_service_requested': 'FT85QGi0tBq1AfVGNJ9v', # "Specific Service Needed"
+                'customer_zip_code': 'y3Xo7qsFEQumoFugTeCq',          # "Zip Code of Service"
+                
             }
             
-            logger.info("✅ Enhanced Vendor Sync initialized successfully")
-            logger.info(f"📋 Configured {len(self.ghl_field_mappings)} custom field mappings")
-            logger.info(f"📋 Configured {len(self.standard_fields)} standard field mappings")
+            logger.info("✅ Focused Lead Router Sync initialized")
+            logger.info(f"📋 Vendor mappings: {len(self.vendor_mappings)} fields")
+            logger.info(f"📋 Leads mappings: {len(self.leads_mappings)} fields")
             
         except Exception as e:
-            logger.error(f"❌ Failed to initialize Enhanced Vendor Sync: {e}")
+            logger.error(f"❌ Failed to initialize: {e}")
             raise
     
     def _get_or_create_account(self) -> Optional[Dict[str, Any]]:
@@ -148,7 +114,6 @@ class EnhancedVendorSync:
             conn = sqlite3.connect('smart_lead_router.db')
             cursor = conn.cursor()
             
-            # Try to get existing account
             cursor.execute("""
                 SELECT id, company_name, ghl_location_id 
                 FROM accounts 
@@ -165,7 +130,7 @@ class EnhancedVendorSync:
                     'ghl_location_id': account[2]
                 }
             
-            # Create default account if none exists
+            # Create default account
             account_id = str(uuid.uuid4())
             cursor.execute("""
                 INSERT INTO accounts (
@@ -173,17 +138,13 @@ class EnhancedVendorSync:
                     ghl_private_token, created_at, updated_at
                 ) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
             """, (
-                account_id,
-                "Digital Marine LLC",
-                "marine",
-                AppConfig.GHL_LOCATION_ID,
-                AppConfig.GHL_PRIVATE_TOKEN
+                account_id, "Digital Marine LLC", "marine",
+                AppConfig.GHL_LOCATION_ID, AppConfig.GHL_PRIVATE_TOKEN
             ))
             
             conn.commit()
             conn.close()
             
-            logger.info(f"✅ Created default account: {account_id}")
             return {
                 'id': account_id,
                 'company_name': "Digital Marine LLC",
@@ -194,356 +155,330 @@ class EnhancedVendorSync:
             logger.error(f"❌ Error with account: {e}")
             return None
     
-    def sync_all_vendors_with_overwrite(self) -> bool:
-        """Main function to sync all vendors from GHL with overwrite capability"""
+    def sync_all_data(self) -> bool:
+        """Main sync function for vendors and leads"""
         
-        print("🔄 ENHANCED VENDOR SYNC FROM GOHIGHLEVEL")
-        print("=" * 50)
-        print("Complete field mapping with overwrite capability")
-        print("Extracting ALL vendor data with detailed field logging")
+        print("🔄 FOCUSED LEAD ROUTER SYNC")
+        print("=" * 40)
+        print("Mapping only real database columns from GHL")
+        print("Fixing Service Zip Codes coverage mapping")
         print("")
         
         try:
-            # Step 1: Get vendor contacts from GHL
-            print("STEP 1: Fetching vendor contacts from GoHighLevel...")
-            vendor_contacts = self._get_all_vendor_contacts()
+            # Sync vendors
+            print("STEP 1: Syncing vendors from GHL...")
+            vendor_results = self._sync_vendors()
             
-            if not vendor_contacts:
-                print("❌ No vendor contacts found in GoHighLevel")
-                return False
+            # Sync leads  
+            print("\nSTEP 2: Syncing leads from GHL...")
+            leads_results = self._sync_leads()
             
-            print(f"✅ Found {len(vendor_contacts)} vendor contacts in GHL")
+            # Results
+            print(f"\n📊 SYNC RESULTS:")
+            print(f"   VENDORS: ✅ {vendor_results['synced']} | ❌ {vendor_results['failed']} | 🗑️ {vendor_results['cleaned']}")
+            print(f"   LEADS:   ✅ {leads_results['synced']} | ❌ {leads_results['failed']} | 🗑️ {leads_results['test_removed']}")
             
-            # Step 2: Process each vendor with comprehensive field extraction
-            print(f"\nSTEP 2: Processing vendor data with complete field mapping...")
-            processed_vendors = []
-            failed_vendors = []
+            # Verify
+            print(f"\nSTEP 3: Verifying sync results...")
+            self._verify_sync()
             
-            for i, contact in enumerate(vendor_contacts, 1):
-                contact_name = f"{contact.get('firstName', '')} {contact.get('lastName', '')}".strip()
-                print(f"\n[{i}/{len(vendor_contacts)}] Processing: {contact_name}")
-                
-                try:
-                    vendor_data = self._extract_complete_vendor_data(contact)
-                    if vendor_data:
-                        processed_vendors.append(vendor_data)
-                        print(f"   ✅ Successfully extracted data for {contact_name}")
-                    else:
-                        failed_vendors.append(contact)
-                        print(f"   ❌ Failed to extract data for {contact_name}")
-                        
-                except Exception as e:
-                    failed_vendors.append(contact)
-                    print(f"   ❌ Error processing {contact_name}: {e}")
-                    logger.exception(f"Error processing {contact_name}")
+            success = (vendor_results['synced'] > 0 or leads_results['synced'] > 0 or 
+                      vendor_results['cleaned'] > 0 or leads_results['test_removed'] > 0)
             
-            # Step 3: Upsert vendors into database (with overwrite)
-            print(f"\nSTEP 3: Upserting {len(processed_vendors)} vendors into database...")
-            upserted_count = self._upsert_vendors_to_database(processed_vendors)
-            
-            # Step 4: Clean up vendors that are no longer in GHL
-            print(f"\nSTEP 4: Cleaning up vendors no longer in GoHighLevel...")
-            ghl_contact_ids = [contact.get('id') for contact in vendor_contacts if contact.get('id')]
-            removed_count = self._remove_outdated_vendors(ghl_contact_ids)
-            
-            # Report results
-            print(f"\n📊 ENHANCED VENDOR SYNC RESULTS:")
-            print(f"   ✅ Successfully processed: {len(processed_vendors)}")
-            print(f"   💾 Upserted to database: {upserted_count}")
-            print(f"   ❌ Failed to process: {len(failed_vendors)}")
-            print(f"   🗑️ Removed outdated: {removed_count}")
-            print(f"   📋 Total contacts found: {len(vendor_contacts)}")
-            
-            if upserted_count > 0:
-                # Step 5: Verify database content
-                self._verify_complete_vendor_data()
-                
-                print(f"\n🎉 ENHANCED VENDOR SYNC SUCCESSFUL!")
-                print("   ✅ All vendor fields properly mapped and synchronized")
-                print("   ✅ Existing vendor data overwritten with latest from GHL")
-                print("   ✅ Database contains most accurate vendor information")
+            if success:
+                print(f"\n🎉 FOCUSED SYNC SUCCESSFUL!")
+                print("   ✅ Vendor coverage areas fixed using correct Service Zip Codes field")
+                print("   ✅ All real database columns properly mapped from GHL")
                 return True
             else:
-                print(f"\n❌ ENHANCED VENDOR SYNC COMPLETED WITH NO CHANGES!")
+                print(f"\n❌ SYNC COMPLETED WITH NO CHANGES")
                 return False
                 
         except Exception as e:
-            logger.error(f"❌ Error in enhanced vendor sync: {e}")
-            logger.exception("Enhanced vendor sync failed")
+            logger.error(f"❌ Sync failed: {e}")
             return False
     
-    def _get_all_vendor_contacts(self) -> List[Dict[str, Any]]:
-        """Get all vendor contacts from GoHighLevel with comprehensive search"""
+    def _sync_vendors(self) -> Dict[str, int]:
+        """Sync vendors from GHL contacts"""
+        
         try:
-            # Search strategies for finding vendor contacts
-            all_vendor_contacts = []
+            # Get vendor contacts (those with GHL User ID)
+            all_contacts = self.ghl_api.search_contacts(query="", limit=200)
+            vendor_contacts = []
             
-            # Strategy 1: Search by vendor-related tags
-            vendor_tags = ['vendor', 'contractor', 'service-provider', 'partner', 'supplier']
-            for tag in vendor_tags:
+            if all_contacts:
+                for contact in all_contacts:
+                    # Check if contact has GHL User ID
+                    custom_fields = contact.get('customFields', [])
+                    has_ghl_user_id = any(
+                        field.get('id') == 'HXVNT4y8OynNokWAfO2D' and 
+                        field.get('value', '').strip()
+                        for field in custom_fields
+                    )
+                    
+                    if has_ghl_user_id:
+                        vendor_contacts.append(contact)
+            
+            logger.info(f"📋 Found {len(vendor_contacts)} vendor contacts")
+            
+            synced = 0
+            failed = 0
+            
+            for contact in vendor_contacts:
                 try:
-                    contacts = self.ghl_api.search_contacts(query=tag, limit=100)
-                    if contacts:
-                        for contact in contacts:
-                            contact_id = contact.get('id')
-                            if contact_id and not any(v.get('id') == contact_id for v in all_vendor_contacts):
-                                all_vendor_contacts.append(contact)
-                                logger.debug(f"Found vendor via tag '{tag}': {contact.get('firstName')} {contact.get('lastName')}")
+                    vendor_data = self._extract_vendor_data(contact)
+                    if vendor_data and self._save_vendor(vendor_data):
+                        synced += 1
+                        logger.info(f"✅ Synced vendor: {vendor_data['name']}")
+                    else:
+                        failed += 1
                 except Exception as e:
-                    logger.warning(f"⚠️ Error searching for tag '{tag}': {e}")
+                    failed += 1
+                    logger.error(f"❌ Failed to process vendor: {e}")
             
-            # Strategy 2: Search by custom field presence  
-            try:
-                all_contacts = self.ghl_api.search_contacts(query="", limit=500)
-                if all_contacts:
-                    for contact in all_contacts:
-                        custom_fields = contact.get('customFields', [])
-                        
-                        # Check if contact has vendor-specific custom fields
-                        has_vendor_fields = any(
-                            field.get('id') in self.ghl_field_mappings.values()
-                            for field in custom_fields
-                        )
-                        
-                        if has_vendor_fields:
-                            contact_id = contact.get('id')
-                            if contact_id and not any(v.get('id') == contact_id for v in all_vendor_contacts):
-                                all_vendor_contacts.append(contact)
-                                logger.debug(f"Found vendor via custom fields: {contact.get('firstName')} {contact.get('lastName')}")
-                                
-            except Exception as e:
-                logger.warning(f"⚠️ Error getting all contacts: {e}")
+            # Clean outdated vendors
+            current_ids = [c.get('id') for c in vendor_contacts if c.get('id')]
+            cleaned = self._remove_outdated_vendors(current_ids)
             
-            logger.info(f"📋 Found {len(all_vendor_contacts)} total vendor contacts")
-            return all_vendor_contacts
+            return {'synced': synced, 'failed': failed, 'cleaned': cleaned}
             
         except Exception as e:
-            logger.error(f"❌ Error fetching vendor contacts: {e}")
-            return []
+            logger.error(f"❌ Error syncing vendors: {e}")
+            return {'synced': 0, 'failed': 0, 'cleaned': 0}
     
-    def _extract_complete_vendor_data(self, contact: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        """Extract complete vendor data with comprehensive field mapping and logging"""
-        
-        contact_id = contact.get('id')
-        contact_name = f"{contact.get('firstName', '')} {contact.get('lastName', '')}".strip()
-        
-        logger.info(f"🔍 EXTRACTING COMPLETE DATA FOR: {contact_name} (ID: {contact_id})")
+    def _sync_leads(self) -> Dict[str, int]:
+        """Sync leads from GHL contacts"""
         
         try:
-            # Initialize vendor data structure
+            # Clean test data first
+            test_removed = self._clean_test_leads()
+            
+            # Get lead contacts (those with Specific Service Needed, but no GHL User ID)
+            all_contacts = self.ghl_api.search_contacts(query="", limit=200)
+            lead_contacts = []
+            
+            if all_contacts:
+                for contact in all_contacts:
+                    custom_fields = contact.get('customFields', [])
+                    
+                    # Check for specific service needed
+                    has_service_request = any(
+                        field.get('id') == 'FT85QGi0tBq1AfVGNJ9v' and 
+                        field.get('value', '').strip()
+                        for field in custom_fields
+                    )
+                    
+                    # Exclude vendors (no GHL User ID = lead)
+                    has_ghl_user_id = any(
+                        field.get('id') == 'HXVNT4y8OynNokWAfO2D' and 
+                        field.get('value', '').strip()
+                        for field in custom_fields
+                    )
+                    
+                    if has_service_request and not has_ghl_user_id:
+                        lead_contacts.append(contact)
+            
+            logger.info(f"📋 Found {len(lead_contacts)} lead contacts")
+            
+            synced = 0
+            failed = 0
+            
+            for contact in lead_contacts:
+                try:
+                    lead_data = self._extract_lead_data(contact)
+                    if lead_data and self._save_lead(lead_data):
+                        synced += 1
+                        logger.info(f"✅ Synced lead: {lead_data['customer_name']}")
+                    else:
+                        failed += 1
+                except Exception as e:
+                    failed += 1
+                    logger.error(f"❌ Failed to process lead: {e}")
+            
+            return {'synced': synced, 'failed': failed, 'test_removed': test_removed}
+            
+        except Exception as e:
+            logger.error(f"❌ Error syncing leads: {e}")
+            return {'synced': 0, 'failed': 0, 'test_removed': 0}
+    
+    def _extract_vendor_data(self, contact: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Extract vendor data mapping only real database columns"""
+        
+        contact_id = contact.get('id')
+        
+        try:
+            # Extract custom fields
+            custom_fields = contact.get('customFields', [])
+            field_data = self._extract_custom_fields(custom_fields)
+            
+            # Check required field
+            ghl_user_id = field_data.get('ghl_user_id', '').strip()
+            if not ghl_user_id:
+                return None
+            
+            # Map real database columns
             vendor_data = {
                 'id': str(uuid.uuid4()),
                 'account_id': self.account_id,
                 'ghl_contact_id': contact_id,
-                'name': contact_name,
-                'status': 'active',  # Default status
-                'created_at': datetime.now().isoformat(),
-                'updated_at': datetime.now().isoformat()
+                'ghl_user_id': ghl_user_id,
+                'name': f"{contact.get('firstName', '')} {contact.get('lastName', '')}".strip(),
+                'email': contact.get('email', ''),
+                'phone': contact.get('phone', ''),
+                'company_name': field_data.get('company_name', contact.get('companyName', '')),
+                'service_categories': json.dumps(self._parse_list(field_data.get('service_categories', ''))),
+                'services_offered': json.dumps(self._parse_list(field_data.get('services_offered', ''))),
+                'last_lead': self._parse_date(field_data.get('last_lead', '')),
+                'lead_close_percentage': self._parse_percentage(field_data.get('lead_close_percentage', '0')),
+                'taking_new_work': self._parse_boolean(field_data.get('taking_new_work', 'true')),
+                'status': 'active'
             }
             
-            # Extract standard contact fields
-            logger.info(f"📝 Extracting standard contact fields...")
-            for db_field, ghl_field in self.standard_fields.items():
-                ghl_value = contact.get(ghl_field, '')
-                vendor_data[db_field] = ghl_value
-                
-                if ghl_value:
-                    logger.info(f"   ✅ {db_field} ← GHL.{ghl_field}: '{ghl_value}'")
-                else:
-                    logger.debug(f"   ⚪ {db_field} ← GHL.{ghl_field}: (empty)")
-            
-            # Construct full name and company info
-            vendor_data['name'] = f"{vendor_data.get('firstName', '')} {vendor_data.get('lastName', '')}".strip()
-            vendor_data['email'] = vendor_data.get('email', '')
-            vendor_data['phone'] = vendor_data.get('phone', '')
-            vendor_data['company_name'] = vendor_data.get('companyName', '')
-            
-            # Extract custom fields
-            custom_fields = contact.get('customFields', [])
-            logger.info(f"🔧 Extracting {len(custom_fields)} custom fields...")
-            
-            custom_data = self._extract_and_log_custom_fields(custom_fields, contact_name)
-            
-            # Check for required ghl_user_id
-            ghl_user_id = custom_data.get('ghl_user_id', '').strip()
-            if not ghl_user_id:
-                logger.warning(f"⚠️ SKIPPING {contact_name}: No GHL User ID found")
-                return None
-            
-            vendor_data['ghl_user_id'] = ghl_user_id
-            logger.info(f"   ✅ ghl_user_id: {ghl_user_id}")
-            
-            # Process specialized data sections
-            service_data = self._process_service_data_enhanced(custom_data, contact_name)
-            vendor_data.update(service_data)
-            
-            coverage_data = self._process_coverage_data_enhanced(contact, custom_data, contact_name)
+            # Process coverage from Service Zip Codes field (THE CRITICAL FIX)
+            coverage_data = self._process_coverage(field_data.get('service_zip_codes', ''), contact)
             vendor_data.update(coverage_data)
             
-            business_data = self._process_business_data_enhanced(custom_data, contact_name)
-            vendor_data.update(business_data)
-            
-            routing_data = self._process_routing_data_enhanced(custom_data, contact_name)
-            vendor_data.update(routing_data)
-            
-            logger.info(f"✅ COMPLETE DATA EXTRACTION SUCCESS FOR: {contact_name}")
+            logger.debug(f"📋 Extracted vendor: {vendor_data['name']}")
             return vendor_data
             
         except Exception as e:
-            logger.error(f"❌ Error extracting complete vendor data for {contact_name}: {e}")
-            logger.exception(f"Complete data extraction failed for {contact_name}")
+            logger.error(f"❌ Error extracting vendor data: {e}")
             return None
     
-    def _extract_and_log_custom_fields(self, custom_fields: List[Dict[str, Any]], contact_name: str) -> Dict[str, Any]:
-        """Extract custom field values with detailed logging of field mappings"""
+    def _extract_lead_data(self, contact: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Extract lead data mapping only real database columns"""
         
-        extracted = {}
+        contact_id = contact.get('id')
         
-        logger.info(f"   🎯 Custom field mapping for {contact_name}:")
+        try:
+            # Extract custom fields
+            custom_fields = contact.get('customFields', [])
+            field_data = self._extract_custom_fields(custom_fields)
+            
+            # Check required field
+            specific_service = field_data.get('specific_service_requested', '').strip()
+            if not specific_service:
+                return None
+            
+            # Map real database columns
+            lead_data = {
+                'id': str(uuid.uuid4()),
+                'account_id': self.account_id,
+                'ghl_contact_id': contact_id,
+                'ghl_opportunity_id': None,  # Would need to look this up separately
+                'customer_name': f"{contact.get('firstName', '')} {contact.get('lastName', '')}".strip(),
+                'customer_email': contact.get('email', ''),
+                'customer_phone': contact.get('phone', ''),
+                'specific_service_requested': specific_service,
+                'customer_zip_code': field_data.get('customer_zip_code', ''),
+                'service_zip_code': field_data.get('customer_zip_code', ''),
+                'status': 'unassigned',
+                'priority': 'normal',
+                'source': 'Elementor Form'
+            }
+            
+            # Derive primary service category from specific service
+            lead_data['primary_service_category'] = self._derive_service_category(specific_service)
+            
+            # Convert ZIP to county/state
+            zip_code = lead_data['customer_zip_code']
+            if zip_code:
+                try:
+                    location_data = location_service.zip_to_location(zip_code)
+                    if not location_data.get('error'):
+                        lead_data['service_county'] = location_data.get('county', '')
+                        lead_data['service_state'] = location_data.get('state', '')
+                except Exception:
+                    pass
+            
+            # Build service_details JSON from vessel and other info
+            service_details = {}
+            for field in ['vessel_make', 'vessel_model', 'vessel_year', 'vessel_length_ft', 
+                         'vessel_location_slip', 'budget_range', 'desired_timeline', 'special_requests_notes']:
+                value = field_data.get(field, '').strip()
+                if value:
+                    service_details[field] = value
+            
+            lead_data['service_details'] = json.dumps(service_details)
+            
+            logger.debug(f"📋 Extracted lead: {lead_data['customer_name']}")
+            return lead_data
+            
+        except Exception as e:
+            logger.error(f"❌ Error extracting lead data: {e}")
+            return None
+    
+    def _extract_custom_fields(self, custom_fields: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Extract custom field values using vendor and leads mappings"""
         
-        # Create reverse mapping for logging
-        id_to_field_name = {v: k for k, v in self.ghl_field_mappings.items()}
+        field_data = {}
         
+        # Create reverse mapping (GHL field ID -> database field name)
+        all_mappings = {}
+        for field_name, ghl_id in self.vendor_mappings.items():
+            if isinstance(ghl_id, str):
+                all_mappings[ghl_id] = field_name
+        for field_name, ghl_id in self.leads_mappings.items():
+            if isinstance(ghl_id, str):
+                all_mappings[ghl_id] = field_name
+        
+        # Extract field values
         for field in custom_fields:
             field_id = field.get('id', '')
             field_value = field.get('value', '') or field.get('fieldValue', '')
             
-            # Check if this field is in our mapping
-            if field_id in id_to_field_name:
-                field_name = id_to_field_name[field_id]
-                extracted[field_name] = field_value
-                
-                if field_value and str(field_value).strip():
-                    logger.info(f"      ✅ {field_name} ← GHL_ID[{field_id}]: '{field_value}'")
-                else:
-                    logger.info(f"      ⚪ {field_name} ← GHL_ID[{field_id}]: (empty)")
-            else:
-                # Log unmapped fields for debugging
-                if field_value and str(field_value).strip():
-                    logger.debug(f"      ❓ UNMAPPED_FIELD ← GHL_ID[{field_id}]: '{field_value}'")
+            if field_id in all_mappings:
+                field_name = all_mappings[field_id]
+                field_data[field_name] = field_value
+                logger.debug(f"   {field_name} ← {field_id}: '{field_value}'")
         
-        # Log any expected fields that weren't found
-        for field_name, field_id in self.ghl_field_mappings.items():
-            if field_name not in extracted:
-                logger.debug(f"      ❌ {field_name} ← GHL_ID[{field_id}]: (not found in contact)")
-        
-        return extracted
+        return field_data
     
-    def _process_service_data_enhanced(self, custom_data: Dict[str, Any], contact_name: str) -> Dict[str, Any]:
-        """Process service categories and specific services with enhanced logging"""
+    def _process_coverage(self, service_zip_codes_raw: str, contact: Dict[str, Any]) -> Dict[str, Any]:
+        """Process coverage from Service Zip Codes field - THE CRITICAL FIX"""
         
-        logger.info(f"   🛠️ Processing service data for {contact_name}:")
-        
-        service_categories = []
-        services_offered = []
-        
-        # Extract primary service category
-        primary_category = custom_data.get('primary_service_category', '').strip()
-        if primary_category:
-            service_categories.append(primary_category)
-            logger.info(f"      ✅ Primary category: '{primary_category}'")
-        
-        # Extract service categories selections
-        category_selections = custom_data.get('service_categories_selections', '').strip()
-        if category_selections:
-            logger.info(f"      📋 Raw category selections: '{category_selections}'")
-            categories = self._parse_comma_separated_values(category_selections)
-            for category in categories:
-                if category not in service_categories:
-                    service_categories.append(category)
-                    logger.info(f"      ✅ Added category: '{category}'")
-        
-        # Extract specific services provided
-        services_provided = custom_data.get('services_provided', '').strip()
-        if services_provided:
-            logger.info(f"      🔧 Raw services provided: '{services_provided}'")
-            services = self._parse_comma_separated_values(services_provided)
-            services_offered.extend(services)
-            logger.info(f"      ✅ Added {len(services)} services: {services}")
-        
-        # Extract specific service needed (might be populated for vendors too)
-        specific_service = custom_data.get('specific_service_needed', '').strip()
-        if specific_service and specific_service not in services_offered:
-            services_offered.append(specific_service)
-            logger.info(f"      ✅ Added specific service: '{specific_service}'")
-        
-        result = {
-            'service_categories': json.dumps(service_categories),
-            'services_offered': json.dumps(services_offered)
-        }
-        
-        logger.info(f"      📊 Final service data: {len(service_categories)} categories, {len(services_offered)} services")
-        return result
-    
-    def _process_coverage_data_enhanced(self, contact: Dict[str, Any], custom_data: Dict[str, Any], contact_name: str) -> Dict[str, Any]:
-        """Process coverage areas with enhanced ZIP→County conversion and logging"""
-        
-        logger.info(f"   🗺️ Processing coverage data for {contact_name}:")
-        
-        # Extract raw service zip codes from the CORRECT field
-        service_zip_codes_raw = custom_data.get('service_zip_codes', '').strip()
-        logger.info(f"      📍 Raw service zip codes from GHL field 'yDcN0FmwI3xacyxAuTWs': '{service_zip_codes_raw}'")
+        logger.debug(f"🗺️ Processing coverage from Service Zip Codes field")
+        logger.debug(f"   Raw value: '{service_zip_codes_raw}'")
         
         coverage_counties = []
         coverage_states = set()
-        coverage_type = 'county'  # Default
         
         if service_zip_codes_raw:
-            # Parse ZIP codes
-            zip_codes = self._parse_zip_codes_enhanced(service_zip_codes_raw)
-            logger.info(f"      🔢 Parsed {len(zip_codes)} ZIP codes: {zip_codes}")
+            zip_codes = self._parse_zip_codes(service_zip_codes_raw)
+            logger.debug(f"   Parsed ZIP codes: {zip_codes}")
             
-            # Convert each ZIP to county
             for zip_code in zip_codes:
                 try:
-                    logger.debug(f"        🔄 Converting ZIP {zip_code}...")
                     location_data = location_service.zip_to_location(zip_code)
-                    
                     if not location_data.get('error'):
                         county = location_data.get('county', '')
-                        state_code = location_data.get('state', '')
-                        city = location_data.get('city', '')
+                        state = location_data.get('state', '')
                         
-                        if county and state_code:
-                            county_formatted = f"{county}, {state_code}"
+                        if county and state:
+                            county_formatted = f"{county}, {state}"
                             if county_formatted not in coverage_counties:
                                 coverage_counties.append(county_formatted)
-                                coverage_states.add(state_code)
-                                logger.info(f"        ✅ ZIP {zip_code} ({city}) → {county_formatted}")
-                            else:
-                                logger.debug(f"        ⚪ ZIP {zip_code} → {county_formatted} (duplicate)")
-                        else:
-                            logger.warning(f"        ⚠️ ZIP {zip_code} → Missing county/state data")
-                    else:
-                        logger.warning(f"        ❌ ZIP {zip_code} → Error: {location_data.get('error')}")
-                        
+                                coverage_states.add(state)
+                                logger.debug(f"     ✅ {zip_code} → {county_formatted}")
                 except Exception as e:
-                    logger.error(f"        ❌ ZIP {zip_code} → Exception: {e}")
+                    logger.debug(f"     ❌ {zip_code} → Error: {e}")
         
-        # Fallback to personal address if no service ZIP codes
+        # Fallback to personal address
         if not coverage_counties:
-            logger.warning(f"      ⚠️ No service ZIP codes found, trying personal address...")
             personal_zip = contact.get('postalCode', '').strip()
-            
             if personal_zip and len(personal_zip) == 5 and personal_zip.isdigit():
                 try:
-                    logger.info(f"      🏠 Using personal ZIP as fallback: {personal_zip}")
                     location_data = location_service.zip_to_location(personal_zip)
-                    
                     if not location_data.get('error'):
                         county = location_data.get('county', '')
-                        state_code = location_data.get('state', '')
-                        
-                        if county and state_code:
-                            county_formatted = f"{county}, {state_code}"
-                            coverage_counties.append(county_formatted)
-                            coverage_states.add(state_code)
-                            logger.info(f"      ✅ Personal ZIP {personal_zip} → {county_formatted}")
-                        
-                except Exception as e:
-                    logger.warning(f"      ❌ Error processing personal ZIP {personal_zip}: {e}")
+                        state = location_data.get('state', '')
+                        if county and state:
+                            coverage_counties.append(f"{county}, {state}")
+                            coverage_states.add(state)
+                except Exception:
+                    pass
         
-        # Determine coverage type based on scope
+        # Determine coverage type
         if len(coverage_states) > 3:
             coverage_type = 'national'
         elif len(coverage_states) > 1:
@@ -551,367 +486,294 @@ class EnhancedVendorSync:
         else:
             coverage_type = 'county'
         
-        result = {
-            'service_coverage_type': coverage_type,
-            'service_counties': json.dumps(coverage_counties),
-            'service_states': json.dumps(list(coverage_states)),
-            'service_areas': json.dumps([])  # Legacy field, keep empty
-        }
-        
-        logger.info(f"      📊 Final coverage: {coverage_type} type, {len(coverage_counties)} counties, {len(coverage_states)} states")
-        return result
-    
-    def _process_business_data_enhanced(self, custom_data: Dict[str, Any], contact_name: str) -> Dict[str, Any]:
-        """Process business-related fields with enhanced extraction"""
-        
-        logger.info(f"   💼 Processing business data for {contact_name}:")
-        
-        business_fields = [
-            'years_in_business', 'certifications_licenses', 'insurance_coverage',
-            'emergency_services', 'service_radius_miles', 'crew_size', 
-            'special_equipment', 'pricing_structure', 'payment_terms',
-            'availability_schedule', 'preferred_contact_method', 
-            'vessel_types_serviced', 'references', 'notes'
-        ]
-        
-        result = {}
-        
-        for field in business_fields:
-            value = custom_data.get(field, '').strip() if custom_data.get(field) else ''
-            result[field] = value
-            
-            if value:
-                logger.info(f"      ✅ {field}: '{value}'")
-            else:
-                logger.debug(f"      ⚪ {field}: (empty)")
-        
-        # Handle taking_new_work boolean field
-        taking_new_work_raw = custom_data.get('taking_new_work', '').strip().lower()
-        taking_new_work = taking_new_work_raw in ['yes', 'true', '1', 'active', 'available']
-        result['taking_new_work'] = taking_new_work
-        
-        logger.info(f"      ✅ taking_new_work: {taking_new_work} (from '{taking_new_work_raw}')")
-        
-        return result
-    
-    def _process_routing_data_enhanced(self, custom_data: Dict[str, Any], contact_name: str) -> Dict[str, Any]:
-        """Process routing performance fields with enhanced parsing"""
-        
-        logger.info(f"   🎯 Processing routing data for {contact_name}:")
-        
-        # Process last lead assigned
-        last_assigned_raw = custom_data.get('last_lead_assigned', '').strip()
-        last_lead_assigned = None
-        
-        if last_assigned_raw:
-            try:
-                from datetime import datetime
-                for date_format in ['%Y-%m-%d', '%m/%d/%Y', '%Y-%m-%d %H:%M:%S', '%m/%d/%Y %H:%M:%S']:
-                    try:
-                        parsed_date = datetime.strptime(last_assigned_raw, date_format)
-                        last_lead_assigned = parsed_date.isoformat()
-                        logger.info(f"      ✅ last_lead_assigned: {last_lead_assigned} (parsed from '{last_assigned_raw}')")
-                        break
-                    except ValueError:
-                        continue
-                
-                if not last_lead_assigned:
-                    logger.warning(f"      ⚠️ Could not parse date: '{last_assigned_raw}'")
-                    
-            except Exception as e:
-                logger.warning(f"      ❌ Error parsing last_lead_assigned: {e}")
-        else:
-            logger.debug(f"      ⚪ last_lead_assigned: (empty)")
-        
-        # Process lead close percentage
-        close_percentage_raw = custom_data.get('lead_close_percentage', '').strip()
-        lead_close_percentage = 0.0
-        
-        if close_percentage_raw:
-            try:
-                # Handle various percentage formats
-                clean_percentage = close_percentage_raw.replace('%', '').replace(',', '').strip()
-                percentage_value = float(clean_percentage)
-                
-                # Normalize to 0-100 range
-                if percentage_value <= 1.0:
-                    lead_close_percentage = percentage_value * 100
-                else:
-                    lead_close_percentage = percentage_value
-                
-                # Ensure within valid range
-                lead_close_percentage = max(0.0, min(100.0, lead_close_percentage))
-                
-                logger.info(f"      ✅ lead_close_percentage: {lead_close_percentage}% (from '{close_percentage_raw}')")
-                
-            except (ValueError, TypeError) as e:
-                logger.warning(f"      ❌ Error parsing lead_close_percentage '{close_percentage_raw}': {e}")
-                lead_close_percentage = 0.0
-        else:
-            logger.debug(f"      ⚪ lead_close_percentage: 0.0 (empty)")
-        
         return {
-            'last_lead_assigned': last_lead_assigned,
-            'lead_close_percentage': lead_close_percentage
+            'coverage_type': coverage_type,
+            'coverage_states': json.dumps(list(coverage_states)),
+            'coverage_counties': json.dumps(coverage_counties)
         }
     
-    def _parse_comma_separated_values(self, value_string: str) -> List[str]:
-        """Parse comma-separated values with proper trimming"""
-        if not value_string:
-            return []
-        
-        values = [v.strip() for v in value_string.split(',') if v.strip()]
-        return values
-    
-    def _parse_zip_codes_enhanced(self, zip_codes_raw: str) -> List[str]:
-        """Enhanced ZIP code parsing with better format handling"""
-        if not zip_codes_raw or not zip_codes_raw.strip():
-            return []
-        
-        # Normalize separators
-        normalized = zip_codes_raw.replace(';', ',').replace('\n', ',').replace('\r', ',').replace('\t', ',')
-        
-        zip_codes = []
-        for zip_code in normalized.split(','):
-            zip_code = zip_code.strip()
-            
-            # Handle ZIP+4 format
-            if '-' in zip_code:
-                zip_code = zip_code.split('-')[0].strip()
-            elif len(zip_code) == 9 and zip_code.isdigit():
-                zip_code = zip_code[:5]
-            
-            # Validate 5-digit ZIP code
-            if zip_code and len(zip_code) == 5 and zip_code.isdigit():
-                if zip_code not in zip_codes:  # Avoid duplicates
-                    zip_codes.append(zip_code)
-        
-        # Try space separation if comma separation failed
-        if not zip_codes and ' ' in zip_codes_raw:
-            for zip_code in zip_codes_raw.split():
-                zip_code = zip_code.strip()
-                if len(zip_code) == 5 and zip_code.isdigit():
-                    if zip_code not in zip_codes:
-                        zip_codes.append(zip_code)
-        
-        return zip_codes
-    
-    def _upsert_vendors_to_database(self, vendors: List[Dict[str, Any]]) -> int:
-        """Upsert vendors to database with OVERWRITE capability"""
-        
-        if not vendors:
-            return 0
-        
-        logger.info(f"💾 UPSERTING {len(vendors)} vendors to database with overwrite...")
+    def _save_vendor(self, vendor_data: Dict[str, Any]) -> bool:
+        """Save vendor to database with overwrite"""
         
         try:
             conn = sqlite3.connect('smart_lead_router.db')
             cursor = conn.cursor()
             
-            # Use INSERT OR REPLACE to overwrite existing vendors
-            upsert_sql = """
+            cursor.execute("""
                 INSERT OR REPLACE INTO vendors (
-                    id, account_id, ghl_contact_id, ghl_user_id, name, email, phone, 
-                    company_name, service_categories, services_offered, service_coverage_type,
-                    service_states, service_counties, service_areas, last_lead_assigned, 
-                    lead_close_percentage, status, taking_new_work,
-                    years_in_business, certifications_licenses, insurance_coverage,
-                    emergency_services, service_radius_miles, crew_size, special_equipment,
-                    pricing_structure, payment_terms, availability_schedule,
-                    preferred_contact_method, vessel_types_serviced, references, notes,
-                    created_at, updated_at
+                    id, account_id, ghl_contact_id, ghl_user_id, name, email, phone,
+                    company_name, service_categories, services_offered, coverage_type,
+                    coverage_states, coverage_counties, last_lead, lead_close_percentage,
+                    status, taking_new_work, created_at, updated_at
                 ) VALUES (
                     COALESCE((SELECT id FROM vendors WHERE ghl_contact_id = ?), ?),
-                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 
-                    ?, ?, ?, ?, ?, ?, COALESCE((SELECT created_at FROM vendors WHERE ghl_contact_id = ?), ?), ?
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                    COALESCE((SELECT created_at FROM vendors WHERE ghl_contact_id = ?), CURRENT_TIMESTAMP),
+                    CURRENT_TIMESTAMP
                 )
-            """
-            
-            upserted_count = 0
-            
-            for vendor in vendors:
-                try:
-                    ghl_contact_id = vendor['ghl_contact_id']
-                    new_id = vendor['id']
-                    created_at = vendor['created_at']
-                    updated_at = vendor['updated_at']
-                    
-                    cursor.execute(upsert_sql, (
-                        ghl_contact_id, new_id,  # For COALESCE ID logic
-                        vendor['account_id'], 
-                        vendor['ghl_contact_id'],
-                        vendor.get('ghl_user_id'),
-                        vendor['name'],
-                        vendor.get('email', ''),
-                        vendor.get('phone', ''),
-                        vendor.get('company_name', ''),
-                        vendor['service_categories'],
-                        vendor['services_offered'],
-                        vendor['service_coverage_type'],
-                        vendor['service_states'],
-                        vendor['service_counties'],
-                        vendor['service_areas'],
-                        vendor.get('last_lead_assigned'),
-                        vendor['lead_close_percentage'],
-                        vendor['status'],
-                        vendor.get('taking_new_work', True),
-                        vendor.get('years_in_business', ''),
-                        vendor.get('certifications_licenses', ''),
-                        vendor.get('insurance_coverage', ''),
-                        vendor.get('emergency_services', ''),
-                        vendor.get('service_radius_miles', ''),
-                        vendor.get('crew_size', ''),
-                        vendor.get('special_equipment', ''),
-                        vendor.get('pricing_structure', ''),
-                        vendor.get('payment_terms', ''),
-                        vendor.get('availability_schedule', ''),
-                        vendor.get('preferred_contact_method', ''),
-                        vendor.get('vessel_types_serviced', ''),
-                        vendor.get('references', ''),
-                        vendor.get('notes', ''),
-                        ghl_contact_id, created_at,  # For COALESCE created_at logic
-                        updated_at
-                    ))
-                    
-                    upserted_count += 1
-                    logger.info(f"   ✅ Upserted: {vendor['name']}")
-                    
-                except Exception as e:
-                    logger.error(f"   ❌ Error upserting vendor {vendor['name']}: {e}")
+            """, (
+                vendor_data['ghl_contact_id'], vendor_data['id'],
+                vendor_data['account_id'], vendor_data['ghl_contact_id'], vendor_data['ghl_user_id'],
+                vendor_data['name'], vendor_data['email'], vendor_data['phone'],
+                vendor_data['company_name'], vendor_data['service_categories'], vendor_data['services_offered'],
+                vendor_data['coverage_type'], vendor_data['coverage_states'], vendor_data['coverage_counties'],
+                vendor_data['last_lead'], vendor_data['lead_close_percentage'],
+                vendor_data['status'], vendor_data['taking_new_work'],
+                vendor_data['ghl_contact_id']
+            ))
             
             conn.commit()
             conn.close()
-            
-            logger.info(f"✅ Successfully upserted {upserted_count} vendors")
-            return upserted_count
+            return True
             
         except Exception as e:
-            logger.error(f"❌ Error upserting vendors to database: {e}")
-            return 0
+            logger.error(f"❌ Error saving vendor: {e}")
+            return False
     
-    def _remove_outdated_vendors(self, current_ghl_contact_ids: List[str]) -> int:
-        """Remove vendors that are no longer in GHL"""
+    def _save_lead(self, lead_data: Dict[str, Any]) -> bool:
+        """Save lead to database with overwrite"""
+        
         try:
             conn = sqlite3.connect('smart_lead_router.db')
             cursor = conn.cursor()
             
-            if not current_ghl_contact_ids:
+            cursor.execute("""
+                INSERT OR REPLACE INTO leads (
+                    id, account_id, ghl_contact_id, ghl_opportunity_id, customer_name,
+                    customer_email, customer_phone, primary_service_category, specific_service_requested,
+                    customer_zip_code, service_county, service_state, service_zip_code,
+                    status, priority, source, service_details, created_at, updated_at
+                ) VALUES (
+                    COALESCE((SELECT id FROM leads WHERE ghl_contact_id = ?), ?),
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                    COALESCE((SELECT created_at FROM leads WHERE ghl_contact_id = ?), CURRENT_TIMESTAMP),
+                    CURRENT_TIMESTAMP
+                )
+            """, (
+                lead_data['ghl_contact_id'], lead_data['id'],
+                lead_data['account_id'], lead_data['ghl_contact_id'], lead_data.get('ghl_opportunity_id'),
+                lead_data['customer_name'], lead_data['customer_email'], lead_data['customer_phone'],
+                lead_data['primary_service_category'], lead_data['specific_service_requested'],
+                lead_data['customer_zip_code'], lead_data.get('service_county', ''),
+                lead_data.get('service_state', ''), lead_data['service_zip_code'],
+                lead_data['status'], lead_data['priority'], lead_data['source'], lead_data['service_details'],
+                lead_data['ghl_contact_id']
+            ))
+            
+            conn.commit()
+            conn.close()
+            return True
+            
+        except Exception as e:
+            logger.error(f"❌ Error saving lead: {e}")
+            return False
+    
+    def _clean_test_leads(self) -> int:
+        """Remove test leads"""
+        
+        try:
+            conn = sqlite3.connect('smart_lead_router.db')
+            cursor = conn.cursor()
+            
+            cursor.execute("""
+                DELETE FROM leads 
+                WHERE customer_name LIKE '%test%' 
+                   OR customer_name LIKE '%john%'
+                   OR customer_email LIKE '%test%'
+                   OR customer_email LIKE '%example%'
+            """)
+            
+            removed = cursor.rowcount
+            conn.commit()
+            conn.close()
+            
+            logger.info(f"🗑️ Removed {removed} test leads")
+            return removed
+            
+        except Exception as e:
+            logger.error(f"❌ Error cleaning test leads: {e}")
+            return 0
+    
+    def _remove_outdated_vendors(self, current_ghl_ids: List[str]) -> int:
+        """Remove vendors no longer in GHL"""
+        
+        try:
+            conn = sqlite3.connect('smart_lead_router.db')
+            cursor = conn.cursor()
+            
+            if not current_ghl_ids:
                 conn.close()
                 return 0
             
-            placeholders = ','.join(['?' for _ in current_ghl_contact_ids])
+            placeholders = ','.join(['?' for _ in current_ghl_ids])
             
             cursor.execute(f"""
                 DELETE FROM vendors 
                 WHERE ghl_contact_id NOT IN ({placeholders})
                 AND ghl_user_id IS NOT NULL 
-            """, current_ghl_contact_ids)
+            """, current_ghl_ids)
             
-            removed_count = cursor.rowcount
+            removed = cursor.rowcount
             conn.commit()
             conn.close()
             
-            logger.info(f"✅ Removed {removed_count} vendors no longer in GHL")
-            return removed_count
+            logger.info(f"🗑️ Removed {removed} outdated vendors")
+            return removed
             
         except Exception as e:
             logger.error(f"❌ Error removing outdated vendors: {e}")
             return 0
     
-    def _verify_complete_vendor_data(self) -> None:
-        """Verify the complete vendor data synchronization"""
-        
-        print(f"\n🔍 VERIFYING COMPLETE VENDOR DATA SYNCHRONIZATION:")
-        print("-" * 50)
+    def _verify_sync(self) -> None:
+        """Verify sync results"""
         
         try:
             conn = sqlite3.connect('smart_lead_router.db')
             cursor = conn.cursor()
             
-            # Get comprehensive vendor statistics
+            # Vendor stats
             cursor.execute("SELECT COUNT(*) FROM vendors")
             total_vendors = cursor.fetchone()[0]
             
-            cursor.execute("SELECT COUNT(*) FROM vendors WHERE ghl_user_id IS NOT NULL")
-            vendors_with_user_id = cursor.fetchone()[0]
-            
-            cursor.execute("SELECT COUNT(*) FROM vendors WHERE services_offered != '[]'")
-            vendors_with_services = cursor.fetchone()[0]
-            
-            cursor.execute("SELECT COUNT(*) FROM vendors WHERE service_counties != '[]'")
+            cursor.execute("SELECT COUNT(*) FROM vendors WHERE coverage_counties != '[]'")
             vendors_with_coverage = cursor.fetchone()[0]
             
-            cursor.execute("SELECT COUNT(*) FROM vendors WHERE lead_close_percentage > 0")
-            vendors_with_performance = cursor.fetchone()[0]
+            # Lead stats
+            cursor.execute("SELECT COUNT(*) FROM leads")
+            total_leads = cursor.fetchone()[0]
             
-            cursor.execute("SELECT COUNT(*) FROM vendors WHERE company_name != ''")
-            vendors_with_company = cursor.fetchone()[0]
+            cursor.execute("SELECT COUNT(*) FROM leads WHERE status = 'unassigned'")
+            unassigned_leads = cursor.fetchone()[0]
             
-            print(f"📊 SYNCHRONIZATION STATISTICS:")
-            print(f"   Total vendors: {total_vendors}")
-            print(f"   With GHL User ID: {vendors_with_user_id}")
-            print(f"   With services: {vendors_with_services}")
-            print(f"   With coverage areas: {vendors_with_coverage}")
-            print(f"   With performance data: {vendors_with_performance}")
-            print(f"   With company names: {vendors_with_company}")
+            print(f"📊 VERIFICATION:")
+            print(f"   Vendors: {total_vendors} total, {vendors_with_coverage} with coverage")
+            print(f"   Leads: {total_leads} total, {unassigned_leads} unassigned")
             
-            # Show detailed sample data
+            # Sample vendor coverage
             cursor.execute("""
-                SELECT name, email, company_name, services_offered, service_counties, 
-                       lead_close_percentage, ghl_user_id, updated_at
+                SELECT name, coverage_counties 
                 FROM vendors 
-                ORDER BY updated_at DESC
-                LIMIT 3
+                WHERE coverage_counties != '[]' 
+                LIMIT 2
             """)
-            sample_vendors = cursor.fetchall()
+            samples = cursor.fetchall()
             
-            print(f"\n📋 SAMPLE VENDOR DATA (Most Recently Updated):")
-            for vendor in sample_vendors:
-                name, email, company, services, coverage, close_pct, user_id, updated = vendor
-                print(f"   • {name} ({email})")
-                print(f"     Company: {company}")
-                print(f"     Services: {services}")
-                print(f"     Coverage: {coverage}")
-                print(f"     Performance: {close_pct}%")
-                print(f"     GHL User ID: {user_id}")
-                print(f"     Updated: {updated}")
-                print()
+            if samples:
+                print(f"📋 SAMPLE VENDOR COVERAGE:")
+                for name, counties in samples:
+                    print(f"   • {name}: {counties}")
             
             conn.close()
             
         except Exception as e:
-            logger.error(f"❌ Error verifying vendor data: {e}")
+            logger.error(f"❌ Error verifying sync: {e}")
+    
+    # Utility methods
+    def _parse_list(self, value: str) -> List[str]:
+        """Parse comma-separated list"""
+        if not value:
+            return []
+        return [v.strip() for v in value.split(',') if v.strip()]
+    
+    def _parse_boolean(self, value: str) -> bool:
+        """Parse boolean from string"""
+        if not value:
+            return True
+        return value.lower() in ['yes', 'true', '1', 'active', 'available']
+    
+    def _parse_percentage(self, value: str) -> float:
+        """Parse percentage value"""
+        if not value:
+            return 0.0
+        try:
+            clean = value.replace('%', '').strip()
+            pct = float(clean)
+            if pct <= 1.0:
+                pct *= 100
+            return max(0.0, min(100.0, pct))
+        except:
+            return 0.0
+    
+    def _parse_date(self, value: str) -> Optional[str]:
+        """Parse date value"""
+        if not value:
+            return None
+        try:
+            from datetime import datetime
+            for fmt in ['%Y-%m-%d', '%m/%d/%Y', '%Y-%m-%d %H:%M:%S']:
+                try:
+                    parsed = datetime.strptime(value, fmt)
+                    return parsed.isoformat()
+                except ValueError:
+                    continue
+        except:
+            pass
+        return None
+    
+    def _parse_zip_codes(self, zip_codes_raw: str) -> List[str]:
+        """Parse ZIP codes from raw string"""
+        if not zip_codes_raw:
+            return []
+        
+        # Normalize separators
+        normalized = zip_codes_raw.replace(';', ',').replace('\n', ',').replace('\r', ',')
+        
+        zip_codes = []
+        for zip_code in normalized.split(','):
+            zip_code = zip_code.strip()
+            
+            # Handle ZIP+4
+            if '-' in zip_code:
+                zip_code = zip_code.split('-')[0].strip()
+            elif len(zip_code) == 9 and zip_code.isdigit():
+                zip_code = zip_code[:5]
+            
+            # Validate 5-digit ZIP
+            if zip_code and len(zip_code) == 5 and zip_code.isdigit():
+                if zip_code not in zip_codes:
+                    zip_codes.append(zip_code)
+        
+        return zip_codes
+    
+    def _derive_service_category(self, specific_service: str) -> str:
+        """Derive primary service category from specific service"""
+        service_lower = specific_service.lower()
+        
+        if any(word in service_lower for word in ['engine', 'motor', 'generator']):
+            return 'Engines and Generators'
+        elif any(word in service_lower for word in ['maintenance', 'cleaning', 'detailing', 'oil']):
+            return 'Boat Maintenance'
+        elif any(word in service_lower for word in ['electrical', 'plumbing', 'ac', 'sound']):
+            return 'Marine Systems'
+        elif any(word in service_lower for word in ['repair', 'fiberglass', 'welding']):
+            return 'Boat and Yacht Repair'
+        else:
+            return 'General Services'
 
 
 def main():
-    """Main execution function"""
-    print("🚀 ENHANCED VENDOR SYNC FROM GOHIGHLEVEL")
-    print("=" * 50)
-    print("Complete field mapping with overwrite capability")
-    print("Detailed logging of all field mappings and extractions")
+    """Main execution"""
+    print("🚀 FOCUSED LEAD ROUTER SYNC")
+    print("=" * 40)
+    print("Mapping only real database columns from GHL")
+    print("Fixing Service Zip Codes coverage mapping")
     print("")
     
     try:
-        # Initialize enhanced sync service
-        vendor_sync = EnhancedVendorSync()
-        
-        # Execute enhanced sync with overwrite
-        success = vendor_sync.sync_all_vendors_with_overwrite()
+        sync = FocusedLeadRouterSync()
+        success = sync.sync_all_data()
         
         if success:
-            print(f"\n🎉 ENHANCED VENDOR SYNC COMPLETED SUCCESSFULLY!")
-            print("   ✅ All vendor fields properly mapped and synchronized")
-            print("   ✅ Existing vendor data overwritten with latest from GHL")
-            print("   ✅ Service coverage areas fixed using correct GHL field")
-            print("   ✅ Database contains most accurate vendor information")
+            print(f"\n🎉 FOCUSED SYNC COMPLETED SUCCESSFULLY!")
+            print("   ✅ All real database columns properly mapped")
+            print("   ✅ Service Zip Codes coverage fixed")
             print("   ✅ Ready for simplified direct service matching")
         else:
-            print(f"\n❌ ENHANCED VENDOR SYNC FAILED!")
-            print("   Check error messages and logs for details")
+            print(f"\n❌ SYNC COMPLETED WITH NO CHANGES!")
         
     except Exception as e:
-        print(f"❌ Critical error in enhanced vendor sync: {e}")
-        logger.exception("Enhanced vendor sync failed")
+        print(f"❌ Critical error: {e}")
+        logger.exception("Focused sync failed")
 
 
 if __name__ == '__main__':

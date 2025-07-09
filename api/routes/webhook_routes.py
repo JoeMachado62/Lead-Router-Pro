@@ -10,164 +10,207 @@ from urllib.parse import parse_qs
 
 from fastapi import APIRouter, Request, HTTPException, BackgroundTasks
 
-# --- Corrected Imports - Single Source of Truth ---
-from config import AppConfig  # Single source of truth for configuration
+# --- Core Service Imports - Direct Processing Only ---
+from config import AppConfig
 from database.simple_connection import db as simple_db_instance
 from api.services.ghl_api import GoHighLevelAPI
-from api.services.ai_classifier import AIServiceClassifier
 from api.services.field_mapper import field_mapper
-from api.services.lead_routing_service import lead_routing_service  # FIXED: Added missing import
+from api.services.lead_routing_service import lead_routing_service
 from api.services.location_service import location_service
-from api.services.service_categories import service_manager  # NEW: Import service manager
-# Import the existing assignment function from routing_admin
-from api.routes.routing_admin import _update_ghl_opportunity_assignment
-
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/api/v1/webhooks", tags=["Enhanced Elementor Webhooks (DSP)"])
+router = APIRouter(prefix="/api/v1/webhooks", tags=["Clean Elementor Webhooks - Direct Processing"])
 
-# Using field_mapper service exclusively for all field operations
+# --- CORRECT SERVICE CATEGORIES AND SERVICES FROM CSV ---
+# 16 Categories with their specific services
+DOCKSIDE_PROS_CATEGORIES = [
+    "Boat and Yacht Repair",
+    "Boat Charters and Rentals", 
+    "Boat Hauling and Yacht Delivery",
+    "Boat Maintenance",
+    "Boat Towing",
+    "Boater Resources",
+    "Buying or Selling a Boat",
+    "Docks, Seawalls and Lifts",
+    "Dock and Slip Rental",
+    "Engines and Generators",
+    "Fuel Delivery",
+    "Marine Systems",
+    "Maritime Education and Training",
+    "Waterfront Property",
+    "Wholesale or Dealer Product Pricing",
+    "Yacht Management"
+]
 
-def fix_vendor_coverage_mapping(contact_id: str, ghl_api_client, location_service, field_mapper):
+DOCKSIDE_PROS_SERVICES = {
+    # Boat and Yacht Repair (7 services)
+    "fiberglass_repair": "Boat and Yacht Repair",
+    "welding_metal_fabrication": "Boat and Yacht Repair",
+    "carpentry_woodwork": "Boat and Yacht Repair",
+    "riggers_masts": "Boat and Yacht Repair",
+    "jet_ski_repair": "Boat and Yacht Repair",
+    "boat_canvas_upholstery": "Boat and Yacht Repair",
+    "boat_decking_yacht_flooring": "Boat and Yacht Repair",
+    
+    # Boat Charters and Rentals (7 services)
+    "boat_charters_rentals": "Boat Charters and Rentals",
+    "boat_clubs": "Boat Charters and Rentals",
+    "fishing_charters": "Boat Charters and Rentals",
+    "yacht_catamaran_charters": "Boat Charters and Rentals",
+    "sailboat_charters": "Boat Charters and Rentals",
+    "efoil_kiteboarding_wing_surfing": "Boat Charters and Rentals",
+    "dive_equipment_services": "Boat Charters and Rentals",
+    
+    # Boat Hauling and Yacht Delivery (2 services)
+    "yacht_delivery": "Boat Hauling and Yacht Delivery",
+    "boat_hauling_transport": "Boat Hauling and Yacht Delivery",
+    
+    # Boat Maintenance (11 services)
+    "barnacle_cleaning": "Boat Maintenance",
+    "boat_yacht_maintenance": "Boat Maintenance",
+    "boat_bilge_cleaning": "Boat Maintenance",
+    "boat_bottom_cleaning": "Boat Maintenance",
+    "boat_detailing": "Boat Maintenance",
+    "boat_oil_change": "Boat Maintenance",
+    "boat_wrapping_marine_protection": "Boat Maintenance",
+    "ceramic_coating": "Boat Maintenance",
+    "jet_ski_maintenance": "Boat Maintenance",
+    "yacht_armor": "Boat Maintenance",
+    "yacht_fire_detection": "Boat Maintenance",
+    
+    # Boat Towing (2 services)
+    "get_emergency_tow": "Boat Towing",
+    "get_towing_membership": "Boat Towing",
+    
+    # Boater Resources (8 services)
+    "yacht_wifi": "Boater Resources",
+    "provisioning": "Boater Resources",
+    "boat_yacht_parts": "Boater Resources",
+    "boat_salvage": "Boater Resources",
+    "yacht_photography": "Boater Resources",
+    "yacht_videography": "Boater Resources",
+    "yacht_crew_placement": "Boater Resources",
+    "yacht_account_management": "Boater Resources",
+    
+    # Buying or Selling a Boat (10 services)
+    "boat_dealers": "Buying or Selling a Boat",
+    "yacht_dealers": "Buying or Selling a Boat",
+    "boat_surveyors": "Buying or Selling a Boat",
+    "boat_financing": "Buying or Selling a Boat",
+    "boat_builders": "Buying or Selling a Boat",
+    "boat_brokers": "Buying or Selling a Boat",
+    "yacht_brokers": "Buying or Selling a Boat",
+    "yacht_builders": "Buying or Selling a Boat",
+    "boat_insurance": "Buying or Selling a Boat",
+    "yacht_insurance": "Buying or Selling a Boat",
+    
+    # Docks, Seawalls and Lifts (4 services)
+    "dock_seawall_builders_repair": "Docks, Seawalls and Lifts",
+    "boat_lift_installers": "Docks, Seawalls and Lifts",
+    "floating_dock_sales": "Docks, Seawalls and Lifts",
+    "davit_hydraulic_platform": "Docks, Seawalls and Lifts",
+    
+    # Dock and Slip Rental (2 services)
+    "dock_slip_rental": "Dock and Slip Rental",
+    "rent_my_dock": "Dock and Slip Rental",
+    
+    # Engines and Generators (8 services)
+    "outboard_engine_service": "Engines and Generators",
+    "outboard_engine_sales": "Engines and Generators",
+    "inboard_engine_service": "Engines and Generators",
+    "inboard_engine_sales": "Engines and Generators",
+    "diesel_engine_service": "Engines and Generators",
+    "diesel_engine_sales": "Engines and Generators",
+    "generator_service_repair": "Engines and Generators",
+    "generator_sales": "Engines and Generators",
+    
+    # Fuel Delivery (1 service)
+    "fuel_delivery": "Fuel Delivery",
+    
+    # Marine Systems (8 services)
+    "yacht_ac_sales": "Marine Systems",
+    "yacht_ac_service": "Marine Systems",
+    "boat_electrical_service": "Marine Systems",
+    "yacht_plumbing": "Marine Systems",
+    "boat_sound_systems": "Marine Systems",
+    "boat_lighting": "Marine Systems",
+    "yacht_stabilizers_seakeepers": "Marine Systems",
+    "yacht_refrigeration_watermakers": "Marine Systems",
+    
+    # Maritime Education and Training (4 services)
+    "maritime_certification": "Maritime Education and Training",
+    "maritime_academy": "Maritime Education and Training",
+    "sailing_schools": "Maritime Education and Training",
+    "yacht_training": "Maritime Education and Training",
+    
+    # Waterfront Property (3 services)
+    "waterfront_homes_sale": "Waterfront Property",
+    "sell_waterfront_home": "Waterfront Property",
+    "new_waterfront_developments": "Waterfront Property",
+    
+    # Wholesale or Dealer Product Pricing (1 service)
+    "wholesale_dealer_pricing": "Wholesale or Dealer Product Pricing",
+    
+    # Yacht Management (1 service)
+    "yacht_management": "Yacht Management",
+    
+    # Vendor Applications (form type detection)
+    "vendor_application": "Vendor Application",
+    "network_application": "Vendor Application",
+    "join_network": "Vendor Application",
+    "provider_signup": "Vendor Application",
+    
+    # General fallback
+    "general_inquiry": "Boater Resources",
+    "contact": "Boater Resources",
+    "quote_request": "Boater Resources"
+}
+
+def get_direct_service_category(form_identifier: str) -> str:
     """
-    Fix vendor coverage mapping by properly extracting Service Zip Codes field
-    and converting to counties using existing location service
+    Direct service category mapping - NO AI processing
+    Uses dictionary lookup with keyword matching based on actual CSV data
     """
-    try:
-        # Fetch full contact record from GHL to get vendor data
-        logger.info(f"📋 Extracting vendor data from GHL contact {contact_id}")
-        contact_details = ghl_api_client.get_contact_by_id(contact_id)
-        
-        if not contact_details:
-            logger.error(f"❌ Could not fetch contact details for {contact_id}")
-            raise Exception("Unable to fetch vendor contact data from GHL")
-        
-        # Extract routing data from GHL custom fields
-        custom_fields = contact_details.get('customFields', [])
-        
-        primary_service_category = ""
-        secondary_service_categories = []
-        service_zip_codes = ""
-        
-        # Extract from GHL custom fields using CORRECT field ID
-        for field in custom_fields:
-            field_id = field.get('id', '')
-            field_value = str(field.get('value', '') or field.get('fieldValue', '')).strip()
-            
-            if not field_value:
-                continue
-                
-            # CRITICAL: Check for the specific Service Zip Codes field ID
-            if field_id == "yDcN0FmwI3xacyxAuTWs":  # Service Zip Codes field
-                service_zip_codes = field_value
-                logger.info(f"✅ Found Service Zip Codes field: {service_zip_codes}")
-                
-            # Also check by field key mapping as backup
-            field_details = field_mapper.get_ghl_field_details_by_id(field_id)
-            if field_details:
-                field_key = field_details.get('key', '')
-                
-                # Extract service categories
-                if field_key == 'services_provided':
-                    services = [s.strip() for s in field_value.split(',') if s.strip()]
-                    if services:
-                        primary_service_category = services[0]
-                        secondary_service_categories = services[1:] if len(services) > 1 else []
-                        
-                # Alternative field names for service areas
-                elif field_key in ['service_zip_codes', 'service_areas']:
-                    if not service_zip_codes:  # Only use if not already found by ID
-                        service_zip_codes = field_value
-        
-        # Convert ZIP codes to counties using existing location service
-        service_coverage_type = "county"  # Default to county-based
-        service_counties = []
-        service_states = []
-        
-        if service_zip_codes:
-            logger.info(f"🔄 Converting ZIP codes to counties: {service_zip_codes}")
-            
-            # Parse ZIP codes (comma-separated format)
-            zip_codes = [zip_code.strip() for zip_code in service_zip_codes.split(',') if zip_code.strip()]
-            
-            counties_set = set()
-            states_set = set()
-            successful_conversions = 0
-            
-            for zip_code in zip_codes:
-                zip_str = zip_code.strip()
-                
-                # Validate ZIP code format
-                if len(zip_str) == 5 and zip_str.isdigit():
-                    location_data = location_service.zip_to_location(zip_str)
-                    
-                    if not location_data.get('error'):
-                        county = location_data.get('county')
-                        state = location_data.get('state')
-                        
-                        if county and state:
-                            # Store in "County, State" format for compatibility
-                            county_state = f"{county}, {state}"
-                            counties_set.add(county_state)
-                            states_set.add(state)
-                            successful_conversions += 1
-                            logger.debug(f"   ✅ {zip_str} → {county_state}")
-                        else:
-                            logger.warning(f"   ❌ {zip_str}: No county/state data")
-                    else:
-                        logger.warning(f"   ❌ {zip_str}: {location_data.get('error')}")
-                else:
-                    logger.warning(f"   ❌ Invalid ZIP code format: {zip_str}")
-            
-            # Convert sets to sorted lists
-            service_counties = sorted(list(counties_set))
-            service_states = sorted(list(states_set))
-            
-            logger.info(f"✅ Successfully converted {successful_conversions}/{len(zip_codes)} ZIP codes")
-            logger.info(f"📍 Service counties: {', '.join(service_counties)}")
-            
-            # If no successful conversions, fall back to ZIP-based coverage
-            if successful_conversions == 0:
-                logger.warning("⚠️ No ZIP codes converted to counties - using ZIP-based coverage")
-                service_coverage_type = "zip"
-                service_areas = zip_codes  # Keep original ZIP codes
-                service_counties = []  # Clear counties since conversion failed
-            else:
-                service_areas = []  # Clear ZIP areas since we have counties
-        else:
-            logger.warning("⚠️ No service ZIP codes found - vendor will have no coverage area")
-            # Use default fallback only if absolutely no coverage data
-            service_counties = ["Miami-Dade, FL", "Broward, FL", "Palm Beach, FL", "Monroe, FL"]
-            logger.info("⚠️ Applied default coverage areas as fallback")
-        
-        # Prepare vendor data for database storage - FIXED: Use actual database field names
-        vendor_data = {
-            'service_coverage_type': service_coverage_type,  # This gets mapped to coverage_type in create_routing_vendor
-            'service_counties': json.dumps(service_counties),  # This gets mapped to coverage_counties
-            'service_states': json.dumps(service_states),  # This gets mapped to coverage_states
-            'service_areas': json.dumps(service_areas) if 'service_areas' in locals() else json.dumps([]),
-            'secondary_service_categories': json.dumps([primary_service_category] + secondary_service_categories),  # This gets mapped to services_offered
-            'ghl_contact_id': contact_id
-        }
-        
-        logger.info(f"✅ Vendor coverage mapping fixed:")
-        logger.info(f"   Coverage Type: {service_coverage_type}")
-        logger.info(f"   Counties: {len(service_counties)} areas")
-        logger.info(f"   States: {service_states}")
-        
-        return vendor_data
-        
-    except Exception as e:
-        logger.error(f"❌ Error fixing vendor coverage mapping: {e}")
-        # Return safe defaults
-        return {
-            'service_coverage_type': 'county',
-            'service_counties': json.dumps(["Miami-Dade, FL", "Broward, FL", "Palm Beach, FL", "Monroe, FL"]),
-            'service_states': json.dumps(["FL"]),
-            'service_areas': json.dumps([]),
-            'services_offered': json.dumps(["Boat Maintenance"]),
-            'ghl_contact_id': contact_id
-        }
+    form_lower = form_identifier.lower()
+    
+    # Direct exact matches first
+    if form_lower in DOCKSIDE_PROS_SERVICES:
+        category = DOCKSIDE_PROS_SERVICES[form_lower]
+        logger.info(f"🎯 Direct service mapping: {form_identifier} → {category}")
+        return category
+    
+    # Keyword matching for partial matches
+    for service_key, category in DOCKSIDE_PROS_SERVICES.items():
+        if service_key.replace("_", "") in form_lower.replace("_", ""):
+            logger.info(f"🎯 Keyword service mapping: {form_identifier} → {category} (matched: {service_key})")
+            return category
+    
+    # Default fallback
+    default_category = "Boater Resources"
+    logger.info(f"🎯 Default service mapping: {form_identifier} → {default_category}")
+    return default_category
+
+
+def find_matching_service(specific_service_text: str) -> str:
+    """
+    Find the best matching service from the specific service text
+    This is used for vendor matching (specific service, not category)
+    """
+    if not specific_service_text:
+        return "boat_yacht_maintenance"  # Default fallback
+    
+    service_lower = specific_service_text.lower()
+    
+    # Direct service name matching
+    for service_key in DOCKSIDE_PROS_SERVICES.keys():
+        service_name = service_key.replace("_", " ")
+        if service_name in service_lower or service_key in service_lower:
+            logger.info(f"🎯 Direct service match: '{specific_service_text}' → {service_key}")
+            return service_key
+    
+    # Fallback to maintenance
+    logger.info(f"🎯 Service fallback: '{specific_service_text}' → boat_yacht_maintenance")
+    return "boat_yacht_maintenance"
 
 async def parse_webhook_payload(request: Request) -> Dict[str, Any]:
     """
@@ -245,7 +288,6 @@ async def parse_webhook_payload(request: Request) -> Dict[str, Any]:
     # Return empty payload but don't raise exception - let validation handle it
     return {}
 
-
 def normalize_field_names(payload: Dict[str, Any]) -> Dict[str, Any]:
     """
     Normalize WordPress/Elementor field names to expected format
@@ -285,7 +327,6 @@ def normalize_field_names(payload: Dict[str, Any]) -> Dict[str, Any]:
         "Service Needed": "specific_service_needed",
         "Service Request": "specific_service_needed",
         "Services": "specific_service_needed",
-        "What Specific Service(s) Do You Request?": "specific_service_needed",
         
         "Your Vessel Manufacturer? ": "vessel_make",
         "Vessel Make": "vessel_make",
@@ -327,6 +368,10 @@ def normalize_field_names(payload: Dict[str, Any]) -> Dict[str, Any]:
         "Service Areas": "service_zip_codes",
         "Years in Business": "years_in_business",
         
+        # Vendor category and service fields
+        "service_categories_selected": "service_categories_selected",  # No change needed
+        "service_categorires_selected": "service_categories_selected",  # Fix typo if it exists
+        
         # Contact preference
         "How Should We Contact You Back? ": "preferred_contact_method",
         "Contact Preference": "preferred_contact_method",
@@ -360,21 +405,14 @@ def normalize_field_names(payload: Dict[str, Any]) -> Dict[str, Any]:
     
     return normalized_payload
 
-def extract_service_category_from_form_identifier(form_identifier: str) -> str:
+def get_form_configuration(form_identifier: str) -> Dict[str, Any]:
     """
-    Extract service category from form identifier using the new service_manager
-    """
-    # Use the service_manager to get the primary category from form identifier
-    # This now uses the single source of truth from service_categories.py
-    return service_manager.classify_form_identifier(form_identifier)
-
-def get_dynamic_form_configuration(form_identifier: str) -> Dict[str, Any]:
-    """
-    Enhanced dynamic form configuration that handles any form intelligently
+    Direct form configuration - NO AI processing
+    Returns configuration based on form identifier patterns
     """
     
-    # Extract service category
-    service_category = extract_service_category_from_form_identifier(form_identifier)
+    # Extract service category using direct mapping
+    service_category = get_direct_service_category(form_identifier)
     
     # Determine form type based on identifier patterns
     form_type = "unknown"
@@ -437,7 +475,7 @@ def get_expected_fields_for_form_type(form_type: str) -> List[str]:
 
 def validate_form_submission(form_identifier: str, payload: Dict[str, Any], form_config: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Enhanced validation for any form submission
+    Direct validation for form submissions - NO AI processing
     """
     validation_result = {
         "is_valid": True,
@@ -470,7 +508,7 @@ def validate_form_submission(form_identifier: str, payload: Dict[str, Any], form
             validation_result["missing_expected_fields"].append(field)
             validation_result["warnings"].append(f"Expected field '{field}' is missing - form may be incomplete")
     
-    # Check for unexpected fields (informational) - now using field_mapper
+    # Check for unexpected fields (informational) - using field_mapper
     valid_ghl_fields = field_mapper.get_all_ghl_field_keys()
     for field in payload.keys():
         # Check if field maps to a valid GHL field
@@ -489,7 +527,8 @@ def validate_form_submission(form_identifier: str, payload: Dict[str, Any], form
 
 def process_payload_to_ghl_format(elementor_payload: Dict[str, Any], form_config: Dict[str, Any]) -> Dict[str, Any]:
     """
-    CORRECTED: Process Elementor payload into GHL format with proper custom fields array formation
+    Process Elementor payload into GHL format - PRESERVE ALL FIELDS
+    Direct field mapping only - NO AI processing
     """
     # Apply field mapping first to convert form field names to GHL field names
     mapped_payload = field_mapper.map_payload(elementor_payload, industry="marine")
@@ -505,7 +544,7 @@ def process_payload_to_ghl_format(elementor_payload: Dict[str, Any], form_config
         "tags", "notes", "dnd", "country", "source", "website"
     }
     
-    # Process each field from mapped payload
+    # Process each field from mapped payload - PRESERVE EVERYTHING
     for field_key, field_value in mapped_payload.items():
         # Skip empty values (but allow 0 and False)
         if field_value == "" or field_value is None:
@@ -519,7 +558,7 @@ def process_payload_to_ghl_format(elementor_payload: Dict[str, Any], form_config
                 final_ghl_payload[field_key] = field_value
                 logger.debug(f"Added standard field: {field_key} = {field_value}")
             else:
-                # CORRECTED: Custom fields go into customFields array using field_mapper
+                # Custom fields go into customFields array using field_mapper
                 field_details = field_mapper.get_ghl_field_details(field_key)
                 if field_details and field_details.get("id"):
                     custom_fields_array.append({
@@ -534,8 +573,12 @@ def process_payload_to_ghl_format(elementor_payload: Dict[str, Any], form_config
     
     # Add form-specific static data from configuration
     for ghl_key, static_value in form_config.items():
-        # Skip non-field configuration items
+        # Skip non-field configuration items and service_category for vendor applications
         if ghl_key in ["form_type", "priority", "requires_immediate_routing", "expected_fields"]:
+            continue
+        
+        # Don't override service_category for vendor applications - let form data take precedence
+        if ghl_key == "service_category" and form_config.get("form_type") == "vendor_application":
             continue
             
         if ghl_key == "tags":
@@ -572,13 +615,101 @@ def process_payload_to_ghl_format(elementor_payload: Dict[str, Any], form_config
         final_ghl_payload["customFields"] = custom_fields_array
         logger.info(f"✅ Added {len(custom_fields_array)} custom fields to GHL payload")
         
-        # VERBOSE DEBUG: Log each custom field being sent
+        # Log each custom field being sent
         for i, field in enumerate(custom_fields_array):
             logger.info(f"  Custom Field [{i}]: ID={field['id']}, Value='{field['value']}'")
     else:
         logger.warning("⚠️ No custom fields added to GHL payload - this may indicate a mapping issue")
     
     return final_ghl_payload
+
+def convert_service_areas_to_counties(zip_codes_input) -> Dict[str, Any]:
+    """
+    Convert ZIP codes to counties for vendor applications
+    Direct location service conversion - NO AI processing
+    Handles both string and list input formats
+    """
+    if not zip_codes_input:
+        return {"counties": [], "zip_codes": [], "conversion_success": False}
+    
+    # Handle both list and string input
+    if isinstance(zip_codes_input, list):
+        # If it's already a list, use it directly but clean up each entry
+        zip_codes = [zip_code.strip() for zip_code in zip_codes_input if zip_code and zip_code.strip()]
+    elif isinstance(zip_codes_input, str):
+        # If it's a string, split by comma
+        zip_codes = [zip_code.strip() for zip_code in zip_codes_input.split(',') if zip_code.strip()]
+    else:
+        # Unknown format
+        return {"counties": [], "zip_codes": [], "conversion_success": False}
+    
+    if not zip_codes:
+        return {"counties": [], "zip_codes": [], "conversion_success": False}
+    
+    # Convert ZIP codes to counties using location service
+    counties = []
+    successful_conversions = 0
+    conversion_details = []
+    
+    for zip_code in zip_codes:
+        zip_str = zip_code.strip()
+        
+        # Validate ZIP code format
+        if len(zip_str) == 5 and zip_str.isdigit():
+            location_data = location_service.zip_to_location(zip_str)
+            
+            if not location_data.get('error'):
+                county = location_data.get('county')
+                state = location_data.get('state')
+                city = location_data.get('city')
+                
+                if county and state:
+                    county_entry = f"{county}, {state}"
+                    if county_entry not in counties:
+                        counties.append(county_entry)
+                    
+                    conversion_details.append({
+                        "zip_code": zip_str,
+                        "county": county,
+                        "state": state,
+                        "city": city,
+                        "success": True
+                    })
+                    successful_conversions += 1
+                    logger.info(f"🗺️ Vendor Application: ZIP {zip_str} → {county_entry}")
+                else:
+                    conversion_details.append({
+                        "zip_code": zip_str,
+                        "error": "No county/state data",
+                        "success": False
+                    })
+                    logger.warning(f"⚠️ Vendor Application: ZIP {zip_str} resolved but missing county/state")
+            else:
+                conversion_details.append({
+                    "zip_code": zip_str,
+                    "error": location_data['error'],
+                    "success": False
+                })
+                logger.warning(f"⚠️ Vendor Application: Could not convert ZIP {zip_str}: {location_data['error']}")
+        else:
+            conversion_details.append({
+                "zip_code": zip_str,
+                "error": "Invalid ZIP code format",
+                "success": False
+            })
+            logger.warning(f"⚠️ Vendor Application: Invalid ZIP code format: '{zip_str}'")
+    
+    conversion_rate = (successful_conversions / len(zip_codes)) * 100 if zip_codes else 0
+    
+    return {
+        "counties": counties,
+        "zip_codes": zip_codes,
+        "conversion_success": successful_conversions > 0,
+        "conversion_rate": conversion_rate,
+        "conversion_details": conversion_details,
+        "successful_conversions": successful_conversions,
+        "total_zip_codes": len(zip_codes)
+    }
 
 # DEBUG GET endpoint to test routing
 @router.get("/elementor/{form_identifier}")
@@ -600,31 +731,36 @@ async def debug_webhook_endpoint(form_identifier: str, request: Request):
     }
 
 @router.post("/elementor/{form_identifier}")
-@router.post("/elementor/{form_identifier}/")  # Handle both with and without trailing slash
-async def handle_enhanced_elementor_webhook(
+@router.post("/elementor/{form_identifier}/")
+async def handle_clean_elementor_webhook(
     form_identifier: str, 
     request: Request,
     background_tasks: BackgroundTasks
 ):
     """
-    Enhanced dynamic webhook handler for ALL Elementor form submissions.
-    Handles 79+ forms intelligently without hardcoding each one.
+    Clean webhook handler for ALL Elementor form submissions.
+    Direct processing only - NO AI interference.
+    Preserves ALL form data exactly as received from WordPress.
     """
     start_time = time.time()
-    
-    # DEBUG: Log the actual HTTP method and URL
-    logger.info(f"🔍 WEBHOOK DEBUG: Method={request.method}, URL={request.url}, Headers={dict(request.headers)}")
     
     try:
         # Parse incoming payload (supports both JSON and form-encoded data)
         elementor_payload = await parse_webhook_payload(request)
-        logger.info(f"📥 Enhanced Elementor Webhook received for form '{form_identifier}': {json.dumps(elementor_payload, indent=2)}")
+        logger.info(f"📥 Clean Elementor Webhook received for form '{form_identifier}': {json.dumps(elementor_payload, indent=2)}")
+        
+        # Debug logging for key vendor fields
+        logger.info(f"📋 Key vendor fields in normalized payload:")
+        logger.info(f"   - vendor_company_name: '{elementor_payload.get('vendor_company_name')}'")
+        logger.info(f"   - service_categories_selected: '{elementor_payload.get('service_categories_selected')}'")
+        logger.info(f"   - services_provided: '{elementor_payload.get('services_provided')}'")
+        logger.info(f"   - service_zip_codes: '{elementor_payload.get('service_zip_codes')}'")
 
-        # Get dynamic form configuration
-        form_config = get_dynamic_form_configuration(form_identifier)
-        logger.info(f"📋 Dynamic form config for '{form_identifier}': {form_config}")
+        # Get direct form configuration - NO AI
+        form_config = get_form_configuration(form_identifier)
+        logger.info(f"📋 Direct form config for '{form_identifier}': {form_config}")
 
-        # Validate form submission
+        # Validate form submission - Direct validation only
         validation_result = validate_form_submission(form_identifier, elementor_payload, form_config)
         if not validation_result["is_valid"]:
             logger.error(f"❌ Form validation failed for '{form_identifier}': {validation_result['errors']}")
@@ -644,7 +780,7 @@ async def handle_enhanced_elementor_webhook(
         if validation_result["warnings"]:
             logger.warning(f"⚠️ Form validation warnings for '{form_identifier}': {validation_result['warnings']}")
 
-        # Initialize GHL API client using AppConfig with V2/V1 fallback support
+        # Initialize GHL API client
         ghl_api_client = GoHighLevelAPI(
             location_api_key=AppConfig.GHL_LOCATION_API,
             private_token=AppConfig.GHL_PRIVATE_TOKEN, 
@@ -652,99 +788,13 @@ async def handle_enhanced_elementor_webhook(
             agency_api_key=AppConfig.GHL_AGENCY_API_KEY,
             company_id=AppConfig.GHL_COMPANY_ID
         )
-        logger.info(f"🔑 GHL API client initialized with V2→V1 fallback authentication and enhanced scope control")
+        logger.info(f"🔑 GHL API client initialized")
 
-        # Process payload into GHL format
+        # Process payload into GHL format - PRESERVE ALL FIELDS
         final_ghl_payload = process_payload_to_ghl_format(elementor_payload, form_config)
         
-        # === ENHANCED COUNTY CONVERSION LOGIC FOR VENDOR APPLICATIONS ===
-        def convert_service_areas_to_counties(zip_codes_str: str) -> Dict[str, Any]:
-            """
-            Convert ZIP codes to counties for vendor application
-            
-            Args:
-                zip_codes_str: Comma-separated ZIP codes string
-                
-            Returns:
-                Dictionary with county information and conversion details
-            """
-            if not zip_codes_str:
-                return {"counties": [], "zip_codes": [], "conversion_success": False}
-            
-            # Parse ZIP codes
-            zip_codes = [zip_code.strip() for zip_code in zip_codes_str.split(',') if zip_code.strip()]
-            
-            if not zip_codes:
-                return {"counties": [], "zip_codes": [], "conversion_success": False}
-            
-            # Convert ZIP codes to counties
-            counties = []
-            successful_conversions = 0
-            conversion_details = []
-            
-            for zip_code in zip_codes:
-                zip_str = zip_code.strip()
-                
-                # Validate ZIP code format
-                if len(zip_str) == 5 and zip_str.isdigit():
-                    location_data = location_service.zip_to_location(zip_str)
-                    
-                    if not location_data.get('error'):
-                        county = location_data.get('county')
-                        state = location_data.get('state')
-                        city = location_data.get('city')
-                        
-                        if county and state:
-                            county_entry = f"{county}, {state}"
-                            if county_entry not in counties:
-                                counties.append(county_entry)
-                            
-                            conversion_details.append({
-                                "zip_code": zip_str,
-                                "county": county,
-                                "state": state,
-                                "city": city,
-                                "success": True
-                            })
-                            successful_conversions += 1
-                            logger.info(f"🗺️ Vendor Application: ZIP {zip_str} → {county_entry}")
-                        else:
-                            conversion_details.append({
-                                "zip_code": zip_str,
-                                "error": "No county/state data",
-                                "success": False
-                            })
-                            logger.warning(f"⚠️ Vendor Application: ZIP {zip_str} resolved but missing county/state")
-                    else:
-                        conversion_details.append({
-                            "zip_code": zip_str,
-                            "error": location_data['error'],
-                            "success": False
-                        })
-                        logger.warning(f"⚠️ Vendor Application: Could not convert ZIP {zip_str}: {location_data['error']}")
-                else:
-                    conversion_details.append({
-                        "zip_code": zip_str,
-                        "error": "Invalid ZIP code format",
-                        "success": False
-                    })
-                    logger.warning(f"⚠️ Vendor Application: Invalid ZIP code format: '{zip_str}'")
-            
-            conversion_rate = (successful_conversions / len(zip_codes)) * 100 if zip_codes else 0
-            
-            return {
-                "counties": counties,
-                "zip_codes": zip_codes,
-                "conversion_success": successful_conversions > 0,
-                "conversion_rate": conversion_rate,
-                "conversion_details": conversion_details,
-                "successful_conversions": successful_conversions,
-                "total_zip_codes": len(zip_codes)
-            }
-
-        # Apply county conversion to vendor applications with service ZIP codes
+        # County conversion for vendor applications (direct location service only)
         if form_config.get("form_type") == "vendor_application":
-            # Check for service ZIP codes in both original payload and final GHL payload
             service_zip_codes = elementor_payload.get('service_zip_codes') or elementor_payload.get('Service Areas')
             
             if service_zip_codes:
@@ -753,15 +803,12 @@ async def handle_enhanced_elementor_webhook(
                 county_conversion = convert_service_areas_to_counties(service_zip_codes)
                 
                 if county_conversion['conversion_success']:
-                    # Add county information to GHL payload for storage
                     counties_str = ', '.join(county_conversion['counties'])
                     
-                    # Find the appropriate custom field IDs for county data
+                    # Add county information to GHL payload
                     service_counties_field = field_mapper.get_ghl_field_details("service_counties")
                     service_coverage_type_field = field_mapper.get_ghl_field_details("service_coverage_type")
-                    zip_conversion_field = field_mapper.get_ghl_field_details("zip_to_county_conversion")
                     
-                    # Add to customFields array if field mappings exist
                     if not final_ghl_payload.get("customFields"):
                         final_ghl_payload["customFields"] = []
                     
@@ -779,34 +826,11 @@ async def handle_enhanced_elementor_webhook(
                         })
                         logger.info(f"✅ Set service_coverage_type to 'county'")
                     
-                    # Add detailed conversion info for debugging
-                    if zip_conversion_field and zip_conversion_field.get("id"):
-                        from datetime import datetime
-                        conversion_data = {
-                            "original_zip_codes": county_conversion['zip_codes'],
-                            "converted_counties": county_conversion['counties'],
-                            "conversion_rate": f"{county_conversion['conversion_rate']:.1f}%",
-                            "successful_conversions": county_conversion['successful_conversions'],
-                            "total_zip_codes": county_conversion['total_zip_codes'],
-                            "converted_at": datetime.utcnow().isoformat()
-                        }
-                        final_ghl_payload["customFields"].append({
-                            "id": zip_conversion_field["id"],
-                            "value": json.dumps(conversion_data)
-                        })
-                    
                     logger.info(f"✅ Vendor Application: Converted {county_conversion['successful_conversions']}/{county_conversion['total_zip_codes']} ZIP codes")
                     logger.info(f"📍 Vendor Application: Service counties: {', '.join(county_conversion['counties'])}")
-                    
-                    # Log detailed conversion for debugging
-                    for detail in county_conversion['conversion_details']:
-                        if detail['success']:
-                            logger.debug(f"   ✅ {detail['zip_code']} → {detail['county']}, {detail['state']}")
-                        else:
-                            logger.debug(f"   ❌ {detail['zip_code']}: {detail['error']}")
                 else:
                     logger.warning(f"⚠️ Vendor Application: Could not convert any ZIP codes to counties")
-                    # Keep original ZIP codes as fallback - set coverage type to ZIP-based
+                    # Set coverage type to ZIP-based as fallback
                     service_coverage_type_field = field_mapper.get_ghl_field_details("service_coverage_type")
                     if service_coverage_type_field and service_coverage_type_field.get("id"):
                         if not final_ghl_payload.get("customFields"):
@@ -816,22 +840,6 @@ async def handle_enhanced_elementor_webhook(
                             "value": "zip"
                         })
                         logger.info(f"⚠️ Fallback: Set service_coverage_type to 'zip' (county conversion failed)")
-        
-        # VERBOSE DEBUG: Check custom fields structure before sending to GHL
-        if 'customFields' in final_ghl_payload:
-            custom_fields = final_ghl_payload['customFields']
-            logger.info(f"🔍 WEBHOOK CUSTOM FIELDS DEBUG:")
-            logger.info(f"  🏷️  Type: {type(custom_fields)}")
-            if isinstance(custom_fields, list):
-                logger.info(f"  ✅ CustomFields is correctly formatted as ARRAY")
-                logger.info(f"  📊 Array length: {len(custom_fields)}")
-                for i, field in enumerate(custom_fields):
-                    logger.info(f"    [{i}] {field}")
-            else:
-                logger.error(f"  ❌ CRITICAL: CustomFields is {type(custom_fields)}, should be array!")
-                logger.error(f"  ❌ Content: {custom_fields}")
-        else:
-            logger.warning("⚠️ No customFields in final payload - this indicates field mapping issues")
         
         # Ensure email is present and normalized
         if not final_ghl_payload.get("email"):
@@ -849,7 +857,7 @@ async def handle_enhanced_elementor_webhook(
         action_taken = ""
         api_response_details = None
 
-        # Step 1: Search for existing contact by email AND phone (ENHANCED)
+        # Search for existing contact by email AND phone
         search_email = final_ghl_payload["email"]
         search_phone = final_ghl_payload.get("phone", "")
         
@@ -868,14 +876,13 @@ async def handle_enhanced_elementor_webhook(
         # Combine and deduplicate results
         all_search_results = email_search_results or []
         if phone_search_results:
-            # Add phone results that aren't already in email results
             existing_ids = {contact.get('id') for contact in all_search_results}
             for phone_contact in phone_search_results:
                 if phone_contact.get('id') not in existing_ids:
                     all_search_results.append(phone_contact)
         
         if all_search_results:
-            logger.info(f"📋 Search returned {len(all_search_results)} potential matches (email: {len(email_search_results or [])}, phone: {len(phone_search_results or [])})")
+            logger.info(f"📋 Search returned {len(all_search_results)} potential matches")
             
             for i, contact_result in enumerate(all_search_results):
                 contact_id = contact_result.get('id')
@@ -898,19 +905,18 @@ async def handle_enhanced_elementor_webhook(
                     
                     if search_phone_normalized == contact_phone_normalized:
                         existing_ghl_contact = contact_result
-                        logger.info(f"✅ Found PHONE match: {existing_ghl_contact.get('id')} (Search: {search_phone} → {search_phone_normalized}, Contact: {contact_phone} → {contact_phone_normalized})")
+                        logger.info(f"✅ Found PHONE match: {existing_ghl_contact.get('id')}")
                         break
         else:
             logger.info("📋 No search results returned for email or phone - contact appears to be new")
 
-        # Step 2: Update existing contact or create new one
+        # Create or update contact
         if existing_ghl_contact:
             # UPDATE EXISTING CONTACT
             final_ghl_contact_id = existing_ghl_contact["id"]
             action_taken = "updated"
-            logger.info(f"🔄 Updating existing GHL contact {final_ghl_contact_id} for email {final_ghl_payload.get('email')}")
+            logger.info(f"🔄 Updating existing GHL contact {final_ghl_contact_id}")
             
-            # Prepare update payload (remove fields not allowed in update)
             update_payload = final_ghl_payload.copy()
             update_payload.pop("locationId", None) 
             update_payload.pop("id", None)
@@ -926,67 +932,27 @@ async def handle_enhanced_elementor_webhook(
             
             created_contact_response = ghl_api_client.create_contact(final_ghl_payload)
             
-            # Check if creation was successful (either valid contact or error details)
             if created_contact_response and isinstance(created_contact_response, dict):
                 if not created_contact_response.get("error") and created_contact_response.get("id"):
-                    # SUCCESS: Contact created successfully
                     final_ghl_contact_id = created_contact_response["id"]
                     operation_successful = True
                     logger.info(f"✅ Successfully created new GHL contact {final_ghl_contact_id}")
                 else:
-                    # FAILED: Creation failed with detailed error info
-                    logger.error(f"❌ GHL contact creation failed with details: {created_contact_response}")
+                    logger.error(f"❌ GHL contact creation failed: {created_contact_response}")
                     api_response_details = created_contact_response
-                    
-                    # Log detailed error information for debugging
-                    if created_contact_response.get("error"):
-                        logger.error(f"  📋 Error Type: {created_contact_response.get('exception_type', 'HTTP Error')}")
-                        logger.error(f"  📋 Status Code: {created_contact_response.get('status_code', 'Unknown')}")
-                        logger.error(f"  📋 Response Text: {created_contact_response.get('response_text', 'No response text')}")
-                        if created_contact_response.get("error_json"):
-                            logger.error(f"  📋 GHL Error JSON: {created_contact_response.get('error_json')}")
             else:
-                # NULL/INVALID RESPONSE: Unexpected response format
-                logger.error(f"❌ Unexpected response from GHL API create_contact: {created_contact_response}")
+                logger.error(f"❌ Unexpected response from GHL API: {created_contact_response}")
                 api_response_details = {"error": True, "unexpected_response": created_contact_response}
-                
-                # Fallback: Search again in case of race condition
-                logger.info(f"🔄 Attempting fallback search for {final_ghl_payload['email']} after create failure")
-                time.sleep(2)  # Brief delay before retry
-                
-                search_results_after_fail = ghl_api_client.search_contacts(query=final_ghl_payload["email"], limit=1)
-                if search_results_after_fail and search_results_after_fail[0].get('email', '').lower() == final_ghl_payload["email"]:
-                    # Found contact that may have been created despite error response
-                    existing_ghl_contact = search_results_after_fail[0]
-                    final_ghl_contact_id = existing_ghl_contact["id"]
-                    action_taken = "found_after_apparent_create_fail"
-                    logger.info(f"🔍 Found contact {final_ghl_contact_id} via search after initial create appeared to fail")
-                    
-                    # Try to update it with full payload
-                    update_payload = final_ghl_payload.copy()
-                    update_payload.pop("locationId", None)
-                    update_payload.pop("id", None)
-                    
-                    operation_successful = ghl_api_client.update_contact(final_ghl_contact_id, update_payload)
-                    if not operation_successful:
-                        action_taken = "update_after_found_fail"
-                        api_response_details = "Update call after finding contact (post-create-fail) returned false"
 
-        # Step 3: Handle success/failure and log results
+        # Handle success/failure and log results
         processing_time = round(time.time() - start_time, 3)
         
         if operation_successful and final_ghl_contact_id:
             logger.info(f"✅ Successfully {action_taken} GHL contact {final_ghl_contact_id} for form '{form_identifier}' in {processing_time}s")
             
-            # Vendor applications only create GHL contacts initially
-            # Database vendor records are created later during user creation webhook when approved
-            if form_config.get("form_type") == "vendor_application":
-                logger.info(f"✅ Vendor application processed - GHL contact created: {final_ghl_contact_id}")
-                logger.info(f"📋 Database vendor record will be created during approval/user creation webhook")
-
             # Log successful activity to database
             simple_db_instance.log_activity(
-                event_type=f"elementor_webhook_{action_taken}",
+                event_type=f"clean_webhook_{action_taken}",
                 event_data={
                     "form": form_identifier,
                     "form_type": form_config.get("form_type"),
@@ -1001,35 +967,152 @@ async def handle_enhanced_elementor_webhook(
                 success=True
             )
             
+            # CREATE VENDOR RECORD - Use payload data directly!
+            if form_config.get("form_type") == "vendor_application":
+                try:
+                    # Extract vendor data from the NORMALIZED PAYLOAD
+                    vendor_first_name = elementor_payload.get('firstName', '')
+                    vendor_last_name = elementor_payload.get('lastName', '')
+                    vendor_email = elementor_payload.get('email', '')
+                    vendor_phone = elementor_payload.get('phone', '')
+                    
+                    # Get vendor company name
+                    vendor_company_name = elementor_payload.get('vendor_company_name', '')
+                    
+                    # Get CATEGORIES directly from the form field (already comma-separated)
+                    service_categories_str = elementor_payload.get('service_categories_selected', '')
+                    if service_categories_str:
+                        # Parse comma-separated categories
+                        service_categories = [cat.strip() for cat in service_categories_str.split(',') if cat.strip()]
+                    else:
+                        service_categories = ["Boater Resources"]  # Default fallback
+                    
+                    # Get SERVICES directly from the form field (already comma-separated)
+                    services_provided_str = elementor_payload.get('services_provided', '')
+                    if services_provided_str:
+                        # Parse comma-separated services
+                        services_list = [svc.strip() for svc in services_provided_str.split(',') if svc.strip()]
+                    else:
+                        services_list = []
+                    
+                    # Get coverage areas (this part was already working correctly)
+                    service_zip_codes = elementor_payload.get('service_zip_codes', '')
+                    
+                    # Parse service_zip_codes - it might come as a JSON string or comma-separated
+                    if service_zip_codes.startswith('['):
+                        # It's a JSON array like ["Miami-Dade, FL", "Broward, FL"]
+                        try:
+                            counties_list = json.loads(service_zip_codes)
+                            service_counties = counties_list
+                            service_states = list(set([county.split(', ')[1] for county in counties_list if ', ' in county]))
+                        except:
+                            service_counties = []
+                            service_states = []
+                    else:
+                        # Convert ZIP codes to counties (existing logic)
+                        service_counties = []
+                        service_states = []
+                        if service_zip_codes:
+                            zip_list = [z.strip() for z in str(service_zip_codes).split(',') if z.strip()]
+                            for zip_code in zip_list:
+                                location = location_service.zip_to_location(zip_code)
+                                if location.get('county') and location.get('state'):
+                                    county_entry = f"{location['county']}, {location['state']}"
+                                    if county_entry not in service_counties:
+                                        service_counties.append(county_entry)
+                                    state = location['state']
+                                    if state not in service_states:
+                                        service_states.append(state)
+                    
+                    # Get account
+                    account_record = simple_db_instance.get_account_by_ghl_location_id(AppConfig.GHL_LOCATION_ID)
+                    if not account_record:
+                        account_id = simple_db_instance.create_account(
+                            ghl_location_id=AppConfig.GHL_LOCATION_ID,
+                            company_name="DocksidePros",
+                            industry="Marine Services"
+                        )
+                    else:
+                        account_id = account_record["id"]
+                    
+                    # Create vendor record with correct data mapping
+                    vendor_data = {
+                        'account_id': account_id,
+                        'name': f"{vendor_first_name} {vendor_last_name}".strip(),
+                        'email': vendor_email,
+                        'phone': vendor_phone,
+                        'company_name': vendor_company_name,  # This will now be populated!
+                        'ghl_contact_id': final_ghl_contact_id,
+                        'ghl_user_id': None,  # Will be set later when user is created
+                        'service_categories': json.dumps(service_categories),  # Categories from form
+                        'services_offered': json.dumps(services_list),  # Services from form
+                        'coverage_type': 'county' if service_counties else 'zip',
+                        'coverage_counties': json.dumps(service_counties),
+                        'coverage_states': json.dumps(service_states),
+                        'status': 'pending',  # Will be activated when user is created
+                        'taking_new_work': 'Yes'
+                    }
+                    
+                    # Log what we're about to create
+                    logger.info(f"📋 Creating vendor record with data from payload:")
+                    logger.info(f"   👤 Name: {vendor_data['name']}")
+                    logger.info(f"   🏢 Company: {vendor_company_name}")
+                    logger.info(f"   📧 Email: {vendor_email}")
+                    logger.info(f"   🎯 Categories: {service_categories}")
+                    logger.info(f"   🔧 Services: {services_list}")
+                    logger.info(f"   📍 Counties: {service_counties}")
+                    
+                    # Create the vendor record
+                    vendor_db_id = simple_db_instance.create_vendor(
+                        account_id=vendor_data['account_id'],
+                        name=vendor_data['name'],
+                        email=vendor_data['email'],
+                        company_name=vendor_data['company_name'],
+                        phone=vendor_data['phone'],
+                        ghl_contact_id=vendor_data['ghl_contact_id'],
+                        status=vendor_data['status'],
+                        service_categories=vendor_data['service_categories'],  # Fixed parameter name
+                        coverage_counties=vendor_data['coverage_counties']  # Fixed parameter name
+                    )
+                    
+                    logger.info(f"✅ Created vendor record: {vendor_db_id}")
+                    
+                except Exception as e:
+                    logger.error(f"❌ Failed to create vendor record: {e}")
+                    # Don't fail the whole request, just log the error
+            
             # Trigger background tasks based on form type
             if form_config.get("requires_immediate_routing"):
                 background_tasks.add_task(
-                    trigger_enhanced_lead_routing_workflow, 
+                    trigger_clean_lead_routing_workflow, 
                     ghl_contact_id=final_ghl_contact_id,
                     form_identifier=form_identifier,
                     form_config=form_config,
                     form_data=elementor_payload
                 )
             
+            # NOTE: Opportunity creation now handled in background task for client leads
+            logger.info("ℹ️ Opportunity creation will be handled by background task if needed")
+
             return {
                 "status": "success", 
-                "message": f"Webhook processed successfully. GHL contact {final_ghl_contact_id} {action_taken}.",
+                "message": f"Clean webhook processed successfully. GHL contact {final_ghl_contact_id} {action_taken}.",
                 "contact_id": final_ghl_contact_id,
                 "action": action_taken,
                 "form_type": form_config.get("form_type"),
                 "service_category": form_config.get("service_category"),
                 "processing_time_seconds": processing_time,
                 "validation_warnings": validation_result.get("warnings", []),
-                "custom_fields_processed": len(final_ghl_payload.get("customFields", []))
+                "custom_fields_processed": len(final_ghl_payload.get("customFields", [])),
+                "processing_method": "direct_only_no_ai"
             }
         else:
             # Operation failed
             error_message = f"Failed to {action_taken} GHL contact for form '{form_identifier}'"
             logger.error(f"❌ {error_message}. API Response: {api_response_details}")
             
-            # Log failed activity to database
             simple_db_instance.log_activity(
-                event_type="elementor_webhook_ghl_failure",
+                event_type="clean_webhook_ghl_failure",
                 event_data={
                     "form": form_identifier,
                     "form_type": form_config.get("form_type"),
@@ -1050,7 +1133,7 @@ async def handle_enhanced_elementor_webhook(
     except json.JSONDecodeError:
         logger.error(f"❌ Invalid JSON received for Elementor webhook form '{form_identifier}'")
         simple_db_instance.log_activity(
-            event_type="elementor_webhook_bad_json",
+            event_type="clean_webhook_bad_json",
             event_data={"form": form_identifier},
             success=False,
             error_message="Invalid JSON payload"
@@ -1063,9 +1146,9 @@ async def handle_enhanced_elementor_webhook(
     
     except Exception as e:
         processing_time = round(time.time() - start_time, 3)
-        logger.exception(f"💥 Critical error processing Enhanced Elementor webhook for form '{form_identifier}' after {processing_time}s: {e}")
+        logger.exception(f"💥 Critical error processing Clean Elementor webhook for form '{form_identifier}' after {processing_time}s: {e}")
         simple_db_instance.log_activity(
-            event_type="elementor_webhook_exception",
+            event_type="clean_webhook_exception",
             event_data={
                 "form": form_identifier,
                 "processing_time_seconds": processing_time,
@@ -1076,27 +1159,20 @@ async def handle_enhanced_elementor_webhook(
         )
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
-
-async def trigger_enhanced_lead_routing_workflow(
+async def trigger_clean_lead_routing_workflow(
     ghl_contact_id: str, 
     form_identifier: str, 
     form_config: Dict[str, Any],
     form_data: Dict[str, Any]
 ):
     """
-    Enhanced background task for intelligent lead routing with AI classification and opportunity creation
+    Clean background task for lead routing - NO AI processing
+    Direct vendor matching using existing lead_routing_service
     """
-    logger.info(f"🚀 ENHANCED BACKGROUND TASK: Processing lead for contact {ghl_contact_id} from form '{form_identifier}'")
+    logger.info(f"🚀 CLEAN BACKGROUND TASK: Processing lead for contact {ghl_contact_id} from form '{form_identifier}'")
     
     try:
-        # Initialize AI classifier for enhanced service classification
-        ai_classifier = AIServiceClassifier(industry="marine")
-        
-        # Perform AI-enhanced service classification
-        classification_result = await ai_classifier.classify_service(form_data)
-        logger.info(f"🤖 AI Classification for contact {ghl_contact_id}: {classification_result}")
-        
-        # Get account information for multi-tenant support
+        # Get account information
         account = simple_db_instance.get_account_by_ghl_location_id(AppConfig.GHL_LOCATION_ID)
         if not account:
             logger.warning(f"⚠️ No account found for GHL Location ID: {AppConfig.GHL_LOCATION_ID}")
@@ -1109,213 +1185,189 @@ async def trigger_enhanced_lead_routing_workflow(
         else:
             account_id = account["id"]
         
-        # Enhanced service classification with detailed breakdown
-        ai_classifier = AIServiceClassifier(industry="marine")
-        enhanced_form_data = form_data.copy()
-        enhanced_form_data['form_identifier'] = form_identifier
-        enhanced_classification = await ai_classifier.classify_service_detailed(enhanced_form_data)
-        logger.info(f"🔍 Enhanced classification: {enhanced_classification}")
+        # Direct service classification (NO AI)
+        service_category = form_config.get("service_category", "Boater Resources")
         
-        # FIXED: Extract customer data correctly
+        # Extract customer data directly from form
         customer_data = {
             "name": f"{form_data.get('firstName', '')} {form_data.get('lastName', '')}".strip(),
             "email": form_data.get("email", ""),
             "phone": form_data.get("phone", "")
         }
         
-        # Create lead with enhanced storage
+        # Create lead with direct data storage
+        lead_data = {
+            "customer_data": customer_data,
+            "service_category": service_category,
+            "zip_code": form_data.get("zip_code_of_service", ""),
+            "specific_service": form_data.get("specific_service_needed", ""),
+            "timeline": form_data.get("desired_timeline", ""),
+            "notes": form_data.get("special_requests__notes", ""),
+            "vessel_info": {
+                "make": form_data.get("vessel_make", ""),
+                "model": form_data.get("vessel_model", ""),
+                "year": form_data.get("vessel_year", ""),
+                "location": form_data.get("vessel_location__slip", "")
+            }
+        }
+        
         lead_id = simple_db_instance.create_enhanced_lead(
             customer_data=customer_data,
-            classification_result=enhanced_classification,
+            classification_result=lead_data,
             account_id=account_id,
             ghl_contact_id=ghl_contact_id,
             source=form_identifier
         )
         
-        # FIXED: Initialize opportunity_id before opportunity creation
+        # Create opportunity for client leads (self-contained - no routing_admin dependency)
         opportunity_id = None
-        
-        # Step 2: Create an Opportunity in GHL Pipeline (SKIP FOR VENDOR APPLICATIONS)
-        if AppConfig.PIPELINE_ID and AppConfig.NEW_LEAD_STAGE_ID:
-            # Check if this is a vendor application by looking for vendor_company_name field
-            is_vendor_application = bool(form_data.get("vendor_company_name"))
-            
-            if is_vendor_application:
-                logger.info(f"🏢 Skipping opportunity creation for vendor application: {form_data.get('vendor_company_name')}")
-            else:
-                logger.info(f"📈 Creating opportunity in pipeline '{AppConfig.PIPELINE_ID}'")
-                ghl_api_client = GoHighLevelAPI(private_token=AppConfig.GHL_PRIVATE_TOKEN, location_id=AppConfig.GHL_LOCATION_ID)
+        form_type = form_config.get("form_type", "unknown")
+        if form_type == "client_lead" or form_type == "emergency_service":
+            if AppConfig.PIPELINE_ID and AppConfig.NEW_LEAD_STAGE_ID:
+                logger.info(f"📈 Creating opportunity for {service_category} lead")
                 
-                # FIXED: Use correct variable names
+                # Initialize GHL API client for opportunity creation
+                ghl_api_client = GoHighLevelAPI(
+                    private_token=AppConfig.GHL_PRIVATE_TOKEN,
+                    location_id=AppConfig.GHL_LOCATION_ID
+                )
+                
                 customer_name = customer_data["name"]
-                service_category = enhanced_classification["primary_category"]
+                location_info = lead_data.get("zip_code", "Unknown Location")
                 
-                # Fetch full contact details to get custom field values for opportunity
-                contact_details = ghl_api_client.get_contact_by_id(ghl_contact_id)
-                if not contact_details:
-                    logger.warning(f"⚠️ Could not fetch contact details for {ghl_contact_id}, proceeding without custom fields")
-                    contact_details = {}
-                
-                # Define the 18 custom fields relevant to leads/clients (from CSV rows 5-22)
-                target_custom_field_keys = [
-                    "preferred_contact_method", "service_category", "specific_service_needed", 
-                    "zip_code_of_service", "vessel_year", "vessel_make", "vessel_model", 
-                    "vessel_length_ft", "vessel_location__slip", "_guests__crew", 
-                    "desired_timeline", "budget_range", "purchased_yet", "policy_start_date", 
-                    "need_emergency_tow", "rental_duration", "training__education_type", 
-                    "special_requests__notes"
-                ]
-                
-                # Build custom fields array for opportunity using field_mapper
-                opportunity_custom_fields = []
-                contact_custom_fields = contact_details.get('customFields', [])
-                
-                for short_key in target_custom_field_keys:
-                    # Get GHL field details using field_mapper
-                    field_details = field_mapper.get_ghl_field_details(short_key)
-                    if not field_details:
-                        logger.debug(f"Custom field key '{short_key}' not found in field_mapper. Skipping.")
-                        continue
-                    
-                    # Get the GHL field ID for this custom field
-                    ghl_field_id = field_details['id']
-                    
-                    # Find the matching custom field in the contact's data
-                    for contact_field in contact_custom_fields:
-                        if contact_field.get('id') == ghl_field_id:
-                            # Handle both 'value' and 'fieldValue' keys from GHL response
-                            raw_value = contact_field.get('fieldValue') or contact_field.get('value', '')
-                            # Convert to string and strip, handling None, integers, floats, etc.
-                            if raw_value is not None and raw_value != '':
-                                field_value = str(raw_value).strip()
-                                if field_value:  # Only include if there's actually a value after stripping
-                                    opportunity_custom_fields.append({
-                                        "id": ghl_field_id,
-                                        "value": field_value
-                                    })
-                                    logger.debug(f"Added custom field to opportunity: {short_key} = {field_value} (type: {type(raw_value)})")
-                            break
-
-                logger.info(f"🏷️ Prepared {len(opportunity_custom_fields)} custom fields for opportunity")
-                
+                # Create opportunity data
                 opportunity_data = {
-                    "name": f"{customer_name} - {service_category}",
-                    "pipelineId": AppConfig.PIPELINE_ID,
-                    "locationId": AppConfig.GHL_LOCATION_ID,
-                    "pipelineStageId": AppConfig.NEW_LEAD_STAGE_ID,
-                    "contactId": ghl_contact_id,
-                    "status": "open",
-                    "monetaryValue": 0,  # Can be enhanced based on service type
-                    "assignedTo": None,  # Will be assigned when vendor is matched
-                    "source": form_config.get("source", f"{form_identifier} (DSP)")
+                    'contactId': ghl_contact_id,
+                    'pipelineId': AppConfig.PIPELINE_ID,
+                    'pipelineStageId': AppConfig.NEW_LEAD_STAGE_ID,
+                    'name': f"{customer_name} - {service_category}",
+                    'value': 0,
+                    'status': 'open',
+                    'source': f"{form_identifier} (DSP)",
+                    'locationId': AppConfig.GHL_LOCATION_ID
                 }
                 
-                # Add custom fields if we have any
-                if opportunity_custom_fields:
-                    opportunity_data["customFields"] = opportunity_custom_fields
+                # Create opportunity
+                opportunity_response = ghl_api_client.create_opportunity(opportunity_data)
                 
-                opportunity_result = ghl_api_client.create_opportunity(opportunity_data)
-                if opportunity_result and opportunity_result.get("id"):
-                    opportunity_id = opportunity_result.get("id")
-                    logger.info(f"✅ Successfully created opportunity {opportunity_id} for contact {ghl_contact_id} with {len(opportunity_custom_fields)} custom fields")
+                if opportunity_response and opportunity_response.get('id'):
+                    opportunity_id = opportunity_response['id']
+                    logger.info(f"✅ Created opportunity in background task: {opportunity_id}")
                     
-                    # Update lead record with opportunity ID
+                    # Store opportunity ID in lead record
                     try:
                         simple_db_instance.update_lead_opportunity_id(lead_id, opportunity_id)
+                        logger.info(f"✅ Stored opportunity ID {opportunity_id} with lead {lead_id}")
                     except Exception as e:
-                        logger.warning(f"⚠️ Could not update lead with opportunity ID: {e}")
+                        logger.warning(f"⚠️ Could not store opportunity ID: {e}")
+                    
+                    # Log successful opportunity creation
+                    simple_db_instance.log_activity(
+                        event_type="opportunity_created_background_task",
+                        event_data={
+                            "opportunity_id": opportunity_id,
+                            "contact_id": ghl_contact_id,
+                            "lead_id": lead_id,
+                            "form_identifier": form_identifier,
+                            "service_category": service_category,
+                            "processing_method": "direct_only_no_ai"
+                        },
+                        lead_id=ghl_contact_id,
+                        success=True
+                    )
                 else:
-                    error_msg = "Unknown error"
-                    if isinstance(opportunity_result, dict) and opportunity_result.get("error"):
-                        error_msg = opportunity_result.get("message", str(opportunity_result))
-                    logger.error(f"❌ Failed to create GHL opportunity: {error_msg}")
-        else:
-            logger.warning("⚠️ Skipping opportunity creation: PIPELINE_ID or NEW_LEAD_STAGE_ID not configured in AppConfig.")
+                    logger.error(f"❌ Failed to create opportunity in background task: {opportunity_response}")
+            else:
+                logger.warning("⚠️ Pipeline not configured - skipping opportunity creation")
         
-        # Determine routing priority
-        priority = form_config.get("priority", "normal")
+        # Direct vendor matching for client leads (NO AI)
         form_type = form_config.get("form_type", "unknown")
+        priority = form_config.get("priority", "normal")
         
-        # FIXED: Enhanced vendor matching logic with proper indentation and opportunity assignment
         if form_type == "client_lead" or form_type == "emergency_service":
-            # Extract location data from enhanced classification
-            zip_code = enhanced_classification.get("coverage_area", {}).get("zip_code", "")
-            service_category = enhanced_classification.get("primary_category", "Boater Resources")
+            zip_code = form_data.get("zip_code_of_service", "")
+            specific_service = form_data.get("specific_service_needed", "")
             
-            logger.info(f"🎯 Lead routing: Category='{service_category}', ZIP='{zip_code}'")
-            
-            if not zip_code:
-                logger.warning(f"⚠️ No ZIP code found in enhanced classification: {enhanced_classification}")
-                # Try to get ZIP from original form data as fallback
-                zip_code = form_data.get("zip_code_of_service") or form_data.get("zip_code") or ""
-                logger.info(f"🔄 Fallback ZIP code from form: '{zip_code}'")
+            logger.info(f"🎯 Direct lead routing: Category='{service_category}', ZIP='{zip_code}'")
             
             if zip_code and service_category:
-                # NEW: Extract specific service from form data for multi-level routing
-                specific_service = form_data.get("specific_service_needed", "")
-                
-                logger.info(f"🎯 Enhanced lead routing: Category='{service_category}', Service='{specific_service}', ZIP='{zip_code}'")
-                
-                # Find matching vendors for this service category and location using enhanced routing
+                # Find matching vendors using lead_routing_service
                 available_vendors = lead_routing_service.find_matching_vendors(
                     account_id=account_id,
                     service_category=service_category,
                     zip_code=zip_code,
                     priority=priority,
-                    specific_service=specific_service  # NEW: Pass specific service for exact matching
+                    specific_service=specific_service
                 )
+                
+                if available_vendors:
+                    logger.info(f"🎯 Found {len(available_vendors)} matching vendors for lead {lead_id}")
+                    
+                    # Select vendor using existing logic
+                    selected_vendor = lead_routing_service.select_vendor_from_pool(
+                        available_vendors, account_id
+                    )
+                    
+                    if selected_vendor:
+                        # Update database with vendor assignment
+                        db_assignment_success = simple_db_instance.assign_lead_to_vendor(lead_id, selected_vendor['id'])
+                        
+                        if db_assignment_success:
+                            logger.info(f"✅ Successfully assigned lead {lead_id} to vendor {selected_vendor['name']} in database")
+                            
+                            # Assign opportunity to vendor using self-contained GHL API call
+                            vendor_ghl_user_id = selected_vendor.get("ghl_user_id")
+                            if vendor_ghl_user_id and opportunity_id:
+                                logger.info(f"🎯 Assigning opportunity {opportunity_id} to vendor GHL User ID: {vendor_ghl_user_id}")
+                                
+                                # Self-contained opportunity assignment (no routing_admin dependency)
+                                try:
+                                    ghl_api_client = GoHighLevelAPI(
+                                        private_token=AppConfig.GHL_PRIVATE_TOKEN,
+                                        location_id=AppConfig.GHL_LOCATION_ID
+                                    )
+                                    
+                                    # Update opportunity with vendor assignment
+                                    update_data = {
+                                        'assignedTo': vendor_ghl_user_id,
+                                        'pipelineId': AppConfig.PIPELINE_ID,
+                                        'pipelineStageId': AppConfig.NEW_LEAD_STAGE_ID
+                                    }
+                                    
+                                    assignment_success = ghl_api_client.update_opportunity(opportunity_id, update_data)
+                                    
+                                    if assignment_success:
+                                        logger.info(f"✅ Successfully assigned opportunity to vendor {selected_vendor['name']} - GHL workflows will handle notifications")
+                                    else:
+                                        logger.error(f"❌ Failed to assign opportunity to vendor {selected_vendor['name']}")
+                                        
+                                except Exception as e:
+                                    logger.error(f"❌ Error assigning opportunity to vendor: {e}")
+                                    
+                            elif not vendor_ghl_user_id:
+                                logger.warning(f"⚠️ Vendor {selected_vendor['name']} has no GHL User ID - cannot assign opportunity")
+                            elif not opportunity_id:
+                                logger.warning(f"⚠️ No opportunity ID available - cannot assign to vendor")
+                        else:
+                            logger.error(f"❌ Failed to assign lead in database")
+                    else:
+                        logger.warning(f"⚠️ Vendor selection failed")
+                else:
+                    logger.warning(f"⚠️ No matching vendors found for service '{service_category}' in area '{zip_code}'")
+                    
+                    # Notify admin of unmatched lead
+                    await notify_admin_of_unmatched_lead(
+                        lead_data=lead_data,
+                        ghl_contact_id=ghl_contact_id,
+                        service_category=service_category,
+                        location=zip_code
+                    )
             else:
                 logger.error(f"❌ Cannot route lead: missing ZIP code ('{zip_code}') or service category ('{service_category}')")
-                available_vendors = []
-                
-            if available_vendors:
-                logger.info(f"🎯 Found {len(available_vendors)} matching vendors for lead {lead_id}")
-                
-                # Use enhanced vendor selection with dual routing logic
-                selected_vendor = lead_routing_service.select_vendor_from_pool(
-                    available_vendors, account_id
-                )
-                
-                # FIXED: Assign opportunity to vendor instead of direct notification
-                # This triggers GHL automations which handle vendor notifications
-                vendor_ghl_user_id = selected_vendor.get("ghl_user_id")
-                if vendor_ghl_user_id and opportunity_id:
-                    logger.info(f"🎯 Assigning opportunity {opportunity_id} to vendor user {vendor_ghl_user_id}")
-                    
-                    
-                    try:
-                        assignment_success = await _update_ghl_opportunity_assignment(
-                            opportunity_id, 
-                            selected_vendor
-                        )
-                        
-                        if assignment_success:
-                            logger.info(f"✅ Successfully assigned opportunity {opportunity_id} to vendor {selected_vendor['name']}")
-                            logger.info(f"🔔 GHL automations will handle vendor notifications")
-                        else:
-                            logger.error(f"❌ Failed to assign opportunity to vendor {selected_vendor['name']}")
-                            
-                    except Exception as e:
-                        logger.error(f"❌ Error assigning opportunity to vendor: {e}")
-                        
-                elif not vendor_ghl_user_id:
-                    logger.warning(f"⚠️ Vendor {selected_vendor['name']} has no GHL User ID - cannot assign opportunity")
-                elif not opportunity_id:
-                    logger.warning(f"⚠️ No opportunity ID available - cannot assign to vendor")
-            else:
-                logger.warning(f"⚠️ No matching vendors found for service '{enhanced_classification['primary_category']}' in area '{enhanced_classification['coverage_area']['zip_code']}'")
-                
-                # FIXED: Notify admin of unmatched lead instead of creating new contacts
-                await notify_admin_of_unmatched_lead(
-                    lead_data=enhanced_classification,
-                    ghl_contact_id=ghl_contact_id,
-                    service_category=enhanced_classification["primary_category"],
-                    location=enhanced_classification["coverage_area"]["zip_code"]
-                )
         
         # Log successful routing
         simple_db_instance.log_activity(
-            event_type="enhanced_lead_routing_completed",
+            event_type="clean_lead_routing_completed",
             event_data={
                 "ghl_location_id": AppConfig.GHL_LOCATION_ID,
                 "ghl_contact_id": ghl_contact_id,
@@ -1323,20 +1375,20 @@ async def trigger_enhanced_lead_routing_workflow(
                 "form_identifier": form_identifier,
                 "form_type": form_type,
                 "priority": priority,
-                "service_category": enhanced_classification["primary_category"],
-                "classification_confidence": enhanced_classification.get("confidence", 0),
+                "service_category": service_category,
+                "processing_method": "direct_only_no_ai",
                 "timestamp": time.time()
             },
             lead_id=ghl_contact_id,
             success=True
         )
         
-        logger.info(f"✅ Enhanced lead routing completed for {ghl_contact_id} with priority: {priority}")
+        logger.info(f"✅ Clean lead routing completed for {ghl_contact_id} with priority: {priority}")
         
     except Exception as e:
-        logger.error(f"❌ Error in enhanced lead routing workflow for {ghl_contact_id}: {e}")
+        logger.error(f"❌ Error in clean lead routing workflow for {ghl_contact_id}: {e}")
         simple_db_instance.log_activity(
-            event_type="enhanced_lead_routing_error",
+            event_type="clean_lead_routing_error",
             event_data={
                 "ghl_contact_id": ghl_contact_id,
                 "form_identifier": form_identifier,
@@ -1347,24 +1399,20 @@ async def trigger_enhanced_lead_routing_workflow(
             error_message=str(e)
         )
 
-
 async def notify_admin_of_unmatched_lead(lead_data: Dict[str, Any], ghl_contact_id: str, service_category: str, location: str):
     """
     Notify admin when no vendors are found for a lead
-    Uses existing admin contact ID instead of creating new contacts
+    Direct notification - NO AI processing
     """
     try:
-        # Initialize GHL API for notifications
         ghl_api_client = GoHighLevelAPI(private_token=AppConfig.GHL_PRIVATE_TOKEN, location_id=AppConfig.GHL_LOCATION_ID)
         
-        # FIXED: Use Jeremy's existing contact ID instead of creating new contacts
-        # This should be Jeremy Katz's existing contact ID in GHL
-        admin_contact_id = "b69NCeI1P32jooC7ySfw"  # Jeremy's user ID from your message
+        # Use existing admin contact ID
+        admin_contact_id = "b69NCeI1P32jooC7ySfw"  # Jeremy's contact ID
         
-        # Prepare admin notification message
-        customer_name = lead_data.get("customer_name", "Customer")
-        customer_email = lead_data.get("customer_email", "No email")
-        customer_phone = lead_data.get("customer_phone", "No phone")
+        customer_name = lead_data.get("customer_data", {}).get("name", "Customer")
+        customer_email = lead_data.get("customer_data", {}).get("email", "No email")
+        customer_phone = lead_data.get("customer_data", {}).get("phone", "No phone")
         
         admin_notification_message = f"""
 🚨 UNMATCHED LEAD ALERT - {service_category}
@@ -1376,16 +1424,16 @@ Email: {customer_email}
 Phone: {customer_phone}
 Service: {service_category}
 Location: {location}
-Timeline: {lead_data.get('service_details', {}).get('timeline', 'Not specified')}
+Timeline: {lead_data.get('timeline', 'Not specified')}
 
 Please manually assign this lead or add vendors for this service area.
 
 Lead ID: {ghl_contact_id}
 
-- Dockside Pros Lead Router
+- Dockside Pros Lead Router (CLEAN/DIRECT)
         """.strip()
         
-        # Send SMS notification to admin using existing contact ID
+        # Send SMS notification to admin
         sms_sent = ghl_api_client.send_sms(admin_contact_id, admin_notification_message)
         
         if sms_sent:
@@ -1402,7 +1450,8 @@ Lead ID: {ghl_contact_id}
                 "service_category": service_category,
                 "location": location,
                 "notification_type": "SMS",
-                "success": sms_sent
+                "success": sms_sent,
+                "processing_method": "direct_only_no_ai"
             },
             lead_id=ghl_contact_id,
             success=sms_sent
@@ -1411,173 +1460,27 @@ Lead ID: {ghl_contact_id}
     except Exception as e:
         logger.error(f"Error notifying admin of unmatched lead {ghl_contact_id}: {e}")
 
-
-# Health check endpoint for enhanced webhook system
-@router.get("/health")
-async def enhanced_webhook_health_check():
-    """Enhanced health check for webhook system"""
-    try:
-        # Test database connection
-        db_stats = simple_db_instance.get_stats()
-        db_healthy = True
-    except Exception as e:
-        db_stats = {"error": str(e)}
-        db_healthy = False
-    
-    # Test field reference loading via field_mapper
-    field_mapper_stats = field_mapper.get_mapping_stats()
-    field_reference_healthy = field_mapper_stats.get("ghl_fields_loaded", 0) > 0
-    
-    return {
-        "status": "healthy" if (db_healthy and field_reference_healthy) else "degraded",
-        "webhook_system": "enhanced_dynamic_processing",
-        "ghl_location_id": AppConfig.GHL_LOCATION_ID,
-        "pipeline_configured": AppConfig.PIPELINE_ID is not None and AppConfig.NEW_LEAD_STAGE_ID is not None,
-        "valid_field_count": len(field_mapper.get_all_ghl_field_keys()),
-        "custom_field_mappings": field_mapper_stats.get("ghl_fields_loaded", 0),
-        "service_categories": len(service_manager.SERVICE_CATEGORIES),
-        "database_status": "healthy" if db_healthy else "error",
-        "database_stats": db_stats,
-        "field_reference_status": "loaded" if field_reference_healthy else "missing",
-        "field_mapper_stats": field_mapper_stats,
-        "supported_form_types": ["client_lead", "vendor_application", "emergency_service", "general_inquiry"],
-        "dynamic_routing": "enabled",
-        "ai_classification": "enabled",
-        "opportunity_creation": "enabled" if AppConfig.PIPELINE_ID else "disabled",
-        "message": "Enhanced webhook system ready for dynamic processing of all form types"
-    }
-
-
-# Get service categories endpoint
-@router.get("/service-categories")
-async def get_service_categories():
-    """Return all supported service categories and their details"""
-    
-    # Use the new service_manager to get categories
-    categories_info = {}
-    for category_name, services_list in service_manager.SERVICE_CATEGORIES.items():
-        # Create a simple key from the category name
-        category_key = category_name.lower().replace(" ", "_").replace("&", "and")
-        
-        categories_info[category_key] = {
-            "name": category_name,
-            "services": services_list,
-            "service_count": len(services_list),
-            "example_webhook_url": f"https://dockside.life/api/v1/webhooks/elementor/{category_key}_example"
-        }
-    
-    return {
-        "status": "success",
-        "service_categories": categories_info,
-        "total_categories": len(service_manager.SERVICE_CATEGORIES),
-        "total_services": sum(len(services) for services in service_manager.SERVICE_CATEGORIES.values()),
-        "dynamic_form_processing": "enabled",
-        "message": f"All {len(service_manager.SERVICE_CATEGORIES)} marine service categories supported with dynamic form handling"
-    }
-
-
-# Get field mappings endpoint - UPDATED to use field_mapper
-@router.get("/field-mappings")
-async def get_field_mappings():
-    """Return all available field mappings for form development"""
-    
-    # Get all valid GHL field keys
-    all_ghl_fields = field_mapper.get_all_ghl_field_keys()
-    
-    # Build custom field mappings with details
-    custom_field_mappings = {}
-    for field_key in all_ghl_fields:
-        field_details = field_mapper.get_ghl_field_details(field_key)
-        if field_details:
-            custom_field_mappings[field_key] = field_details
-    
-    return {
-        "status": "success",
-        "standard_fields": [
-            "firstName", "lastName", "email", "phone", "companyName", 
-            "address1", "city", "state", "postal_code", "name",
-            "tags", "notes", "source", "website"
-        ],
-        "custom_field_mappings": custom_field_mappings,
-        "total_custom_fields": len(custom_field_mappings),
-        "field_reference_source": "field_reference.json via field_mapper service",
-        "mapping_stats": field_mapper.get_mapping_stats(),
-        "message": "Complete field mappings for GHL integration via enhanced field_mapper service"
-    }
-
-
-# Dynamic form testing endpoint
-@router.post("/test/{form_identifier}")
-async def test_form_configuration(form_identifier: str):
-    """Test endpoint to see how any form identifier would be configured"""
-    
-    try:
-        form_config = get_dynamic_form_configuration(form_identifier)
-        
-        return {
-            "status": "success",
-            "form_identifier": form_identifier,
-            "generated_configuration": form_config,
-            "webhook_url": f"https://dockside.life/api/v1/webhooks/elementor/{form_identifier}",
-            "message": f"Dynamic configuration generated for form '{form_identifier}'"
-        }
-    except Exception as e:
-        return {
-            "status": "error",
-            "form_identifier": form_identifier,
-            "error": str(e),
-            "message": "Failed to generate configuration"
-        }
-
-
 # Legacy vendor user creation webhook (maintained for compatibility)
 @router.post("/ghl/vendor-user-creation")
 async def handle_vendor_user_creation_webhook(request: Request):
     """
     Legacy webhook endpoint for GHL workflow to trigger vendor user creation.
-    Maintained for backward compatibility with existing workflows.
-    SECURITY: Requires X-Webhook-API-Key header for authentication.
+    Direct processing only - NO AI.
     """
     start_time = time.time()
     
     try:
-        # SECURITY: Validate API key from header with enhanced debugging
+        # Validate API key
         api_key = request.headers.get("X-Webhook-API-Key")
         expected_api_key = AppConfig.GHL_WEBHOOK_API_KEY
         
-        # ENHANCED DEBUGGING: Log all request details for troubleshooting
-        logger.info(f"🔍 GHL WEBHOOK DEBUG - Request from IP: {request.client.host}")
-        logger.info(f"🔍 GHL WEBHOOK DEBUG - All Headers: {dict(request.headers)}")
-        logger.info(f"🔍 GHL WEBHOOK DEBUG - Received API Key: '{api_key}' (length: {len(api_key) if api_key else 0})")
-        logger.info(f"🔍 GHL WEBHOOK DEBUG - Expected API Key: '{expected_api_key}' (length: {len(expected_api_key) if expected_api_key else 0})")
-        
         if not api_key:
             logger.error(f"❌ GHL webhook request missing API key from IP: {request.client.host}")
-            logger.error(f"❌ Available headers: {list(request.headers.keys())}")
-            raise HTTPException(
-                status_code=401, 
-                detail="Missing X-Webhook-API-Key header"
-            )
+            raise HTTPException(status_code=401, detail="Missing X-Webhook-API-Key header")
         
         if api_key != expected_api_key:
             logger.error(f"❌ GHL webhook API key mismatch from IP: {request.client.host}")
-            logger.error(f"❌ Received: '{api_key}' (type: {type(api_key)}, len: {len(api_key)})")
-            logger.error(f"❌ Expected: '{expected_api_key}' (type: {type(expected_api_key)}, len: {len(expected_api_key)})")
-            logger.error(f"❌ Char-by-char comparison:")
-            
-            # Character-by-character comparison for debugging
-            if api_key and expected_api_key:
-                max_len = max(len(api_key), len(expected_api_key))
-                for i in range(max_len):
-                    rec_char = api_key[i] if i < len(api_key) else "EOF"
-                    exp_char = expected_api_key[i] if i < len(expected_api_key) else "EOF"
-                    match = "✅" if rec_char == exp_char else "❌"
-                    logger.error(f"   [{i:2d}] Received: '{rec_char}' | Expected: '{exp_char}' {match}")
-            
-            raise HTTPException(
-                status_code=401, 
-                detail="Invalid API key"
-            )
+            raise HTTPException(status_code=401, detail="Invalid API key")
         
         logger.info(f"✅ GHL webhook API key validated successfully")
         
@@ -1585,29 +1488,27 @@ async def handle_vendor_user_creation_webhook(request: Request):
         ghl_payload = await request.json()
         logger.info(f"📥 GHL Vendor User Creation Webhook received: {json.dumps(ghl_payload, indent=2)}")
         
-        # CORRECTED: Extract vendor information directly from webhook payload (no extra API call needed)
+        # Extract vendor information directly from webhook payload
         contact_id = ghl_payload.get("contact_id") or ghl_payload.get("contactId")
-        
-        # Get vendor information directly from the webhook payload
         vendor_email = ghl_payload.get("email", "")
         vendor_first_name = ghl_payload.get("first_name", "") or ghl_payload.get("firstName", "")
         vendor_last_name = ghl_payload.get("last_name", "") or ghl_payload.get("lastName", "")
         vendor_phone = ghl_payload.get("phone", "")
         vendor_company_name = ghl_payload.get("Vendor Company Name", "") or ghl_payload.get("vendor_company_name", "")
         
-        logger.info(f"📋 CORRECTED: Using vendor data directly from webhook payload:")
+        logger.info(f"📋 Using vendor data directly from webhook payload:")
         logger.info(f"   👤 Contact ID: {contact_id}")
         logger.info(f"   📧 Email: {vendor_email}")
         logger.info(f"   👨 Name: {vendor_first_name} {vendor_last_name}")
         logger.info(f"   📱 Phone: {vendor_phone}")
         logger.info(f"   🏢 Company: {vendor_company_name}")
         
-        # Initialize GHL API client with V2/V1 fallback support including company_id
+        # Initialize GHL API client
         ghl_api_client = GoHighLevelAPI(
             private_token=AppConfig.GHL_PRIVATE_TOKEN, 
             location_id=AppConfig.GHL_LOCATION_ID,
             agency_api_key=AppConfig.GHL_AGENCY_API_KEY,
-            company_id=AppConfig.GHL_COMPANY_ID  # FIXED: Added missing company_id parameter
+            company_id=AppConfig.GHL_COMPANY_ID
         )
         
         if not vendor_email:
@@ -1619,14 +1520,16 @@ async def handle_vendor_user_creation_webhook(request: Request):
         if existing_user:
             logger.info(f"✅ User already exists for {vendor_email}: {existing_user.get('id')}")
             
-            # Update vendor record with existing user ID
-            vendor_record = simple_db_instance.get_vendor_by_email_and_account(vendor_email, account_id)    
-            if vendor_record:
-                simple_db_instance.update_vendor_status(
-                    vendor_record["id"], 
-                    "active", 
-                    existing_user.get("id")
-                )
+            # Get account and update vendor record
+            account_record = simple_db_instance.get_account_by_ghl_location_id(AppConfig.GHL_LOCATION_ID)
+            if account_record:
+                vendor_record = simple_db_instance.get_vendor_by_email_and_account(vendor_email, account_record["id"])    
+                if vendor_record:
+                    simple_db_instance.update_vendor_status(
+                        vendor_record["id"], 
+                        "active", 
+                        existing_user.get("id")
+                    )
             
             return {
                 "status": "success",
@@ -1636,15 +1539,14 @@ async def handle_vendor_user_creation_webhook(request: Request):
                 "action": "existing_user_found"
             }
         
-        # CORRECTED: Create new user data with correct V1 API fields
+        # Create new user data
         user_data = {
             "firstName": vendor_first_name,
             "lastName": vendor_last_name,
             "email": vendor_email,
             "phone": vendor_phone,
-            "type": "account",  # FIXED: V1 API requires 'account' or 'agency', NOT 'user'
-            "role": "user",     # This is correct - role can be 'user' or 'admin'
-            # Vendor-specific permissions (limited access)
+            "type": "account",
+            "role": "user",
             "permissions": {
                 "campaignsEnabled": False,
                 "campaignsReadOnly": True,
@@ -1661,7 +1563,7 @@ async def handle_vendor_user_creation_webhook(request: Request):
                 "onlineListingsEnabled": False,
                 "phoneCallEnabled": True,
                 "conversationsEnabled": True,
-                "assignedDataOnly": True,  # Only see their assigned leads
+                "assignedDataOnly": True,
                 "adwordsReportingEnabled": False,
                 "membershipEnabled": False,
                 "facebookAdsReportingEnabled": False,
@@ -1686,18 +1588,15 @@ async def handle_vendor_user_creation_webhook(request: Request):
             }
         }
         
-       # Create user in GHL
+        # Create user in GHL
         logger.info(f"🔐 Creating GHL user for vendor: {vendor_email}")
         created_user = ghl_api_client.create_user(user_data)
         
-        # FIXED: Handle both success and error responses correctly
         if not created_user:
             logger.error(f"❌ No response from GHL user creation API for {vendor_email}")
             raise HTTPException(status_code=502, detail="No response from GHL user creation API")
         
-        # Check if it's an error response
         if isinstance(created_user, dict) and created_user.get("error"):
-            # Log detailed error information
             error_details = {
                 "api_version": created_user.get("api_version", "V1"),
                 "status_code": created_user.get("status_code"),
@@ -1705,11 +1604,10 @@ async def handle_vendor_user_creation_webhook(request: Request):
                 "exception": created_user.get("exception"),
                 "url": created_user.get("url")
             }
-            logger.error(f"❌ GHL V1 API user creation failed with details: {error_details}")
+            logger.error(f"❌ GHL V1 API user creation failed: {error_details}")
             error_msg = f"GHL V1 API error: {created_user.get('response_text', 'Unknown error')}"
             raise HTTPException(status_code=502, detail=error_msg)
         
-        # SUCCESS: Extract user ID from successful response
         user_id = created_user.get("id")
         if not user_id:
             logger.error(f"❌ GHL user creation succeeded but no user ID returned: {created_user}")
@@ -1717,62 +1615,27 @@ async def handle_vendor_user_creation_webhook(request: Request):
         
         logger.info(f"✅ Successfully created GHL user: {user_id} for {vendor_email}")
         
-        # ADD 10-SECOND DELAY FOR GHL USER PROPAGATION
+        # Wait for GHL user propagation
         import asyncio
         logger.info(f"⏳ Waiting 10 seconds for GHL user propagation...")
         await asyncio.sleep(10)
-        logger.info(f"✅ User propagation delay complete, proceeding with database updates")
+        logger.info(f"✅ User propagation delay complete")
 
-        # CREATE COUNTY-NORMALIZED VENDOR RECORD USING FIXED COVERAGE MAPPING
-        try:
-            # Use the fixed vendor coverage mapping function
-            vendor_coverage_data = fix_vendor_coverage_mapping(contact_id, ghl_api_client, location_service, field_mapper)
-            
-            # Get or create account
-            account_record = simple_db_instance.get_account_by_ghl_location_id(AppConfig.GHL_LOCATION_ID)
-            if not account_record:
-                account_id = simple_db_instance.create_account(
-                    ghl_location_id=AppConfig.GHL_LOCATION_ID,
-                    company_name="DocksidePros",
-                    industry="Marine Services"
-                )
-            else:
-                account_id = account_record["id"]
-            
-            # Create vendor record with fixed coverage mapping
-            vendor_data = {
-                'account_id': account_id,
-                'name': f"{vendor_first_name} {vendor_last_name}".strip(),
-                'email': vendor_email,
-                'ghl_user_id': user_id,
-                'ghl_contact_id': contact_id,
-                'primary_service_category': json.loads(vendor_coverage_data['services_offered'])[0] if vendor_coverage_data['services_offered'] and vendor_coverage_data['services_offered'] != '[]' else 'General Services',
-                'secondary_service_categories': vendor_coverage_data['services_offered'],
-                'service_coverage_type': vendor_coverage_data['service_coverage_type'],
-                'service_counties': vendor_coverage_data['service_counties'],
-                'service_states': vendor_coverage_data['service_states'],
-                'service_areas': vendor_coverage_data['service_areas'],
-                'status': 'active',
-                'taking_new_work': True
-            }
-            
-            vendor_db_id = simple_db_instance.create_routing_vendor(vendor_data)
-            
-            logger.info(f"✅ Created vendor record with FIXED coverage mapping: {vendor_db_id}")
-            logger.info(f"   👤 Name: {vendor_data['name']}")
-            logger.info(f"   🔑 GHL User ID: {user_id}")
-            logger.info(f"   🎯 Primary Service: {vendor_data['primary_service_category']}")
-            logger.info(f"   📋 Coverage Type: {vendor_data['service_coverage_type']}")
-            logger.info(f"   🏛️ Counties: {json.loads(vendor_data['service_counties'])}")
-            
-        except Exception as e:
-            logger.error(f"❌ Failed to create vendor record with fixed coverage mapping: {e}")
+        # Get or create account
+        account_record = simple_db_instance.get_account_by_ghl_location_id(AppConfig.GHL_LOCATION_ID)
+        if not account_record:
+            account_id = simple_db_instance.create_account(
+                ghl_location_id=AppConfig.GHL_LOCATION_ID,
+                company_name="DocksidePros",
+                industry="Marine Services"
+            )
+        else:
+            account_id = account_record["id"]
         
-        # FIXED: Update the contact record with the GHL User ID
+        # Update the contact record with the GHL User ID
         if contact_id:
             logger.info(f"🔄 Updating contact {contact_id} with GHL User ID: {user_id}")
             
-            # Get the GHL User ID field details from field_mapper
             ghl_user_id_field = field_mapper.get_ghl_field_details("ghl_user_id")
             if ghl_user_id_field and ghl_user_id_field.get("id"):
                 update_payload = {
@@ -1784,7 +1647,6 @@ async def handle_vendor_user_creation_webhook(request: Request):
                     ]
                 }
                 
-                # Update the contact record
                 update_success = ghl_api_client.update_contact(contact_id, update_payload)
                 if update_success:
                     logger.info(f"✅ Successfully updated contact {contact_id} with GHL User ID: {user_id}")
@@ -1792,10 +1654,8 @@ async def handle_vendor_user_creation_webhook(request: Request):
                     logger.warning(f"⚠️ Failed to update contact {contact_id} with GHL User ID")
             else:
                 logger.warning(f"⚠️ Could not find GHL User ID field mapping for contact update")
-        else:
-            logger.warning(f"⚠️ No contact ID provided - cannot update contact record with User ID")
         
-        # Update vendor record in database - FIXED: Use account_id instead of GHL_LOCATION_ID
+        # Update vendor record in database
         vendor_record = simple_db_instance.get_vendor_by_email_and_account(vendor_email, account_id)
         if vendor_record:
             simple_db_instance.update_vendor_status(vendor_record["id"], "active", user_id)
@@ -1806,22 +1666,19 @@ async def handle_vendor_user_creation_webhook(request: Request):
         # Log successful activity
         processing_time = round(time.time() - start_time, 3)
         simple_db_instance.log_activity(
-            event_type="vendor_user_created",
+            event_type="vendor_user_created_clean",
             event_data={
                 "contact_id": contact_id,
                 "user_id": user_id,
                 "vendor_email": vendor_email,
                 "vendor_company": vendor_company_name,
-                "processing_time_seconds": processing_time
+                "processing_time_seconds": processing_time,
+                "processing_method": "direct_only_no_ai"
             },
             lead_id=contact_id,
             success=True
         )
         
-        # NOTE: Welcome email sending removed as GHL handles all vendor communications
-        # through its own automation workflows. This prevents conflicts and ensures
-        # consistent messaging through the GHL system.
-        email_sent = True  # Set to True since GHL handles vendor notifications
         logger.info(f"📧 Vendor notifications handled by GHL automation workflows")
         
         return {
@@ -1833,23 +1690,483 @@ async def handle_vendor_user_creation_webhook(request: Request):
             "vendor_company": vendor_company_name,
             "processing_time_seconds": processing_time,
             "action": "user_created",
-            "welcome_email_sent": email_sent
+            "processing_method": "direct_only_no_ai"
         }
         
     except HTTPException:
-        # Re-raise HTTPExceptions directly (don't wrap them)
         raise
     
     except Exception as e:
         processing_time = round(time.time() - start_time, 3)
         logger.exception(f"💥 Critical error processing vendor user creation webhook after {processing_time}s: {e}")
         simple_db_instance.log_activity(
-            event_type="vendor_user_creation_error",
+            event_type="vendor_user_creation_error_clean",
             event_data={
                 "processing_time_seconds": processing_time,
-                "error_class": e.__class__.__name__
+                "error_class": e.__class__.__name__,
+                "processing_method": "direct_only_no_ai"
             },
             success=False,
             error_message=str(e)
         )
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+# Health check endpoint
+@router.get("/health")
+async def clean_webhook_health_check():
+    """Clean health check for webhook system - NO AI dependencies"""
+    try:
+        # Test database connection
+        db_stats = simple_db_instance.get_stats()
+        db_healthy = True
+    except Exception as e:
+        db_stats = {"error": str(e)}
+        db_healthy = False
+    
+    # Test field reference loading via field_mapper
+    field_mapper_stats = field_mapper.get_mapping_stats()
+    field_reference_healthy = field_mapper_stats.get("ghl_fields_loaded", 0) > 0
+    
+    return {
+        "status": "healthy" if (db_healthy and field_reference_healthy) else "degraded",
+        "webhook_system": "clean_direct_processing_no_ai",
+        "ghl_location_id": AppConfig.GHL_LOCATION_ID,
+        "pipeline_configured": AppConfig.PIPELINE_ID is not None and AppConfig.NEW_LEAD_STAGE_ID is not None,
+        "valid_field_count": len(field_mapper.get_all_ghl_field_keys()),
+        "custom_field_mappings": field_mapper_stats.get("ghl_fields_loaded", 0),
+        "service_categories": len(DOCKSIDE_PROS_SERVICES),
+        "database_status": "healthy" if db_healthy else "error",
+        "database_stats": db_stats,
+        "field_reference_status": "loaded" if field_reference_healthy else "missing",
+        "field_mapper_stats": field_mapper_stats,
+        "supported_form_types": ["client_lead", "vendor_application", "emergency_service", "general_inquiry"],
+        "routing_method": "direct_vendor_matching_no_ai",
+        "ai_processing": "completely_disabled",
+        "opportunity_creation": "enabled" if AppConfig.PIPELINE_ID else "disabled",
+        "message": "Clean webhook system ready for direct processing - NO AI interference"
+    }
+
+# Get service categories endpoint
+@router.get("/service-categories")
+async def get_clean_service_categories():
+    """Return all supported service categories - Direct mapping only"""
+    
+    # Group categories by type
+    categories_by_type = {}
+    for form_key, category in DOCKSIDE_PROS_SERVICES.items():
+        if category not in categories_by_type:
+            categories_by_type[category] = []
+        categories_by_type[category].append(form_key)
+    
+    return {
+        "status": "success",
+        "service_categories": categories_by_type,
+        "total_categories": len(set(DOCKSIDE_PROS_SERVICES.values())),
+        "total_form_identifiers": len(DOCKSIDE_PROS_SERVICES),
+        "processing_method": "direct_mapping_no_ai",
+        "ai_processing": "disabled",
+        "message": f"All {len(set(DOCKSIDE_PROS_SERVICES.values()))} marine service categories supported with direct form handling - NO AI"
+    }
+
+# Get field mappings endpoint
+@router.get("/field-mappings")
+async def get_clean_field_mappings():
+    """Return all available field mappings for form development - Direct only"""
+    
+    # Get all valid GHL field keys
+    all_ghl_fields = field_mapper.get_all_ghl_field_keys()
+    
+    # Build custom field mappings with details
+    custom_field_mappings = {}
+    for field_key in all_ghl_fields:
+        field_details = field_mapper.get_ghl_field_details(field_key)
+        if field_details:
+            custom_field_mappings[field_key] = field_details
+    
+    return {
+        "status": "success",
+        "standard_fields": [
+            "firstName", "lastName", "email", "phone", "companyName", 
+            "address1", "city", "state", "postal_code", "name",
+            "tags", "notes", "source", "website"
+        ],
+        "custom_field_mappings": custom_field_mappings,
+        "total_custom_fields": len(custom_field_mappings),
+        "field_reference_source": "field_reference.json via field_mapper service",
+        "mapping_stats": field_mapper.get_mapping_stats(),
+        "processing_method": "direct_field_mapping_no_ai",
+        "ai_processing": "disabled",
+        "message": "Complete field mappings for GHL integration - Direct processing only"
+    }
+
+# Dynamic form testing endpoint
+@router.post("/test/{form_identifier}")
+async def test_clean_form_configuration(form_identifier: str):
+    """Test endpoint to see how any form identifier would be configured - Direct only"""
+    
+    try:
+        form_config = get_form_configuration(form_identifier)
+        
+        return {
+            "status": "success",
+            "form_identifier": form_identifier,
+            "generated_configuration": form_config,
+            "webhook_url": f"https://dockside.life/api/v1/webhooks/elementor/{form_identifier}",
+            "processing_method": "direct_configuration_no_ai",
+            "ai_processing": "disabled",
+            "message": f"Direct configuration generated for form '{form_identifier}' - NO AI processing"
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "form_identifier": form_identifier,
+            "error": str(e),
+            "message": "Failed to generate configuration"
+        }
+
+# Lead Reassignment Webhook Endpoint
+@router.post("/ghl/reassign-lead")
+async def handle_lead_reassignment_webhook(request: Request):
+    """
+    GHL workflow webhook endpoint for lead reassignment.
+    Triggered when tags like "reassign lead" are added to contacts.
+    Overwrites existing assignments and finds new vendors.
+    """
+    start_time = time.time()
+    
+    try:
+        # Validate API key
+        api_key = request.headers.get("X-Webhook-API-Key")
+        expected_api_key = AppConfig.GHL_WEBHOOK_API_KEY
+        
+        if not api_key:
+            logger.error(f"❌ GHL reassignment webhook missing API key from IP: {request.client.host}")
+            raise HTTPException(status_code=401, detail="Missing X-Webhook-API-Key header")
+        
+        if api_key != expected_api_key:
+            logger.error(f"❌ GHL reassignment webhook API key mismatch from IP: {request.client.host}")
+            raise HTTPException(status_code=401, detail="Invalid API key")
+        
+        logger.info(f"✅ GHL reassignment webhook API key validated")
+        
+        # Parse incoming GHL workflow webhook payload
+        ghl_payload = await request.json()
+        logger.info(f"📥 GHL Lead Reassignment Webhook received: {json.dumps(ghl_payload, indent=2)}")
+        
+        # Extract contact information from payload
+        contact_id = ghl_payload.get("contact_id") or ghl_payload.get("contactId")
+        opportunity_id = ghl_payload.get("opportunity_id") or ghl_payload.get("opportunityId")
+        
+        if not contact_id:
+            logger.error(f"❌ No contact ID provided in reassignment webhook")
+            raise HTTPException(status_code=400, detail="Contact ID is required for lead reassignment")
+        
+        logger.info(f"🔄 Processing lead reassignment for contact: {contact_id}")
+        
+        # Initialize GHL API client
+        ghl_api_client = GoHighLevelAPI(
+            private_token=AppConfig.GHL_PRIVATE_TOKEN,
+            location_id=AppConfig.GHL_LOCATION_ID,
+            agency_api_key=AppConfig.GHL_AGENCY_API_KEY,
+            company_id=AppConfig.GHL_COMPANY_ID
+        )
+        
+        # Get contact details from GHL
+        contact_details = ghl_api_client.get_contact_by_id(contact_id)
+        if not contact_details:
+            logger.error(f"❌ Could not fetch contact details for {contact_id}")
+            raise HTTPException(status_code=404, detail="Contact not found in GHL")
+        
+        # Extract service and location information for reassignment
+        service_category = await _extract_service_category_from_contact(contact_details)
+        zip_code = await _extract_zip_code_from_contact(contact_details)
+        
+        if not service_category:
+            logger.error(f"❌ Could not determine service category for contact {contact_id}")
+            raise HTTPException(status_code=400, detail="Cannot determine service category for reassignment")
+        
+        if not zip_code:
+            logger.error(f"❌ Could not determine service location for contact {contact_id}")
+            raise HTTPException(status_code=400, detail="Cannot determine service location for reassignment")
+        
+        logger.info(f"🎯 Reassignment criteria: Service='{service_category}', Location='{zip_code}'")
+        
+        # Get account information
+        account = simple_db_instance.get_account_by_ghl_location_id(AppConfig.GHL_LOCATION_ID)
+        if not account:
+            logger.error(f"❌ No account found for GHL Location ID: {AppConfig.GHL_LOCATION_ID}")
+            raise HTTPException(status_code=500, detail="Account configuration error")
+        
+        account_id = account["id"]
+        
+        # Find existing lead assignment in database
+        existing_lead = simple_db_instance.get_lead_by_ghl_contact_id(contact_id)
+        if existing_lead:
+            logger.info(f"📋 Found existing lead record: {existing_lead['id']}")
+            
+            # OVERWRITE: Remove current vendor assignment
+            if existing_lead.get('vendor_id'):
+                logger.info(f"🔄 Removing existing vendor assignment: {existing_lead['vendor_id']}")
+                simple_db_instance.unassign_lead_from_vendor(existing_lead['id'])
+        else:
+            # Create new lead record if none exists
+            customer_name = f"{contact_details.get('firstName', '')} {contact_details.get('lastName', '')}".strip()
+            customer_email = contact_details.get('email', '')
+            customer_phone = contact_details.get('phone', '')
+            
+            lead_id = simple_db_instance.create_lead(
+                account_id=account_id,
+                customer_name=customer_name,
+                customer_email=customer_email,
+                customer_phone=customer_phone,
+                service_category=service_category,
+                service_details={
+                    'location': {'zip_code': zip_code},
+                    'source': 'GHL Reassignment Workflow',
+                    'ghl_contact_id': contact_id,
+                    'ghl_opportunity_id': opportunity_id
+                },
+                priority='high',  # Reassignments are high priority
+                source='ghl_reassignment_workflow',
+                ghl_opportunity_id=opportunity_id
+            )
+            existing_lead = {'id': lead_id, 'vendor_id': None}
+            logger.info(f"➕ Created new lead record for reassignment: {lead_id}")
+        
+        # Find matching vendors using enhanced routing
+        available_vendors = lead_routing_service.find_matching_vendors(
+            account_id=account_id,
+            service_category=service_category,
+            zip_code=zip_code,
+            priority='high'  # High priority for reassignments
+        )
+        
+        if not available_vendors:
+            logger.warning(f"⚠️ No matching vendors found for reassignment")
+            
+            # Log failed reassignment (no SMS notifications - GHL handles this)
+            simple_db_instance.log_activity(
+                event_type="lead_reassignment_failed",
+                event_data={
+                    "contact_id": contact_id,
+                    "service_category": service_category,
+                    "zip_code": zip_code,
+                    "reason": "No matching vendors",
+                    "processing_method": "direct_only_no_ai"
+                },
+                lead_id=contact_id,
+                success=False,
+                error_message="No matching vendors found for reassignment"
+            )
+            
+            return {
+                "status": "failed",
+                "message": "No matching vendors found for reassignment",
+                "contact_id": contact_id,
+                "service_category": service_category,
+                "location": zip_code
+            }
+        
+        # EXCLUDE previously assigned vendor to avoid reassigning to same vendor
+        previous_vendor_id = existing_lead.get('vendor_id')
+        if previous_vendor_id:
+            available_vendors = [v for v in available_vendors if v['id'] != previous_vendor_id]
+            logger.info(f"🚫 Excluded previous vendor {previous_vendor_id} from reassignment pool")
+        
+        if not available_vendors:
+            logger.warning(f"⚠️ No alternative vendors available (only previous vendor matched)")
+            
+            simple_db_instance.log_activity(
+                event_type="lead_reassignment_failed",
+                event_data={
+                    "contact_id": contact_id,
+                    "service_category": service_category,
+                    "zip_code": zip_code,
+                    "reason": "Only previous vendor available - no alternatives",
+                    "previous_vendor_id": previous_vendor_id,
+                    "processing_method": "direct_only_no_ai"
+                },
+                lead_id=contact_id,
+                success=False
+            )
+            
+            return {
+                "status": "failed",
+                "message": "No alternative vendors available for reassignment",
+                "contact_id": contact_id,
+                "previous_vendor_excluded": previous_vendor_id
+            }
+        
+        # Select new vendor using routing logic
+        selected_vendor = lead_routing_service.select_vendor_from_pool(available_vendors, account_id)
+        
+        if not selected_vendor:
+            logger.error(f"❌ Vendor selection failed during reassignment")
+            raise HTTPException(status_code=500, detail="Vendor selection logic failed")
+        
+        # Assign lead to new vendor in database
+        assignment_success = simple_db_instance.assign_lead_to_vendor(existing_lead['id'], selected_vendor['id'])
+        
+        if not assignment_success:
+            logger.error(f"❌ Failed to assign lead to new vendor in database")
+            raise HTTPException(status_code=500, detail="Database assignment failed")
+        
+        logger.info(f"✅ Successfully reassigned lead {existing_lead['id']} to vendor {selected_vendor['name']}")
+        
+        # Update GHL opportunity assignment if opportunity ID available (self-contained)
+        if opportunity_id and selected_vendor.get('ghl_user_id'):
+            logger.info(f"🎯 Updating GHL opportunity {opportunity_id} assignment to vendor {selected_vendor['ghl_user_id']}")
+            
+            try:
+                # Self-contained opportunity assignment (no routing_admin dependency)
+                update_data = {
+                    'assignedTo': selected_vendor['ghl_user_id'],
+                    'pipelineId': AppConfig.PIPELINE_ID,
+                    'pipelineStageId': AppConfig.NEW_LEAD_STAGE_ID
+                }
+                
+                ghl_assignment_success = ghl_api_client.update_opportunity(opportunity_id, update_data)
+                
+                if ghl_assignment_success:
+                    logger.info(f"✅ Successfully updated GHL opportunity assignment - workflows will notify vendor")
+                else:
+                    logger.warning(f"⚠️ Failed to update GHL opportunity assignment")
+                    
+            except Exception as e:
+                logger.error(f"❌ Error updating GHL opportunity assignment: {e}")
+                
+        elif not opportunity_id:
+            logger.info(f"ℹ️ No opportunity ID provided - skipping GHL opportunity assignment")
+        elif not selected_vendor.get('ghl_user_id'):
+            logger.warning(f"⚠️ Vendor {selected_vendor['name']} has no GHL User ID - cannot assign opportunity")
+        
+        # Remove reassignment tag from contact
+        await _remove_reassignment_tag(ghl_api_client, contact_id)
+        
+        # Log successful reassignment
+        processing_time = round(time.time() - start_time, 3)
+        simple_db_instance.log_activity(
+            event_type="lead_reassignment_successful",
+            event_data={
+                "contact_id": contact_id,
+                "opportunity_id": opportunity_id,
+                "previous_vendor_id": previous_vendor_id,
+                "new_vendor_id": selected_vendor['id'],
+                "new_vendor_name": selected_vendor['name'],
+                "service_category": service_category,
+                "zip_code": zip_code,
+                "processing_time_seconds": processing_time,
+                "processing_method": "direct_only_no_ai"
+            },
+            lead_id=contact_id,
+            success=True
+        )
+        
+        return {
+            "status": "success",
+            "message": f"Lead successfully reassigned to {selected_vendor['name']}",
+            "contact_id": contact_id,
+            "opportunity_id": opportunity_id,
+            "previous_vendor_id": previous_vendor_id,
+            "new_vendor": {
+                "id": selected_vendor['id'],
+                "name": selected_vendor['name'],
+                "email": selected_vendor.get('email')
+            },
+            "service_category": service_category,
+            "location": zip_code,
+            "processing_time_seconds": processing_time,
+            "ghl_opportunity_updated": opportunity_id is not None and selected_vendor.get('ghl_user_id') is not None
+        }
+        
+    except HTTPException:
+        raise
+    
+    except Exception as e:
+        processing_time = round(time.time() - start_time, 3)
+        logger.exception(f"💥 Critical error processing lead reassignment webhook after {processing_time}s: {e}")
+        simple_db_instance.log_activity(
+            event_type="lead_reassignment_error",
+            event_data={
+                "processing_time_seconds": processing_time,
+                "error_class": e.__class__.__name__,
+                "processing_method": "direct_only_no_ai"
+            },
+            success=False,
+            error_message=str(e)
+        )
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+# Helper functions for reassignment endpoint
+
+async def _extract_service_category_from_contact(contact_details: Dict[str, Any]) -> Optional[str]:
+    """Extract service category from GHL contact using direct mapping"""
+    # Check tags first
+    tags = contact_details.get('tags', [])
+    for tag in tags:
+        tag_lower = tag.lower()
+        for keyword, category in DIRECT_SERVICE_CATEGORIES.items():
+            if keyword in tag_lower:
+                logger.info(f"🎯 Found service category from tag '{tag}': {category}")
+                return category
+    
+    # Check custom fields
+    custom_fields = contact_details.get('customFields', [])
+    for field in custom_fields:
+        if field.get('name', '').lower() in ['service category', 'service_category']:
+            category = field.get('value', '')
+            if category in DIRECT_SERVICE_CATEGORIES.values():
+                logger.info(f"🎯 Found service category from custom field: {category}")
+                return category
+    
+    # Default fallback
+    return "Boater Resources"
+
+async def _extract_zip_code_from_contact(contact_details: Dict[str, Any]) -> Optional[str]:
+    """Extract ZIP code from GHL contact using the same logic as routing_admin"""
+    # Check custom fields first
+    custom_fields = contact_details.get('customFields', [])
+    for field in custom_fields:
+        field_id = field.get('id', '')
+        field_value = field.get('value', '')
+        
+        # Check for known ZIP code field ID (from your routing_admin logic)
+        if field_id == 'y3Xo7qsFEQumoFugTeCq':  # Known ZIP code field ID
+            if field_value and str(field_value).strip().isdigit() and len(str(field_value).strip()) == 5:
+                zip_code = str(field_value).strip()
+                logger.info(f"📍 Found ZIP from custom field ID '{field_id}': {zip_code}")
+                return zip_code
+    
+    # Check standard fields
+    postal_code = contact_details.get('postalCode') or contact_details.get('postal_code')
+    if postal_code and str(postal_code).strip().isdigit() and len(str(postal_code).strip()) == 5:
+        zip_code = str(postal_code).strip()
+        logger.info(f"📍 Found ZIP from postal code field: {zip_code}")
+        return zip_code
+    
+    return None
+
+async def _remove_reassignment_tag(ghl_api_client: GoHighLevelAPI, contact_id: str):
+    """Remove reassignment trigger tags from contact"""
+    try:
+        # Get current contact to see existing tags
+        contact = ghl_api_client.get_contact_by_id(contact_id)
+        if not contact:
+            return
+        
+        current_tags = contact.get('tags', [])
+        
+        # Remove reassignment-related tags
+        reassignment_tags = ['reassign lead', 'reassign_lead', 'Reassign Lead', 'REASSIGN', 'reassign']
+        updated_tags = [tag for tag in current_tags if tag not in reassignment_tags]
+        
+        if len(updated_tags) != len(current_tags):
+            # Tags were removed, update contact
+            update_success = ghl_api_client.update_contact(contact_id, {"tags": updated_tags})
+            if update_success:
+                logger.info(f"✅ Removed reassignment tags from contact {contact_id}")
+            else:
+                logger.warning(f"⚠️ Failed to remove reassignment tags from contact {contact_id}")
+        
+    except Exception as e:
+        logger.error(f"Error removing reassignment tag from contact {contact_id}: {e}")
