@@ -14,8 +14,14 @@ from sqlalchemy.orm import sessionmaker, Session
 logger = logging.getLogger(__name__)
 
 class SimpleDatabase:
-    def __init__(self, db_path: str = "smart_lead_router.db"):
+    def __init__(self, db_path: str = None):
+        # Use absolute path to ensure consistent database location
+        if db_path is None:
+            # Always use the database in the Lead-Router-Pro project directory
+            project_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            db_path = os.path.join(project_dir, "smart_lead_router.db")
         self.db_path = db_path
+        logger.info(f"📁 Using database file: {self.db_path}")
         self.init_database()
     
     def _get_conn(self):
@@ -354,8 +360,9 @@ class SimpleDatabase:
     def create_vendor(self, account_id: str, name: str, email: str, 
                      company_name: str = "", phone: str = "",
                      ghl_contact_id: str = None, status: str = "pending",
-                     service_categories: str = "", coverage_counties: str = "") -> str:
-        """Create new vendor - FIXED to use correct column names"""
+                     service_categories: str = "", services_offered: str = "",
+                     coverage_counties: str = "") -> str:
+        """Create new vendor - FIXED to include services_offered parameter"""
         conn = None
         try:
             vendor_id = str(uuid.uuid4())
@@ -364,10 +371,10 @@ class SimpleDatabase:
             
             cursor.execute('''
                 INSERT INTO vendors (id, account_id, name, company_name, email, phone, 
-                                   ghl_contact_id, status, service_categories, coverage_counties)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                   ghl_contact_id, status, service_categories, services_offered, coverage_counties)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (vendor_id, account_id, name, company_name, email, phone,
-                  ghl_contact_id, status, service_categories, coverage_counties))
+                  ghl_contact_id, status, service_categories, services_offered, coverage_counties))
             
             conn.commit()
             logger.info(f"✅ Vendor created: {vendor_id}")
@@ -436,15 +443,16 @@ class SimpleDatabase:
                 conn.close()
 
     def get_vendor_by_email_and_account(self, email: str, account_id: str) -> Optional[Dict[str, Any]]:
-        """Get vendor by email and account ID"""
+        """Get vendor by email and account ID - FIXED to use correct column names"""
         conn = None
         try:
             conn = self._get_conn()
             cursor = conn.cursor()
             
+            # FIXED: Use service_categories instead of services_provided
             cursor.execute('''
                 SELECT id, account_id, name, company_name, email, phone, ghl_contact_id, 
-                       ghl_user_id, services_provided, status, taking_new_work
+                       ghl_user_id, service_categories, status, taking_new_work
                 FROM vendors WHERE email = ? AND account_id = ?
             ''', (email.lower().strip(), account_id))
             
@@ -453,7 +461,7 @@ class SimpleDatabase:
                 return {
                     "id": row[0], "account_id": row[1], "name": row[2], "company_name": row[3],
                     "email": row[4], "phone": row[5], "ghl_contact_id": row[6], "ghl_user_id": row[7],
-                    "services_provided": json.loads(row[8]) if row[8] else [],
+                    "service_categories": json.loads(row[8]) if row[8] else [],  # FIXED name
                     "status": row[9], "taking_new_work": bool(row[10])
                 }
             return None
@@ -490,6 +498,30 @@ class SimpleDatabase:
             
         except Exception as e:
             logger.error(f"❌ Error updating vendor status: {e}")
+            return False
+        finally:
+            if conn:
+                conn.close()
+
+    def update_vendor_ghl_user_id(self, vendor_id: str, ghl_user_id: str) -> bool:
+        """Update vendor with GHL User ID - ENSURE this method exists"""
+        conn = None
+        try:
+            conn = self._get_conn()
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+                UPDATE vendors 
+                SET ghl_user_id = ?, updated_at = CURRENT_TIMESTAMP 
+                WHERE id = ?
+            ''', (ghl_user_id, vendor_id))
+            
+            conn.commit()
+            logger.info(f"✅ Updated vendor {vendor_id} with GHL User ID: {ghl_user_id}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"❌ Error updating vendor GHL user ID: {e}")
             return False
         finally:
             if conn:
@@ -1109,8 +1141,15 @@ class SimpleDatabase:
 # Global database instance
 db = SimpleDatabase()
 
-# SQLAlchemy setup for authentication system
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./smart_lead_router.db")
+# SQLAlchemy setup for authentication system  
+# Fix: Use absolute path to ensure consistent database location
+if "DATABASE_URL" not in os.environ:
+    # Get the same absolute path used by SimpleDatabase
+    project_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    db_file_path = os.path.join(project_dir, "smart_lead_router.db")
+    DATABASE_URL = f"sqlite:///{db_file_path}"
+else:
+    DATABASE_URL = os.getenv("DATABASE_URL")
 
 # Create SQLAlchemy engine
 auth_engine = create_engine(

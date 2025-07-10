@@ -636,6 +636,14 @@ def process_payload_to_ghl_format(elementor_payload: Dict[str, Any], form_config
     if custom_fields_array:
         final_ghl_payload["customFields"] = custom_fields_array
         logger.info(f"✅ Added {len(custom_fields_array)} custom fields to GHL payload")
+
+
+
+    
+    # Add customFields array to payload if we have any custom fields
+    if custom_fields_array:
+        final_ghl_payload["customFields"] = custom_fields_array
+        logger.info(f"✅ Added {len(custom_fields_array)} custom fields to GHL payload")
         
         # Log each custom field being sent
         for i, field in enumerate(custom_fields_array):
@@ -999,42 +1007,31 @@ async def handle_clean_elementor_webhook(
                     vendor_email = elementor_payload.get('email', '')
                     vendor_phone = elementor_payload.get('phone', '')
                     
-                    # FIXED: Process service categories properly - no more UnboundLocalError
-                    service_categories_selected = elementor_payload.get('service_categories_selected', '')
+                    # Process services
+                    services_provided = elementor_payload.get('services_provided', '')
+                    primary_service = elementor_payload.get('primary_service_category', 'General Services')
                     
+                    if services_provided:
+                        services_list = [s.strip() for s in services_provided.split(',')]
+                        # Combine primary service with other services
+                        all_services = [primary_service] + services_list
+                        service_categories_json = json.dumps(all_services)
+                    else:
+                        # Use the full service categories list for database storage
+                         service_categories_selected = elementor_payload.get('service_categories_selected', '')
                     if service_categories_selected:
-                        # Parse the full list of categories from the main field
+                        # Parse the full list of categories
                         categories_list = [s.strip() for s in service_categories_selected.split(',') if s.strip()]
                         service_categories_json = json.dumps(categories_list)
-                        logger.info(f"📋 Using service_categories_selected: {service_categories_selected}")
-                        logger.info(f"📋 Parsed categories: {categories_list}")
                     else:
-                        # Fallback: Try services_provided field
-                        services_provided = elementor_payload.get('services_provided', '')
-                        if services_provided:
-                            services_list = [s.strip() for s in services_provided.split(',') if s.strip()]
-                            service_categories_json = json.dumps(services_list)
-                            logger.info(f"📋 Fallback to services_provided: {services_provided}")
-                        else:
-                            # Final fallback to primary service
-                            primary_service = elementor_payload.get('primary_service_category', 'General Services')
-                            service_categories_json = json.dumps([primary_service])
-                            logger.info(f"📋 Final fallback to primary service: {primary_service}")
+                        # Fallback to primary service if no categories selected
+                        primary_service = elementor_payload.get('primary_service_category', 'General Services')
+                        service_categories_json = json.dumps([primary_service])
                     
-                    # FIXED: Extract and process services_offered for database storage
-                    raw_services = elementor_payload.get('services_provided', '')
-                    if raw_services:
-                        services_list = [s.strip() for s in raw_services.split(',') if s.strip()]
-                    else:
-                        services_list = []
-                    services_offered_json = json.dumps(services_list)
-                    
-                    logger.info(f"📋 GHL 'Services Provided': {raw_services}")
-                    logger.info(f"📋 DB 'services_offered': {services_offered_json}")
-                    
-                    # FIXED: Handle service_zip_codes data type issue - Handle all formats correctly
+                    # FIXED: Handle service_zip_codes data type issue - CORRECT APPROACH
                     service_zip_codes = elementor_payload.get('service_zip_codes', '')
                     
+                    # The KEY INSIGHT: Data coming as list is CORRECT, just convert properly
                     if isinstance(service_zip_codes, list):
                         # ✅ CORRECT: It's already a list, convert to JSON string for database storage
                         coverage_counties_json = json.dumps(service_zip_codes)
@@ -1046,7 +1043,7 @@ async def handle_clean_elementor_webhook(
                             logger.info(f"📋 Service zip codes received as JSON string")
                         elif service_zip_codes:
                             # It's a comma-separated string, convert to list then JSON
-                            counties = [s.strip() for s in service_zip_codes.split(',') if s.strip()]
+                            counties = [s.strip() for s in service_zip_codes.split(',')]
                             coverage_counties_json = json.dumps(counties)
                             logger.info(f"📋 Service zip codes converted from CSV: {counties}")
                         else:
@@ -1058,7 +1055,6 @@ async def handle_clean_elementor_webhook(
                         logger.warning(f"⚠️ Unknown service_zip_codes type: {type(service_zip_codes)}")
                     
                     logger.info(f"🗂️ Final coverage counties JSON: {coverage_counties_json}")
-                    logger.info(f"🗂️ Final service categories JSON: {service_categories_json}")
                     
                     # Get account
                     account_record = simple_db_instance.get_account_by_ghl_location_id(AppConfig.GHL_LOCATION_ID)
@@ -1077,23 +1073,8 @@ async def handle_clean_elementor_webhook(
                     if existing_vendor:
                         logger.info(f"📋 Vendor already exists: {existing_vendor['id']}")
                         vendor_id = existing_vendor['id']
-                        
-                        # Update existing vendor with new information
-                        try:
-                            # Update service categories and coverage if provided
-                            update_data = {}
-                            if service_categories_json != json.dumps(['General Services']):
-                                update_data['service_categories'] = service_categories_json
-                            if coverage_counties_json != json.dumps([]):
-                                update_data['coverage_counties'] = coverage_counties_json
-                            
-                            if update_data:
-                                # You may need to add an update_vendor method to simple_db_instance
-                                logger.info(f"🔄 Would update vendor {vendor_id} with: {update_data}")
-                        except Exception as update_error:
-                            logger.warning(f"⚠️ Failed to update existing vendor: {update_error}")
                     else:
-                        # Create new vendor record
+                        # FIXED: Use correct parameter names for create_vendor
                         vendor_id = simple_db_instance.create_vendor(
                             account_id=account_id,
                             name=f"{vendor_first_name} {vendor_last_name}".strip(),
@@ -1103,28 +1084,19 @@ async def handle_clean_elementor_webhook(
                             ghl_contact_id=final_ghl_contact_id,
                             status='pending',  # Start as pending until approved
                             service_categories=service_categories_json,  # CORRECT parameter name
-                            services_offered=services_offered_json,      # FIXED: Add missing services_offered parameter
                             coverage_counties=coverage_counties_json     # CORRECT parameter name
                         )
                         logger.info(f"✅ Created vendor record: {vendor_id}")
                         logger.info(f"   Company: {vendor_company_name}")
-                        logger.info(f"   Name: {vendor_first_name} {vendor_last_name}")
-                        logger.info(f"   Email: {vendor_email}")
                         logger.info(f"   Services: {service_categories_json}")
                         logger.info(f"   Coverage: {coverage_counties_json}")
                     
                 except Exception as e:
                     logger.error(f"❌ Failed to create vendor record: {str(e)}")
                     logger.error(f"   Error type: {type(e).__name__}")
-                    logger.error(f"   Service categories selected: {elementor_payload.get('service_categories_selected', 'NOT_FOUND')}")
-                    logger.error(f"   Vendor company name: {elementor_payload.get('vendor_company_name', 'NOT_FOUND')}")
-                    logger.error(f"   Service zip codes: {elementor_payload.get('service_zip_codes', 'NOT_FOUND')}")
-                    
-                    # Log the full elementor payload for debugging
-                    logger.error(f"   Full payload keys: {list(elementor_payload.keys())}")
-                    
-                    # Continue processing even if vendor record fails - don't break the webhook
-                    pass
+                    logger.error(f"   Service zip codes type: {type(service_zip_codes)}")
+                    logger.error(f"   Service zip codes value: {service_zip_codes}")
+                    # Continue processing even if vendor record fails
             
             # Trigger background tasks based on form type
             if form_config.get("requires_immediate_routing"):
@@ -2197,7 +2169,7 @@ async def _extract_service_category_from_contact(contact_details: Dict[str, Any]
     tags = contact_details.get('tags', [])
     for tag in tags:
         tag_lower = tag.lower()
-        for keyword, category in DOCKSIDE_PROS_SERVICES.items():
+        for keyword, category in DIRECT_SERVICE_CATEGORIES.items():
             if keyword in tag_lower:
                 logger.info(f"🎯 Found service category from tag '{tag}': {category}")
                 return category
@@ -2207,7 +2179,7 @@ async def _extract_service_category_from_contact(contact_details: Dict[str, Any]
     for field in custom_fields:
         if field.get('name', '').lower() in ['service category', 'service_category']:
             category = field.get('value', '')
-            if category in DOCKSIDE_PROS_CATEGORIES:
+            if category in DIRECT_SERVICE_CATEGORIES.values():
                 logger.info(f"🎯 Found service category from custom field: {category}")
                 return category
     

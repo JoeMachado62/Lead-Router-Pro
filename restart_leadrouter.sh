@@ -140,6 +140,6 @@ else
     echo "   - Logs will appear below..."
     echo ""
     
-    # Start the application directly
-    python main_working_final.py
+    # Start the application directly using uvicorn (production mode)
+    python -m uvicorn main_working_final:app --host 0.0.0.0 --port 8000 --log-level info
 fi
