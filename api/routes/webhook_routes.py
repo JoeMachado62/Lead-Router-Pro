@@ -21,6 +21,173 @@ from api.services.location_service import location_service
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/webhooks", tags=["Clean Elementor Webhooks - Direct Processing"])
 
+async def create_lead_from_ghl_contact(
+    ghl_contact_data: Dict[str, Any],
+    account_id: str,
+    form_identifier: str = "bulk_assignment"
+) -> tuple[str, Optional[str]]:
+    """
+    SHARED PIPELINE: Convert GHL contact to database lead + opportunity
+    Used by both webhook and bulk assignment workflows for consistency
+    
+    Returns: (lead_id, opportunity_id)
+    """
+    try:
+        # Step 1: Extract customer data (reuse webhook logic)
+        customer_data = {
+            "name": f"{ghl_contact_data.get('firstName', '')} {ghl_contact_data.get('lastName', '')}".strip(),
+            "email": ghl_contact_data.get("email", ""),
+            "phone": ghl_contact_data.get("phone", "")
+        }
+        
+        # Step 2: Apply field mapping (same as webhook system)
+        mapped_payload = field_mapper.map_payload(ghl_contact_data, industry="marine")
+        logger.info(f"🔄 Shared pipeline field mapping. Original keys: {list(ghl_contact_data.keys())}, Mapped keys: {list(mapped_payload.keys())}")
+        
+        # Step 3: Service classification (reuse webhook logic)
+        service_category = get_direct_service_category(form_identifier)
+        
+        # Step 4: ZIP → County conversion (critical for routing)
+        zip_code = mapped_payload.get("zip_code_of_service", "")
+        service_county = ""
+        service_state = ""
+        
+        if zip_code and len(zip_code) == 5 and zip_code.isdigit():
+            logger.info(f"🗺️ Converting ZIP {zip_code} to county using shared pipeline")
+            location_data = location_service.zip_to_location(zip_code)
+            
+            if not location_data.get('error'):
+                county = location_data.get('county', '')
+                state = location_data.get('state', '')
+                if county and state:
+                    service_county = f"{county}, {state}"
+                    service_state = state
+                    logger.info(f"✅ Shared pipeline ZIP {zip_code} → {service_county}")
+                else:
+                    logger.warning(f"⚠️ Shared pipeline ZIP {zip_code} conversion incomplete: county={county}, state={state}")
+            else:
+                logger.warning(f"⚠️ Shared pipeline could not convert ZIP {zip_code}: {location_data['error']}")
+        else:
+            logger.warning(f"⚠️ Shared pipeline invalid ZIP code format: '{zip_code}'")
+
+        # Step 5: Create database lead using correct schema
+        lead_id_str = str(uuid.uuid4())
+        
+        # Build service_details from all mapped fields
+        service_details = {}
+        standard_lead_fields = {
+            "firstName", "lastName", "email", "phone", "primary_service_category",
+            "customer_zip_code", "specific_service_requested"
+        }
+        
+        for field_key, field_value in mapped_payload.items():
+            if field_value and field_value != "" and field_key not in standard_lead_fields:
+                service_details[field_key] = field_value
+                
+        service_details.update({
+            "form_source": form_identifier,
+            "processing_method": "shared_pipeline",
+            "created_via": "create_lead_from_ghl_contact"
+        })
+        
+        # Database INSERT using correct schema
+        conn = None
+        try:
+            conn = simple_db_instance._get_conn()
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+                INSERT INTO leads (
+                    id, account_id, ghl_contact_id, ghl_opportunity_id, customer_name,
+                    customer_email, customer_phone, service_category, specific_services,
+                    service_zip_code, service_county, service_state, vendor_id, 
+                    status, priority, source, service_details, 
+                    created_at, updated_at, service_city, 
+                    service_complexity, estimated_duration, requires_emergency_response, 
+                    classification_confidence, classification_reasoning
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?, ?)
+            ''', (
+                lead_id_str,                                                # id
+                account_id,                                                 # account_id
+                ghl_contact_data.get('id'),                                 # ghl_contact_id
+                None,                                                       # ghl_opportunity_id (will be updated)
+                customer_data.get("name", ""),                              # customer_name
+                customer_data.get("email", "").lower().strip() if customer_data.get("email") else None,  # customer_email
+                customer_data.get("phone", ""),                             # customer_phone
+                service_category,                                           # service_category (FIXED)
+                json.dumps([mapped_payload.get("specific_service_needed", "")]), # specific_services (FIXED)
+                zip_code,                                                   # service_zip_code (FIXED)
+                service_county,                                             # service_county
+                service_state,                                              # service_state
+                None,                                                       # vendor_id (unassigned)
+                "unassigned",                                               # status
+                "normal",                                                   # priority
+                form_identifier,                                            # source
+                json.dumps(service_details),                                # service_details
+                "",                                                         # service_city
+                "simple",                                                   # service_complexity
+                "medium",                                                   # estimated_duration
+                False,                                                      # requires_emergency_response
+                1.0,                                                        # classification_confidence
+                f"Created via shared pipeline from {form_identifier}"       # classification_reasoning
+            ))
+            
+            conn.commit()
+            logger.info(f"✅ Shared pipeline created lead: {lead_id_str}")
+            
+        except Exception as e:
+            logger.error(f"❌ Shared pipeline lead creation error: {e}")
+            raise
+        finally:
+            if conn:
+                conn.close()
+        
+        # Step 6: Create opportunity if needed
+        opportunity_id = None
+        if AppConfig.PIPELINE_ID and AppConfig.NEW_LEAD_STAGE_ID:
+            logger.info(f"📈 Shared pipeline creating opportunity for {service_category} lead")
+            
+            ghl_api_client = GoHighLevelAPI(
+                private_token=AppConfig.GHL_PRIVATE_TOKEN,
+                location_id=AppConfig.GHL_LOCATION_ID
+            )
+            
+            customer_name = customer_data["name"]
+            
+            opportunity_data = {
+                'contactId': ghl_contact_data.get('id'),
+                'pipelineId': AppConfig.PIPELINE_ID,
+                'pipelineStageId': AppConfig.NEW_LEAD_STAGE_ID,
+                'name': f"{customer_name} - {service_category}",
+                'monetaryValue': 0,
+                'status': 'open',
+                'source': f"{form_identifier} (DSP Shared Pipeline)",
+                'locationId': AppConfig.GHL_LOCATION_ID,
+            }
+            
+            opportunity_response = ghl_api_client.create_opportunity(opportunity_data)
+            
+            if opportunity_response and opportunity_response.get('id'):
+                opportunity_id = opportunity_response['id']
+                logger.info(f"✅ Shared pipeline created opportunity: {opportunity_id}")
+                
+                # Update lead with opportunity ID
+                try:
+                    simple_db_instance.update_lead_opportunity_id(lead_id_str, opportunity_id)
+                    logger.info(f"✅ Shared pipeline linked opportunity {opportunity_id} to lead {lead_id_str}")
+                except Exception as e:
+                    logger.warning(f"⚠️ Shared pipeline could not link opportunity ID: {e}")
+            else:
+                logger.error(f"❌ Shared pipeline failed to create opportunity: {opportunity_response}")
+        else:
+            logger.warning("⚠️ Shared pipeline: Pipeline not configured - skipping opportunity creation")
+        
+        return lead_id_str, opportunity_id
+        
+    except Exception as e:
+        logger.error(f"❌ Shared pipeline error for contact {ghl_contact_data.get('id', 'unknown')}: {e}")
+        raise
+
 # --- CORRECT SERVICE CATEGORIES AND SERVICES FROM CSV ---
 # 16 Categories with their specific services
 DOCKSIDE_PROS_CATEGORIES = [
@@ -43,6 +210,24 @@ DOCKSIDE_PROS_CATEGORIES = [
 ]
 
 DOCKSIDE_PROS_SERVICES = {
+    # CATEGORY-LEVEL FORM IDENTIFIERS (ADDED - FIXES engines_generators ISSUE)
+    "engines_generators": "Engines and Generators",
+    "boat_and_yacht_repair": "Boat and Yacht Repair",
+    "boat_charters_and_rentals": "Boat Charters and Rentals",
+    "boat_hauling_and_yacht_delivery": "Boat Hauling and Yacht Delivery",
+    "boat_maintenance": "Boat Maintenance",
+    "boat_towing": "Boat Towing",
+    "boater_resources": "Boater Resources",
+    "buying_or_selling_a_boat": "Buying or Selling a Boat",
+    "docks_seawalls_and_lifts": "Docks, Seawalls and Lifts",
+    "dock_and_slip_rental": "Dock and Slip Rental",
+    "fuel_delivery": "Fuel Delivery",
+    "marine_systems": "Marine Systems",
+    "maritime_education_and_training": "Maritime Education and Training",
+    "waterfront_property": "Waterfront Property",
+    "wholesale_or_dealer_product_pricing": "Wholesale or Dealer Product Pricing",
+    "yacht_management": "Yacht Management",
+    
     # Boat and Yacht Repair (7 services)
     "fiberglass_repair": "Boat and Yacht Repair",
     "welding_metal_fabrication": "Boat and Yacht Repair",
@@ -333,7 +518,11 @@ def normalize_field_names(payload: Dict[str, Any]) -> Dict[str, Any]:
         "Boat Make": "vessel_make",
         "Manufacturer": "vessel_make",
         
-        "Your Vessel Model or Length of Vessel in Feet?": "vessel_model",
+        "Your Vessel Model": "vessel_model",
+        "Vessel Model": "vessel_model", 
+        "Your Vessel Length": "vessel_length_ft",
+        "Vessel Length (ft)": "vessel_length_ft",
+        "Length of Vessel in Feet": "vessel_length_ft",
         "Vessel Model": "vessel_model",
         "Boat Model": "vessel_model",
         "Model": "vessel_model",
@@ -1294,56 +1483,59 @@ async def trigger_clean_lead_routing_workflow(
         else:
             logger.warning(f"⚠️ Invalid ZIP code format: '{zip_code}' - service_county will remain NULL")
 
-        # FIXED: Direct database INSERT using CORRECT Leads table field names
+        # FIXED: Direct database INSERT using actual available variables
         conn = None
+        lead_id = None  # Initialize lead_id to prevent UnboundLocalError
         try:
-            lead_id_str = str(uuid.uuid4())
+            lead_id = str(uuid.uuid4())  # Set lead_id early so it can be used
             conn = simple_db_instance._get_conn()
             cursor = conn.cursor()
             
-            # FIXED: INSERT using CORRECT Leads table schema field names (25 columns, 25 values)
+            # Get service values from mapped payload (mapped from GHL custom fields)
+            specific_service_requested = mapped_payload.get("specific_service_needed", "")  # From GHL field FT85QGi0tBq1AfVGNJ9v
+            
+            # FIXED: INSERT using actual database schema field names (26 fields)
             cursor.execute('''
             INSERT INTO leads (
                 id, account_id, ghl_contact_id, ghl_opportunity_id, customer_name,
-                customer_email, customer_phone, primary_service_category, specific_service_category,
+                customer_email, customer_phone, primary_service_category, specific_service_requested,
                 customer_zip_code, service_county, service_state, vendor_id, 
                 assigned_at, status, priority, source, service_details, 
-                created_at, updated_at, service_zip_code, service_city, 
+                service_zip_code, service_city, specific_services,
                 service_complexity, estimated_duration, requires_emergency_response, 
                 classification_confidence, classification_reasoning
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             lead_id,                                                      # id
             account_id,                                                   # account_id  
             ghl_contact_id,                                               # ghl_contact_id
-            ghl_opportunity_id,                                           # ghl_opportunity_id
+            None,                                                         # ghl_opportunity_id (set later)
             customer_data.get("name", ""),                                # customer_name
             customer_data.get("email", "").lower().strip() if customer_data.get("email") else None,  # customer_email
             customer_data.get("phone", ""),                               # customer_phone
-            classification_result["primary_category"],                    # primary_service_category
-            json.dumps(classification_result["specific_services"]),       # specific_service_category
-            classification_result["coverage_area"]["zip_code"],           # customer_zip_code
-            classification_result["coverage_area"]["county"],             # service_county
-            classification_result["coverage_area"]["state"],              # service_state
-            vendor_id,                                                    # vendor_id
+            service_category,                                             # primary_service_category (from form_config)
+            specific_service_requested,                                   # specific_service_requested (from GHL field)
+            zip_code,                                                     # customer_zip_code
+            service_county,                                               # service_county
+            service_state,                                                # service_state
+            None,                                                         # vendor_id (NULL initially)
             None,                                                         # assigned_at (NULL initially)
             "unassigned",                                                 # status
-            priority_level,                                               # priority  
-            source,                                                       # source
-            json.dumps(essential_service_details),                        # service_details
-            # created_at and updated_at use CURRENT_TIMESTAMP
-            classification_result["coverage_area"]["zip_code"],           # service_zip_code 
-            classification_result["coverage_area"]["city"],               # service_city
-            classification_result["service_complexity"],                  # service_complexity
-            classification_result["estimated_duration"],                  # estimated_duration
-            classification_result["requires_emergency_response"],         # requires_emergency_response
-            classification_result["confidence"],                          # classification_confidence
-            classification_result["reasoning"]                            # classification_reasoning
+            "normal",                                                     # priority  
+            f"{form_identifier} (DSP)",                                   # source
+            json.dumps(service_details),                                  # service_details
+            zip_code,                                                     # service_zip_code 
+            "",                                                           # service_city
+            "[]",                                                         # specific_services (JSON array)
+            "simple",                                                     # service_complexity
+            "medium",                                                     # estimated_duration
+            False,                                                        # requires_emergency_response
+            1.0,                                                          # classification_confidence
+            "Direct form mapping"                                         # classification_reasoning
         ))
             
             conn.commit()
-            lead_id = lead_id_str
-            logger.info(f"✅ Lead created with correct Leads table schema: {lead_id}")
+            logger.info(f"✅ Lead created with ID: {lead_id}")
             
         except Exception as e:
             logger.error(f"❌ Lead creation error: {e}")
@@ -1418,10 +1610,10 @@ async def trigger_clean_lead_routing_workflow(
         priority = form_config.get("priority", "normal")
         
         if form_type == "client_lead" or form_type == "emergency_service":
-            zip_code = form_data.get("zip_code_of_service", "")
-            specific_service = form_data.get("specific_service_needed", "")
+            zip_code = mapped_payload.get("zip_code_of_service", "")
+            specific_service = mapped_payload.get("specific_service_needed", "")
             
-            logger.info(f"🎯 Direct lead routing: Category='{service_category}', ZIP='{zip_code}'")
+            logger.info(f"🎯 Direct lead routing: Category='{service_category}', Specific Service='{specific_service}', ZIP='{zip_code}'")
             
             if zip_code and service_category:
                 # Find matching vendors using lead_routing_service

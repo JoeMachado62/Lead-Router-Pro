@@ -64,9 +64,10 @@ class LeadRoutingService:
                     logger.debug(f"Skipping vendor {vendor.get('name')} - not active or not taking work")
                     continue
                 
-                # DIRECT SERVICE MATCHING - no keyword matching allowed
-                if not self._vendor_matches_service(vendor, service_category):
-                    logger.debug(f"Skipping vendor {vendor.get('name')} - no exact service match for '{service_category}'")
+                # DIRECT SERVICE MATCHING - match specific service if provided, otherwise category
+                service_to_match = specific_service if specific_service else service_category
+                if not self._vendor_matches_service(vendor, service_to_match):
+                    logger.debug(f"Skipping vendor {vendor.get('name')} - no exact service match for '{service_to_match}'")
                     continue
                 
                 # Check if vendor can serve this location
@@ -81,7 +82,8 @@ class LeadRoutingService:
                 else:
                     logger.debug(f"Skipping vendor {vendor.get('name')} - location not covered")
             
-            logger.info(f"🎯 Found {len(eligible_vendors)} eligible vendors for {service_category} in {zip_code}")
+            service_desc = f"specific service '{specific_service}'" if specific_service else f"category '{service_category}'"
+            logger.info(f"🎯 Found {len(eligible_vendors)} eligible vendors for {service_desc} in {zip_code}")
             return eligible_vendors
             
         except Exception as e:
@@ -214,14 +216,22 @@ class LeadRoutingService:
                 logger.warning(f"Vendor {vendor.get('name')} has malformed coverage_counties: {coverage_counties}")
                 return False
             
+            # Build the full county string to match against vendor's coverage
+            full_county_string = f"{target_county}, {target_state}"
+            
             for coverage_area in coverage_counties:
+                # Direct string comparison for exact match
+                if coverage_area.strip() == full_county_string:
+                    logger.debug(f"✅ Exact county match: '{full_county_string}' in vendor's coverage")
+                    return True
+                
+                # Also try component matching for flexibility
                 if ',' in coverage_area:
                     county_part, state_part = coverage_area.split(',', 1)
                     if (target_county.lower() == county_part.strip().lower() and
                         target_state.lower() == state_part.strip().lower()):
+                        logger.debug(f"✅ Component county match: {target_county}, {target_state}")
                         return True
-                elif target_county.lower() == coverage_area.strip().lower():
-                    return True
             return False
         
         if coverage_type == 'zip':

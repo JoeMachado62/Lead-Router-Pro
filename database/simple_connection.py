@@ -1138,6 +1138,70 @@ class SimpleDatabase:
             if conn:
                 conn.close()
 
+    def get_lead_by_ghl_contact_id(self, ghl_contact_id: str) -> Optional[Dict[str, Any]]:
+        """Get a specific lead by GHL contact ID - CRITICAL for bulk assignment workflow"""
+        conn = None
+        try:
+            conn = self._get_conn()
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT id, account_id, vendor_id, ghl_contact_id, ghl_opportunity_id, 
+                       service_category, customer_name, customer_email, customer_phone, 
+                       service_details, priority_score, status, 
+                       service_county, service_state, service_zip_code,
+                       created_at, updated_at
+                FROM leads WHERE ghl_contact_id = ?
+            ''', (ghl_contact_id,))
+            
+            row = cursor.fetchone()
+            if row:
+                return {
+                    "id": row[0], "account_id": row[1], "vendor_id": row[2], 
+                    "ghl_contact_id": row[3], "ghl_opportunity_id": row[4],
+                    "service_category": row[5], "customer_name": row[6], 
+                    "customer_email": row[7], "customer_phone": row[8],
+                    "service_details": json.loads(row[9]) if row[9] else {},
+                    "priority_score": row[10], 
+                    "status": row[11], "service_county": row[12], 
+                    "service_state": row[13], "customer_zip_code": row[14],
+                    "created_at": row[15], "updated_at": row[16]
+                }
+            return None
+            
+        except Exception as e:
+            logger.error(f"❌ Error getting lead by GHL contact ID {ghl_contact_id}: {e}")
+            return None
+        finally:
+            if conn:
+                conn.close()
+
+    def unassign_lead_from_vendor(self, lead_id: str) -> bool:
+        """Remove vendor assignment from lead (for reassignment workflow)"""
+        conn = None
+        try:
+            conn = self._get_conn()
+            cursor = conn.cursor()
+            cursor.execute('''
+                UPDATE leads 
+                SET vendor_id = NULL, status = 'unassigned', updated_at = CURRENT_TIMESTAMP 
+                WHERE id = ?
+            ''', (lead_id,))
+            
+            if cursor.rowcount > 0:
+                conn.commit()
+                logger.info(f"✅ Unassigned lead {lead_id} from vendor")
+                return True
+            else:
+                logger.warning(f"⚠️ No lead found with ID {lead_id} to unassign")
+                return False
+                
+        except Exception as e:
+            logger.error(f"❌ Error unassigning lead {lead_id}: {e}")
+            return False
+        finally:
+            if conn:
+                conn.close()
+
 # Global database instance
 db = SimpleDatabase()
 

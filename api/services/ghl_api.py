@@ -880,6 +880,32 @@ class GoHighLevelAPI:
             logger.error(f"❌ Error getting user by email from V1 API: {str(e)}")
             return None
     
+    def get_opportunities(self, pipeline_id: str = None, stage_id: str = None, limit: int = 100) -> List[Dict]:
+        """Get opportunities with optional pipeline and stage filtering"""
+        try:
+            url = f"{self.base_url}/opportunities/search"
+            params = {
+                "locationId": self.location_id,
+                "limit": min(limit, 100)
+            }
+            
+            if pipeline_id:
+                params["pipelineId"] = pipeline_id
+            if stage_id:
+                params["pipelineStageId"] = stage_id
+                
+            response = self._make_request_with_fallback("GET", url, params=params)
+            if response.status_code == 200:
+                data = response.json()
+                return data.get('opportunities', [])
+            else:
+                logger.error(f"Failed to get opportunities: {response.status_code} - {response.text}")
+                return []
+        except Exception as e:
+            logger.error(f"Error getting opportunities: {str(e)}")
+            return []
+
+
     def update_user(self, user_id: str, update_data: Dict) -> bool:
         """Update user in GHL"""
         try:
