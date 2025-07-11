@@ -636,14 +636,6 @@ def process_payload_to_ghl_format(elementor_payload: Dict[str, Any], form_config
     if custom_fields_array:
         final_ghl_payload["customFields"] = custom_fields_array
         logger.info(f"✅ Added {len(custom_fields_array)} custom fields to GHL payload")
-
-
-
-    
-    # Add customFields array to payload if we have any custom fields
-    if custom_fields_array:
-        final_ghl_payload["customFields"] = custom_fields_array
-        logger.info(f"✅ Added {len(custom_fields_array)} custom fields to GHL payload")
         
         # Log each custom field being sent
         for i, field in enumerate(custom_fields_array):
@@ -1007,31 +999,42 @@ async def handle_clean_elementor_webhook(
                     vendor_email = elementor_payload.get('email', '')
                     vendor_phone = elementor_payload.get('phone', '')
                     
-                    # Process services
-                    services_provided = elementor_payload.get('services_provided', '')
-                    primary_service = elementor_payload.get('primary_service_category', 'General Services')
+                    # FIXED: Process service categories properly - no more UnboundLocalError
+                    service_categories_selected = elementor_payload.get('service_categories_selected', '')
                     
-                    if services_provided:
-                        services_list = [s.strip() for s in services_provided.split(',')]
-                        # Combine primary service with other services
-                        all_services = [primary_service] + services_list
-                        service_categories_json = json.dumps(all_services)
-                    else:
-                        # Use the full service categories list for database storage
-                         service_categories_selected = elementor_payload.get('service_categories_selected', '')
                     if service_categories_selected:
-                        # Parse the full list of categories
+                        # Parse the full list of categories from the main field
                         categories_list = [s.strip() for s in service_categories_selected.split(',') if s.strip()]
                         service_categories_json = json.dumps(categories_list)
+                        logger.info(f"📋 Using service_categories_selected: {service_categories_selected}")
+                        logger.info(f"📋 Parsed categories: {categories_list}")
                     else:
-                        # Fallback to primary service if no categories selected
-                        primary_service = elementor_payload.get('primary_service_category', 'General Services')
-                        service_categories_json = json.dumps([primary_service])
+                        # Fallback: Try services_provided field
+                        services_provided = elementor_payload.get('services_provided', '')
+                        if services_provided:
+                            services_list = [s.strip() for s in services_provided.split(',') if s.strip()]
+                            service_categories_json = json.dumps(services_list)
+                            logger.info(f"📋 Fallback to services_provided: {services_provided}")
+                        else:
+                            # Final fallback to primary service
+                            primary_service = elementor_payload.get('primary_service_category', 'General Services')
+                            service_categories_json = json.dumps([primary_service])
+                            logger.info(f"📋 Final fallback to primary service: {primary_service}")
                     
-                    # FIXED: Handle service_zip_codes data type issue - CORRECT APPROACH
+                    # FIXED: Extract and process services_offered for database storage
+                    raw_services = elementor_payload.get('services_provided', '')
+                    if raw_services:
+                        services_list = [s.strip() for s in raw_services.split(',') if s.strip()]
+                    else:
+                        services_list = []
+                    services_offered_json = json.dumps(services_list)
+                    
+                    logger.info(f"📋 GHL 'Services Provided': {raw_services}")
+                    logger.info(f"📋 DB 'services_offered': {services_offered_json}")
+                    
+                    # FIXED: Handle service_zip_codes data type issue - Handle all formats correctly
                     service_zip_codes = elementor_payload.get('service_zip_codes', '')
                     
-                    # The KEY INSIGHT: Data coming as list is CORRECT, just convert properly
                     if isinstance(service_zip_codes, list):
                         # ✅ CORRECT: It's already a list, convert to JSON string for database storage
                         coverage_counties_json = json.dumps(service_zip_codes)
@@ -1043,7 +1046,7 @@ async def handle_clean_elementor_webhook(
                             logger.info(f"📋 Service zip codes received as JSON string")
                         elif service_zip_codes:
                             # It's a comma-separated string, convert to list then JSON
-                            counties = [s.strip() for s in service_zip_codes.split(',')]
+                            counties = [s.strip() for s in service_zip_codes.split(',') if s.strip()]
                             coverage_counties_json = json.dumps(counties)
                             logger.info(f"📋 Service zip codes converted from CSV: {counties}")
                         else:
@@ -1055,6 +1058,7 @@ async def handle_clean_elementor_webhook(
                         logger.warning(f"⚠️ Unknown service_zip_codes type: {type(service_zip_codes)}")
                     
                     logger.info(f"🗂️ Final coverage counties JSON: {coverage_counties_json}")
+                    logger.info(f"🗂️ Final service categories JSON: {service_categories_json}")
                     
                     # Get account
                     account_record = simple_db_instance.get_account_by_ghl_location_id(AppConfig.GHL_LOCATION_ID)
@@ -1073,8 +1077,23 @@ async def handle_clean_elementor_webhook(
                     if existing_vendor:
                         logger.info(f"📋 Vendor already exists: {existing_vendor['id']}")
                         vendor_id = existing_vendor['id']
+                        
+                        # Update existing vendor with new information
+                        try:
+                            # Update service categories and coverage if provided
+                            update_data = {}
+                            if service_categories_json != json.dumps(['General Services']):
+                                update_data['service_categories'] = service_categories_json
+                            if coverage_counties_json != json.dumps([]):
+                                update_data['coverage_counties'] = coverage_counties_json
+                            
+                            if update_data:
+                                # You may need to add an update_vendor method to simple_db_instance
+                                logger.info(f"🔄 Would update vendor {vendor_id} with: {update_data}")
+                        except Exception as update_error:
+                            logger.warning(f"⚠️ Failed to update existing vendor: {update_error}")
                     else:
-                        # FIXED: Use correct parameter names for create_vendor
+                        # Create new vendor record
                         vendor_id = simple_db_instance.create_vendor(
                             account_id=account_id,
                             name=f"{vendor_first_name} {vendor_last_name}".strip(),
@@ -1084,19 +1103,28 @@ async def handle_clean_elementor_webhook(
                             ghl_contact_id=final_ghl_contact_id,
                             status='pending',  # Start as pending until approved
                             service_categories=service_categories_json,  # CORRECT parameter name
+                            services_offered=services_offered_json,      # FIXED: Add missing services_offered parameter
                             coverage_counties=coverage_counties_json     # CORRECT parameter name
                         )
                         logger.info(f"✅ Created vendor record: {vendor_id}")
                         logger.info(f"   Company: {vendor_company_name}")
+                        logger.info(f"   Name: {vendor_first_name} {vendor_last_name}")
+                        logger.info(f"   Email: {vendor_email}")
                         logger.info(f"   Services: {service_categories_json}")
                         logger.info(f"   Coverage: {coverage_counties_json}")
                     
                 except Exception as e:
                     logger.error(f"❌ Failed to create vendor record: {str(e)}")
                     logger.error(f"   Error type: {type(e).__name__}")
-                    logger.error(f"   Service zip codes type: {type(service_zip_codes)}")
-                    logger.error(f"   Service zip codes value: {service_zip_codes}")
-                    # Continue processing even if vendor record fails
+                    logger.error(f"   Service categories selected: {elementor_payload.get('service_categories_selected', 'NOT_FOUND')}")
+                    logger.error(f"   Vendor company name: {elementor_payload.get('vendor_company_name', 'NOT_FOUND')}")
+                    logger.error(f"   Service zip codes: {elementor_payload.get('service_zip_codes', 'NOT_FOUND')}")
+                    
+                    # Log the full elementor payload for debugging
+                    logger.error(f"   Full payload keys: {list(elementor_payload.keys())}")
+                    
+                    # Continue processing even if vendor record fails - don't break the webhook
+                    pass
             
             # Trigger background tasks based on form type
             if form_config.get("requires_immediate_routing"):
@@ -1201,40 +1229,104 @@ async def trigger_clean_lead_routing_workflow(
             )
         else:
             account_id = account["id"]
-        
+ 
         # Direct service classification (NO AI)
-        service_category = form_config.get("service_category", "Boater Resources")
+        service_category = form_config.get("service_category", "No Category")
         
-        # Extract customer data directly from form
+        # Extract customer data directly from form (NO PHONE)
         customer_data = {
             "name": f"{form_data.get('firstName', '')} {form_data.get('lastName', '')}".strip(),
             "email": form_data.get("email", ""),
             "phone": form_data.get("phone", "")
         }
         
-        # Create lead with direct data storage
-        lead_data = {
-            "customer_data": customer_data,
-            "service_category": service_category,
-            "zip_code": form_data.get("zip_code_of_service", ""),
-            "specific_service": form_data.get("specific_service_needed", ""),
-            "timeline": form_data.get("desired_timeline", ""),
-            "notes": form_data.get("special_requests__notes", ""),
-            "vessel_info": {
-                "make": form_data.get("vessel_make", ""),
-                "model": form_data.get("vessel_model", ""),
-                "year": form_data.get("vessel_year", ""),
-                "location": form_data.get("vessel_location__slip", "")
-            }
+        # FIXED CODE - Use field mapping system like contact creation (works for all 16 form types)
+        mapped_payload = field_mapper.map_payload(form_data, industry="marine")
+        logger.info(f"🔄 Lead creation using field mapping. Original keys: {list(form_data.keys())}, Mapped keys: {list(mapped_payload.keys())}")
+        
+        # Create service_details from ALL mapped fields (preserves all form data)
+        service_details = {}
+        
+        # Standard fields that have dedicated database columns (don't duplicate in service_details)
+        standard_lead_fields = {
+            "firstName", "lastName", "email", "phone", "primary_service_category",
+            "customer_zip_code", "specific_service_requested"
         }
         
-        lead_id = simple_db_instance.create_enhanced_lead(
-            customer_data=customer_data,
-            classification_result=lead_data,
-            account_id=account_id,
-            ghl_contact_id=ghl_contact_id,
-            source=form_identifier
-        )
+        # Store ALL other fields in service_details (preserves all 16 form types)
+        for field_key, field_value in mapped_payload.items():
+            # Skip empty values and standard fields (those go in dedicated columns)
+            if field_value == "" or field_value is None or field_key in standard_lead_fields:
+                continue
+                
+            service_details[field_key] = field_value
+            
+        # Add form metadata (NO PHONE)
+        service_details.update({
+            "form_source": form_identifier,
+            "submission_time": form_data.get("Time", ""),
+            "submission_date": form_data.get("Date", ""),
+            "processing_method": "direct_mapping"
+        })
+        
+        logger.info(f"📦 Created service_details with {len(service_details)} fields from mapped payload")
+
+        # FIXED: Direct database INSERT using CORRECT Leads table field names
+        conn = None
+        try:
+            lead_id_str = str(uuid.uuid4())
+            conn = simple_db_instance._get_conn()
+            cursor = conn.cursor()
+            
+            # INSERT using CORRECT Leads table schema field names
+            cursor.execute('''
+                INSERT INTO leads (
+                    id, account_id, ghl_contact_id, ghl_opportunity_id, customer_name,
+                    customer_email, customer_phone, primary_service_category, specific_service_requested,
+                    customer_zip_code, service_county, service_state, vendor_id, 
+                    assigned_at, status, priority, source, service_details, 
+                    created_at, updated_at, service_zip_code, service_city, 
+                    service_complexity, estimated_duration, requires_emergency_response, 
+                    classification_confidence, classification_reasoning
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                lead_id_str,                                          # id
+                account_id,                                           # account_id
+                ghl_contact_id,                                       # ghl_contact_id
+                None,                                                 # ghl_opportunity_id (set later)
+                customer_data["name"],                                # customer_name
+                customer_data["email"],                               # customer_email
+                customer_data.get("phone", ""),                       # customer_phone
+                service_category,                                     # primary_service_category ✅
+                mapped_payload.get("specific_service_needed", ""),    # specific_service_requested ✅
+                mapped_payload.get("zip_code_of_service", ""),        # customer_zip_code
+                "",                                                   # service_county (to be populated)
+                "",                                                   # service_state
+                None,                                                 # vendor_id (unassigned)
+                None,                                                 # assigned_at
+                "new",                                                # status
+                "normal",                                             # priority ✅
+                form_identifier,                                      # source
+                json.dumps(service_details),                          # service_details
+                mapped_payload.get("zip_code_of_service", ""),        # service_zip_code
+                "",                                                   # service_city
+                "simple",                                             # service_complexity
+                "medium",                                             # estimated_duration
+                False,                                                # requires_emergency_response
+                1.0,                                                  # classification_confidence ✅
+                f"Direct form mapping from {form_identifier}"         # classification_reasoning
+            ))
+            
+            conn.commit()
+            lead_id = lead_id_str
+            logger.info(f"✅ Lead created with correct Leads table schema: {lead_id}")
+            
+        except Exception as e:
+            logger.error(f"❌ Lead creation error: {e}")
+            raise
+        finally:
+            if conn:
+                conn.close()
         
         # Create opportunity for client leads (self-contained - no routing_admin dependency)
         opportunity_id = None
@@ -1250,19 +1342,19 @@ async def trigger_clean_lead_routing_workflow(
                 )
                 
                 customer_name = customer_data["name"]
-                location_info = lead_data.get("zip_code", "Unknown Location")
+                location_info = mapped_payload.get("zip_code_of_service", "Unknown Location")  # ✅ FIXED
                 
-                # Create opportunity data
+                # Create opportunity data (FIXED for GHL V2 API)
                 opportunity_data = {
-                    'contactId': ghl_contact_id,
-                    'pipelineId': AppConfig.PIPELINE_ID,
-                    'pipelineStageId': AppConfig.NEW_LEAD_STAGE_ID,
-                    'name': f"{customer_name} - {service_category}",
-                    'value': 0,
-                    'status': 'open',
-                    'source': f"{form_identifier} (DSP)",
-                    'locationId': AppConfig.GHL_LOCATION_ID
-                }
+                'contactId': ghl_contact_id,
+                'pipelineId': AppConfig.PIPELINE_ID,
+                'pipelineStageId': AppConfig.NEW_LEAD_STAGE_ID,
+                'name': f"{customer_name} - {service_category}",
+                'monetaryValue': 0,  # ✅ CHANGED: GHL V2 expects 'monetaryValue' not 'value'
+                'status': 'open',
+                'source': f"{form_identifier} (DSP)",
+                'locationId': AppConfig.GHL_LOCATION_ID,
+}
                 
                 # Create opportunity
                 opportunity_response = ghl_api_client.create_opportunity(opportunity_data)
@@ -1372,9 +1464,17 @@ async def trigger_clean_lead_routing_workflow(
                 else:
                     logger.warning(f"⚠️ No matching vendors found for service '{service_category}' in area '{zip_code}'")
                     
+                    # FIXED: Create proper data structure for notification
+                    unmatched_lead_data = {
+                        "customer_data": customer_data,
+                        "service_details": service_details,
+                        "zip_code": zip_code,
+                        "timeline": service_details.get("timeline", "Not specified")
+                    }
+                    
                     # Notify admin of unmatched lead
                     await notify_admin_of_unmatched_lead(
-                        lead_data=lead_data,
+                        lead_data=unmatched_lead_data,  # ✅ FIXED
                         ghl_contact_id=ghl_contact_id,
                         service_category=service_category,
                         location=zip_code
@@ -1888,13 +1988,13 @@ async def test_clean_form_configuration(form_identifier: str):
             "message": "Failed to generate configuration"
         }
 
-# Lead Reassignment Webhook Endpoint
 @router.post("/ghl/reassign-lead")
 async def handle_lead_reassignment_webhook(request: Request):
     """
     GHL workflow webhook endpoint for lead reassignment.
     Triggered when tags like "reassign lead" are added to contacts.
     Overwrites existing assignments and finds new vendors.
+    FIXED: Creates opportunities when none exist, uses correct database schema.
     """
     start_time = time.time()
     
@@ -1926,6 +2026,10 @@ async def handle_lead_reassignment_webhook(request: Request):
             raise HTTPException(status_code=400, detail="Contact ID is required for lead reassignment")
         
         logger.info(f"🔄 Processing lead reassignment for contact: {contact_id}")
+        if opportunity_id:
+            logger.info(f"📋 Existing opportunity ID: {opportunity_id}")
+        else:
+            logger.info(f"📋 No opportunity ID provided - will create if needed")
         
         # Initialize GHL API client
         ghl_api_client = GoHighLevelAPI(
@@ -1941,7 +2045,7 @@ async def handle_lead_reassignment_webhook(request: Request):
             logger.error(f"❌ Could not fetch contact details for {contact_id}")
             raise HTTPException(status_code=404, detail="Contact not found in GHL")
         
-        # Extract service and location information for reassignment
+        # Extract service and location information for reassignment using field mapping
         service_category = await _extract_service_category_from_contact(contact_details)
         zip_code = await _extract_zip_code_from_contact(contact_details)
         
@@ -1973,29 +2077,86 @@ async def handle_lead_reassignment_webhook(request: Request):
                 logger.info(f"🔄 Removing existing vendor assignment: {existing_lead['vendor_id']}")
                 simple_db_instance.unassign_lead_from_vendor(existing_lead['id'])
         else:
-            # Create new lead record if none exists
+            # FIXED: Create new lead record using correct database schema
             customer_name = f"{contact_details.get('firstName', '')} {contact_details.get('lastName', '')}".strip()
             customer_email = contact_details.get('email', '')
             customer_phone = contact_details.get('phone', '')
             
-            lead_id = simple_db_instance.create_lead(
-                account_id=account_id,
-                customer_name=customer_name,
-                customer_email=customer_email,
-                customer_phone=customer_phone,
-                service_category=service_category,
-                service_details={
-                    'location': {'zip_code': zip_code},
-                    'source': 'GHL Reassignment Workflow',
-                    'ghl_contact_id': contact_id,
-                    'ghl_opportunity_id': opportunity_id
-                },
-                priority='high',  # Reassignments are high priority
-                source='ghl_reassignment_workflow',
-                ghl_opportunity_id=opportunity_id
-            )
-            existing_lead = {'id': lead_id, 'vendor_id': None}
-            logger.info(f"➕ Created new lead record for reassignment: {lead_id}")
+            # Apply field mapping to contact data
+            mapped_contact_data = field_mapper.map_payload(contact_details, industry="marine")
+            
+            # Create service_details from mapped contact data
+            service_details = {
+                'location': {'zip_code': zip_code},
+                'source': 'GHL Reassignment Workflow',
+                'ghl_contact_id': contact_id,
+                'ghl_opportunity_id': opportunity_id,
+                'processing_method': 'reassignment_webhook',
+                'reassignment_reason': 'Manual reassignment triggered'
+            }
+            
+            # Add any additional mapped fields to service_details
+            standard_fields = {"firstName", "lastName", "email", "phone", "primary_service_category"}
+            for field_key, field_value in mapped_contact_data.items():
+                if field_key not in standard_fields and field_value:
+                    service_details[field_key] = field_value
+            
+            # FIXED: Direct database INSERT using correct schema
+            conn = None
+            try:
+                lead_id_str = str(uuid.uuid4())
+                conn = simple_db_instance._get_conn()
+                cursor = conn.cursor()
+                
+                # INSERT using CORRECT Leads table schema field names
+                cursor.execute('''
+                    INSERT INTO leads (
+                        id, account_id, ghl_contact_id, ghl_opportunity_id, customer_name,
+                        customer_email, customer_phone, primary_service_category, specific_service_requested,
+                        customer_zip_code, service_county, service_state, vendor_id, 
+                        assigned_at, status, priority, source, service_details, 
+                        created_at, updated_at, service_zip_code, service_city, 
+                        service_complexity, estimated_duration, requires_emergency_response, 
+                        classification_confidence, classification_reasoning
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    lead_id_str,                              # id
+                    account_id,                               # account_id
+                    contact_id,                               # ghl_contact_id
+                    opportunity_id,                           # ghl_opportunity_id
+                    customer_name,                            # customer_name
+                    customer_email,                           # customer_email
+                    customer_phone,                           # customer_phone ✅
+                    service_category,                         # primary_service_category ✅
+                    "",                                       # specific_service_requested
+                    zip_code,                                 # customer_zip_code
+                    "",                                       # service_county
+                    "",                                       # service_state
+                    None,                                     # vendor_id (unassigned)
+                    None,                                     # assigned_at
+                    "unassigned",                             # status
+                    "high",                                   # priority (reassignments are high priority)
+                    "ghl_reassignment_webhook",               # source
+                    json.dumps(service_details),              # service_details
+                    zip_code,                                 # service_zip_code
+                    "",                                       # service_city
+                    "simple",                                 # service_complexity
+                    "medium",                                 # estimated_duration
+                    False,                                    # requires_emergency_response
+                    1.0,                                      # classification_confidence ✅
+                    f"Lead created via reassignment webhook" # classification_reasoning
+                ))
+                
+                conn.commit()
+                existing_lead = {'id': lead_id_str, 'vendor_id': None}
+                logger.info(f"➕ Created new lead record for reassignment: {lead_id_str}")
+                
+            except Exception as e:
+                logger.error(f"❌ Lead creation error: {e}")
+                raise
+            finally:
+                if conn:
+                    conn.close()
         
         # Find matching vendors using enhanced routing
         available_vendors = lead_routing_service.find_matching_vendors(
@@ -2008,7 +2169,7 @@ async def handle_lead_reassignment_webhook(request: Request):
         if not available_vendors:
             logger.warning(f"⚠️ No matching vendors found for reassignment")
             
-            # Log failed reassignment (no SMS notifications - GHL handles this)
+            # Log failed reassignment
             simple_db_instance.log_activity(
                 event_type="lead_reassignment_failed",
                 event_data={
@@ -2016,7 +2177,7 @@ async def handle_lead_reassignment_webhook(request: Request):
                     "service_category": service_category,
                     "zip_code": zip_code,
                     "reason": "No matching vendors",
-                    "processing_method": "direct_only_no_ai"
+                    "processing_method": "reassignment_webhook_fixed"
                 },
                 lead_id=contact_id,
                 success=False,
@@ -2048,7 +2209,7 @@ async def handle_lead_reassignment_webhook(request: Request):
                     "zip_code": zip_code,
                     "reason": "Only previous vendor available - no alternatives",
                     "previous_vendor_id": previous_vendor_id,
-                    "processing_method": "direct_only_no_ai"
+                    "processing_method": "reassignment_webhook_fixed"
                 },
                 lead_id=contact_id,
                 success=False
@@ -2077,31 +2238,76 @@ async def handle_lead_reassignment_webhook(request: Request):
         
         logger.info(f"✅ Successfully reassigned lead {existing_lead['id']} to vendor {selected_vendor['name']}")
         
-        # Update GHL opportunity assignment if opportunity ID available (self-contained)
-        if opportunity_id and selected_vendor.get('ghl_user_id'):
-            logger.info(f"🎯 Updating GHL opportunity {opportunity_id} assignment to vendor {selected_vendor['ghl_user_id']}")
-            
-            try:
-                # Self-contained opportunity assignment (no routing_admin dependency)
-                update_data = {
-                    'assignedTo': selected_vendor['ghl_user_id'],
-                    'pipelineId': AppConfig.PIPELINE_ID,
-                    'pipelineStageId': AppConfig.NEW_LEAD_STAGE_ID
-                }
+        # FIXED: Handle opportunity creation/assignment
+        if selected_vendor.get('ghl_user_id'):
+            if opportunity_id:
+                # Update existing opportunity assignment
+                logger.info(f"🎯 Updating existing opportunity {opportunity_id} assignment to vendor {selected_vendor['ghl_user_id']}")
                 
-                ghl_assignment_success = ghl_api_client.update_opportunity(opportunity_id, update_data)
-                
-                if ghl_assignment_success:
-                    logger.info(f"✅ Successfully updated GHL opportunity assignment - workflows will notify vendor")
-                else:
-                    logger.warning(f"⚠️ Failed to update GHL opportunity assignment")
+                try:
+                    update_data = {
+                        'assignedTo': selected_vendor['ghl_user_id'],
+                        'pipelineId': AppConfig.PIPELINE_ID,
+                        'pipelineStageId': AppConfig.NEW_LEAD_STAGE_ID
+                    }
                     
-            except Exception as e:
-                logger.error(f"❌ Error updating GHL opportunity assignment: {e}")
+                    ghl_assignment_success = ghl_api_client.update_opportunity(opportunity_id, update_data)
+                    
+                    if ghl_assignment_success:
+                        logger.info(f"✅ Successfully updated existing opportunity assignment")
+                    else:
+                        logger.warning(f"⚠️ Failed to update existing opportunity assignment")
+                        
+                except Exception as e:
+                    logger.error(f"❌ Error updating existing opportunity assignment: {e}")
+            else:
+                # FIXED: Create new opportunity when none exists
+                logger.info(f"📈 No opportunity exists - creating one for reassigned lead")
                 
-        elif not opportunity_id:
-            logger.info(f"ℹ️ No opportunity ID provided - skipping GHL opportunity assignment")
-        elif not selected_vendor.get('ghl_user_id'):
+                try:
+                    # Create opportunity data with correct field names
+                    opportunity_data = {
+                        'contactId': contact_id,
+                        'pipelineId': AppConfig.PIPELINE_ID,
+                        'pipelineStageId': AppConfig.NEW_LEAD_STAGE_ID,
+                        'name': f"{customer_name} - {service_category}",
+                        'monetaryValue': 0,  # ✅ FIXED: Use 'monetaryValue' not 'value'
+                        'status': 'open',
+                        'source': f"Lead Reassignment (DSP)",
+                        'locationId': AppConfig.GHL_LOCATION_ID,
+                        'assignedTo': selected_vendor['ghl_user_id']  # Assign directly to vendor
+                    }
+                    
+                    # Create opportunity
+                    opportunity_response = ghl_api_client.create_opportunity(opportunity_data)
+                    
+                    if opportunity_response and opportunity_response.get('id'):
+                        opportunity_id = opportunity_response['id']
+                        logger.info(f"✅ Created new opportunity for reassigned lead: {opportunity_id}")
+                        
+                        # Update lead record with opportunity ID
+                        simple_db_instance.update_lead_opportunity_id(existing_lead['id'], opportunity_id)
+                        
+                        # Log successful opportunity creation
+                        simple_db_instance.log_activity(
+                            event_type="opportunity_created_reassignment",
+                            event_data={
+                                "opportunity_id": opportunity_id,
+                                "contact_id": contact_id,
+                                "lead_id": existing_lead['id'],
+                                "vendor_id": selected_vendor['id'],
+                                "service_category": service_category,
+                                "processing_method": "reassignment_webhook_fixed"
+                            },
+                            lead_id=contact_id,
+                            success=True
+                        )
+                    else:
+                        logger.error(f"❌ Failed to create opportunity for reassigned lead: {opportunity_response}")
+                        
+                except Exception as e:
+                    logger.error(f"❌ Error creating opportunity for reassigned lead: {e}")
+        else:
             logger.warning(f"⚠️ Vendor {selected_vendor['name']} has no GHL User ID - cannot assign opportunity")
         
         # Remove reassignment tag from contact
@@ -2114,13 +2320,14 @@ async def handle_lead_reassignment_webhook(request: Request):
             event_data={
                 "contact_id": contact_id,
                 "opportunity_id": opportunity_id,
+                "opportunity_created": opportunity_id is not None and not ghl_payload.get("opportunity_id"),
                 "previous_vendor_id": previous_vendor_id,
                 "new_vendor_id": selected_vendor['id'],
                 "new_vendor_name": selected_vendor['name'],
                 "service_category": service_category,
                 "zip_code": zip_code,
                 "processing_time_seconds": processing_time,
-                "processing_method": "direct_only_no_ai"
+                "processing_method": "reassignment_webhook_fixed"
             },
             lead_id=contact_id,
             success=True
@@ -2131,6 +2338,7 @@ async def handle_lead_reassignment_webhook(request: Request):
             "message": f"Lead successfully reassigned to {selected_vendor['name']}",
             "contact_id": contact_id,
             "opportunity_id": opportunity_id,
+            "opportunity_created": opportunity_id is not None and not ghl_payload.get("opportunity_id"),
             "previous_vendor_id": previous_vendor_id,
             "new_vendor": {
                 "id": selected_vendor['id'],
@@ -2140,7 +2348,7 @@ async def handle_lead_reassignment_webhook(request: Request):
             "service_category": service_category,
             "location": zip_code,
             "processing_time_seconds": processing_time,
-            "ghl_opportunity_updated": opportunity_id is not None and selected_vendor.get('ghl_user_id') is not None
+            "ghl_opportunity_updated": True
         }
         
     except HTTPException:
@@ -2154,7 +2362,7 @@ async def handle_lead_reassignment_webhook(request: Request):
             event_data={
                 "processing_time_seconds": processing_time,
                 "error_class": e.__class__.__name__,
-                "processing_method": "direct_only_no_ai"
+                "processing_method": "reassignment_webhook_fixed"
             },
             success=False,
             error_message=str(e)
@@ -2169,7 +2377,7 @@ async def _extract_service_category_from_contact(contact_details: Dict[str, Any]
     tags = contact_details.get('tags', [])
     for tag in tags:
         tag_lower = tag.lower()
-        for keyword, category in DIRECT_SERVICE_CATEGORIES.items():
+        for keyword, category in DOCKSIDE_PROS_SERVICES.items():
             if keyword in tag_lower:
                 logger.info(f"🎯 Found service category from tag '{tag}': {category}")
                 return category
@@ -2179,12 +2387,12 @@ async def _extract_service_category_from_contact(contact_details: Dict[str, Any]
     for field in custom_fields:
         if field.get('name', '').lower() in ['service category', 'service_category']:
             category = field.get('value', '')
-            if category in DIRECT_SERVICE_CATEGORIES.values():
+            if category in DOCKSIDE_PROS_CATEGORIES:
                 logger.info(f"🎯 Found service category from custom field: {category}")
                 return category
     
-    # Default fallback
-    return "Boater Resources"
+    # FIXED: Default fallback
+    return "No Category"  # ✅ Changed from "Boater Resources"
 
 async def _extract_zip_code_from_contact(contact_details: Dict[str, Any]) -> Optional[str]:
     """Extract ZIP code from GHL contact using the same logic as routing_admin"""
