@@ -1,137 +1,11 @@
-## Database Structure (smart_lead_router.db)
-
-The database contains the following tables:
-
-### 1. __tenants__ - Multi-tenant support
-
-- id (UUID)
-- name, domain, subdomain
-- settings (JSON), is_active, subscription_tier, max_users
-- created_at, updated_at
-
-### 2. __users__ - User authentication
-
-- id (UUID), tenant_id
-- email, password_hash, first_name, last_name, role
-- is_active, is_verified, two_factor_enabled
-- last_login, login_attempts, locked_until
-- created_at, updated_at
-
-### 3. __accounts__ - Company accounts
-
-- id (UUID), tenant_id
-- ghl_location_id, company_name, industry
-- settings (JSON), subscription_tier
-- ghl_api_token
-- created_at, updated_at
-
-### 4. __vendors__ - Service providers
-
-- id (UUID), account_id
-- ghl_contact_id, name, company_name, email, phone
-- services_provided (JSON), service_areas (JSON)
-- performance_score, total_leads_received/closed
-- avg_response_time_hours, customer_rating, status
-- taking_new_work, last_lead_assigned
-- created_at
-
-### 5. __leads__ - Customer leads
-
-- id (UUID), account_id, vendor_id
-- ghl_contact_id, service_category
-- service_details (JSON), location_data (JSON)
-- estimated_value, priority_score, status
-- assignment_history (JSON)
-- created_at, assigned_at, first_response_at, closed_at
-- outcome
-
-### 6. __performance_metrics__ - Vendor metrics
-
-- id (UUID), vendor_id, lead_id
-- metric_type, metric_value
-- timestamp
-
-### 7. __feedback__ - Customer feedback
-
-- id (UUID), lead_id, vendor_id
-- rating, comments, feedback_type
-- submitted_at
-
-### 8. __auth_tokens__ - JWT tokens
-
-- id (UUID), user_id
-- token_type, token_hash, expires_at, is_revoked
-- created_at
-
-### 9. __two_factor_codes__ - 2FA codes
-
-- id (UUID), user_id
-- code, purpose, expires_at, is_used, attempts
-- created_at
-
-### 10. __audit_logs__ - Security audit trail
-
-- id (UUID), tenant_id, user_id
-- action, resource, ip_address, user_agent
-- details (JSON), timestamp
-
-## Field Mapping System
-
-The system uses a three-tier field mapping approach:
-
-### 1. __Form Field Normalization__ (WordPress/Elementor → Standard Names)
-
-Examples:
-
-- "Your Contact Email?" → "email"
-- "What Zip Code Are You Requesting Service In?" → "zip_code_of_service"
-- "What Specific Service(s) Do You Request?" → "specific_service_needed"
-- "Your Vessel Manufacturer?" → "vessel_make"
-
-### 2. __Standard to GHL Field Mapping__ (field_mappings.json)
-
-```javascript
-ServiceNeeded → specific_service_needed
-zipCode → zip_code_of_service
-vesselMake → vessel_make
-vesselModel → vessel_model
-specialRequests → special_requests__notes
-```
-
-### 3. __GHL Custom Field IDs__ (field_reference.json)
-
-Each GHL custom field has:
-
-- Field Key (e.g., "contact.vessel_make")
-- Unique ID (e.g., "B0wHr7XBtjkawyP5O6qH")
-- Data Type (TEXT, NUMERICAL, DATE, etc.)
-
-Key custom fields include:
-
-- Vessel Information: make, model, year, length
-- Service Details: category, specific needs, timeline
-- Location: ZIP code, vessel location/slip
-- Vendor Info: company name, services provided, service areas
-
-## Data Flow Process
-
-1. __Webhook Receipt__ → Form data arrives at `/api/v1/webhooks/elementor/{form_identifier}`
-2. __Field Normalization__ → WordPress field names converted to standard names
-3. __Service Classification__ → Direct mapping to service categories (no AI)
-4. __Field Mapping__ → Standard names mapped to GHL field names
-5. __GHL Payload Creation__ → Custom fields array built with proper IDs
-6. __Contact Creation/Update__ → Data sent to GoHighLevel
-7. __Lead Creation__ → Lead record created in local database
-8. __Vendor Routing__ → Matching vendors found based on service & location
-9. __Assignment__ → Lead assigned to vendor, opportunity created in GHL
-
-
-
 # Smart Lead Router Database Structure and Field Mappings
 
 **Legend:**
 - `*` = System-generated field
 - No marking = Field mapped from forms or GoHighLevel custom fields
+- `⚠️` = Known issues requiring fixes
+
+**Last Updated:** 2025-07-11 (Based on production analysis and debugging session)
 
 ---
 
@@ -147,9 +21,13 @@ Key custom fields include:
 ## Table: activity_log
 **Purpose:** System activity and audit trail
 
-| id* | event_type* | event_data_json* | related_contact_id | related_vendor_id | success* | error_message* | timestamp* | event_data* |
-|-----|-------------|------------------|-------------------|-------------------|----------|----------------|------------|-------------|
-| *System UUID* | *Event type* | *JSON data* | GHL Contact ID | Vendor ID | *Boolean result* | *Error details* | *Auto timestamp* | *Additional data* |
+| id* | event_type* | event_data* | lead_id* | vendor_id* | account_id* | success* | error_message* | timestamp* |
+|-----|-------------|-------------|----------|------------|-------------|----------|----------------|------------|
+| *System UUID* | *Event type* | *JSON data* | *Lead UUID* | *Vendor UUID* | *Account UUID* | *Boolean result* | *Error details* | *Auto timestamp* |
+
+**Recent Updates:**
+- Added `lead_id`, `vendor_id`, `account_id` fields to fix logging errors
+- Standardized `event_data` field (was `event_data_json`)
 
 ---
 
@@ -229,29 +107,141 @@ Key custom fields include:
 
 ---
 
-## Table: leads
-**Purpose:** Customer leads and service requests
+## Table: leads ⚠️
+**Purpose:** Customer leads and service requests  
+**Schema:** 27 columns total (verified in production debugging 2025-07-11)
 
-| id* | account_id* | ghl_contact_id | ghl_opportunity_id* | customer_name | customer_email | customer_phone | primary_service_category* | specific_service_requested | customer_zip_code | service_county* | service_state* | vendor_id* | assigned_at* | status* | priority* | source* | service_details* | created_at* | updated_at* | service_zip_code | service_city* | specific_services* | service_complexity* | estimated_duration* | requires_emergency_response* | classification_confidence* | classification_reasoning* |
-|-----|-------------|----------------|-------------------|---------------|----------------|----------------|---------------------------|---------------------------|-------------------|----------------|----------------|------------|-------------|---------|-----------|---------|------------------|-------------|-------------|------------------|---------------|-------------------|--------------------|--------------------|-----------------------------|---------------------------|---------------------------|
-| *System UUID* | *Foreign key* | GHL Contact ID | *System generated* | firstName + lastName | email | phone | *Service classification* | specific_service_needed | zip_code_of_service | *ZIP→County conversion* | *ZIP→State conversion* | *Assigned vendor* | *Assignment time* | *Lead status* | *Priority level* | *Lead source* | *JSON form data* | *Auto timestamp* | *Auto timestamp* | zip_code_of_service | *Derived from ZIP* | *JSON services* | *Complexity level* | *Duration estimate* | *Emergency flag* | *AI confidence* | *AI reasoning* |
+### Core Lead Information
+| Field | Type | Purpose | Status |
+|-------|------|---------|--------|
+| id* | TEXT PRIMARY KEY | Lead identifier | ✅ |
+| account_id* | TEXT | Account reference | ✅ |
+| ghl_contact_id | TEXT | GHL Contact ID | ✅ |
+| ghl_opportunity_id* | TEXT | GHL Opportunity ID | ✅ |
+
+### Customer Contact Data
+| Field | Type | Source/Mapping | Status |
+|-------|------|----------------|--------|
+| customer_name | TEXT | firstName + lastName | ✅ |
+| customer_email | TEXT | email field | ✅ |
+| customer_phone | TEXT | phone field | ✅ |
+
+### Service Classification ⚠️
+| Field | Type | Source/Mapping | Status |
+|-------|------|----------------|--------|
+| primary_service_category* | TEXT NOT NULL | Form identifier mapping | ⚠️ **CLASSIFICATION ISSUE** |
+| specific_service_category | TEXT | specific_service_needed | ✅ |
+
+### Geographic Data
+| Field | Type | Source/Mapping | Status |
+|-------|------|----------------|--------|
+| customer_zip_code | TEXT | zip_code_of_service | ✅ |
+| service_county* | TEXT | ZIP→County conversion | ✅ |
+| service_state* | TEXT | ZIP→State conversion | ✅ |
+| service_zip_code | TEXT | zip_code_of_service (duplicate) | ✅ |
+| service_city* | TEXT | ZIP→City conversion | ✅ |
+
+### Lead Assignment ⚠️
+| Field | Type | Purpose | Status |
+|-------|------|---------|--------|
+| vendor_id* | TEXT | Assigned vendor FK | ⚠️ **ROUTING BLOCKED** |
+| assigned_at* | TIMESTAMP | Assignment time | ⚠️ **ROUTING BLOCKED** |
+| status* | TEXT DEFAULT 'unassigned' | Lead status | ⚠️ **ROUTING BLOCKED** |
+
+### Lead Management
+| Field | Type | Purpose | Status |
+|-------|------|---------|--------|
+| priority* | TEXT DEFAULT 'normal' | Priority level | ✅ |
+| source* | TEXT | Lead source identifier | ✅ |
+| service_details* | TEXT | Complete form data JSON | ✅ |
+| created_at* | TIMESTAMP | Creation time | ✅ |
+| updated_at* | TIMESTAMP | Update time | ✅ |
+
+### Classification Metadata
+| Field | Type | Purpose | Status |
+|-------|------|---------|--------|
+| service_complexity* | TEXT DEFAULT 'simple' | Complexity level | ✅ |
+| estimated_duration* | TEXT DEFAULT 'medium' | Duration estimate | ✅ |
+| requires_emergency_response* | BOOLEAN DEFAULT '0' | Emergency flag | ✅ |
+| classification_confidence* | REAL DEFAULT '0.0' | AI confidence score | ✅ |
+| classification_reasoning* | TEXT | AI reasoning | ✅ |
+
+**Critical Issues Identified (2025-07-11 debugging session):**
+- ⚠️ **Service Classification Error**: `engines_generators` form maps to "Boater Resources" instead of "Engines and Generators"
+- ⚠️ **Lead Creation Failure**: "cannot access local variable 'lead_id'" error in background task
+- ⚠️ **Database Insert Error**: Previously had "28 values for 27 columns" (fixed during session)
+- ⚠️ **Vendor Routing Blocked**: Cannot assign vendors due to classification and database storage failures
 
 **Field Mappings:**
 - customer_name → Form fields: firstName, lastName
-- customer_email → Form field: email
+- customer_email → Form field: email  
 - customer_phone → Form field: phone
-- specific_service_requested → GHL Custom Field: "Specific Service Needed" (ID: FT85QGi0tBq1AfVGNJ9v)
+- specific_service_category → GHL Custom Field: "Specific Service Needed" (ID: FT85QGi0tBq1AfVGNJ9v)
 - customer_zip_code → GHL Custom Field: "Zip Code of Service" (ID: y3Xo7qsFEQumoFugTeCq)
-- service_zip_code → GHL Custom Field: "Zip Code of Service" (ID: y3Xo7qsFEQumoFugTeCq)
+- service_zip_code → GHL Custom Field: "Zip Code of Service" (ID: y3Xo7qsFEQumoFugTeCq) [duplicate]
 
 ---
 
 ## Table: vendors
 **Purpose:** Service provider information and routing data
 
-| id* | account_id* | ghl_contact_id | ghl_user_id | name | email | phone | company_name | service_categories* | services_offered* | coverage_type* | coverage_states* | coverage_counties* | last_lead_assigned* | lead_close_percentage | status* | taking_new_work | created_at* | updated_at* |
-|-----|-------------|----------------|-------------|------|-------|-------|--------------|-------------------|------------------|----------------|------------------|-------------------|-------------------|---------------------|---------|----------------|-------------|-------------|
-| *System UUID* | *Foreign key* | GHL Contact ID | GHL User ID | firstName + lastName | email | phone | vendor_company_name | *JSON categories* | *JSON services* | *Coverage type* | *JSON states* | *JSON counties* | *Last assignment* | Lead Close % | *Vendor status* | taking_new_work | *Auto timestamp* | *Auto timestamp* |
+### Core Vendor Information
+| Field | Type | Source/Mapping | Status |
+|-------|------|----------------|--------|
+| id* | TEXT PRIMARY KEY | System UUID | ✅ |
+| account_id* | TEXT | Foreign key to accounts | ✅ |
+| ghl_contact_id | TEXT | GHL Contact ID | ✅ |
+| ghl_user_id | TEXT | GHL User ID for assignment | ✅ |
+
+### Contact Information  
+| Field | Type | Source/Mapping | Status |
+|-------|------|----------------|--------|
+| name | TEXT | firstName + lastName | ✅ |
+| email | TEXT | email field | ✅ |
+| phone | TEXT | phone field | ✅ |
+| company_name | TEXT | vendor_company_name | ✅ |
+
+### Service Capabilities (Critical for Lead Matching)
+| Field | Type | Purpose | Status |
+|-------|------|---------|--------|
+| service_categories* | TEXT | JSON: ["Marine Systems", "Engines and Generators"] | ✅ |
+| services_offered* | TEXT | JSON: ["AC Service", "Engine Repair"] | ✅ |
+
+### Geographic Coverage (Critical for Lead Matching)
+| Field | Type | Purpose | Status |
+|-------|------|---------|--------|
+| coverage_type* | TEXT DEFAULT 'zip' | zip, county, state, national | ✅ |
+| coverage_states* | TEXT | JSON: ["FL", "GA"] | ✅ |
+| coverage_counties* | TEXT | JSON: ["Miami-Dade", "Broward"] | ✅ |
+
+### Performance & Availability
+| Field | Type | Source/Mapping | Status |
+|-------|------|----------------|--------|
+| last_lead_assigned* | TIMESTAMP | Performance tracking | ✅ |
+| lead_close_percentage | REAL | GHL Custom Field (ID: OwHQipU7xdrHCpVswtnW) | ✅ |
+| status* | TEXT DEFAULT 'pending' | pending, active, inactive | ✅ |
+| taking_new_work | BOOLEAN | GHL Custom Field (ID: bTFOs5zXYt85AvDJJUAb) | ✅ |
+
+### System Fields
+| Field | Type | Purpose | Status |
+|-------|------|---------|--------|
+| created_at* | TIMESTAMP | Auto timestamp | ✅ |
+| updated_at* | TIMESTAMP | Auto timestamp | ✅ |
+
+**Lead-to-Vendor Matching Logic (Critical for Routing):**
+```sql
+-- Service Category Match
+leads.primary_service_category IN vendors.service_categories (JSON array)
+
+-- Geographic Match (ZIP-level preferred)
+leads.customer_zip_code IN vendors.coverage_zip_codes (JSON array)
+OR 
+leads.service_county IN vendors.coverage_counties (JSON array)
+
+-- Availability Filter
+vendors.status = 'active' 
+AND vendors.taking_new_work = TRUE
+```
 
 **Field Mappings:**
 - name → Form fields: firstName, lastName
@@ -264,53 +254,48 @@ Key custom fields include:
 
 ---
 
-## Key Form Field Mappings (WordPress/Elementor → Database)
+## Service Classification Issues ⚠️
 
-### Customer Lead Forms:
-- "Your Contact Email?" → email
-- "What Zip Code Are You Requesting Service In?" → zip_code_of_service
-- "What Specific Service(s) Do You Request?" → specific_service_needed
-- "Your Vessel Manufacturer?" → vessel_make
-- "Your Vessel Model or Length of Vessel in Feet?" → vessel_model
-- "Year of Vessel?" → vessel_year
-- "Is The Vessel On a Dock, At a Marina, or On a Trailer?" → vessel_location__slip
-- "When Do You Prefer Service?" → desired_timeline
-- "Any Special Requests or Other Information?" → special_requests__notes
+**Problem Identified:** Form identifier `engines_generators` incorrectly maps to "Boater Resources"  
+**Expected:** Should map to "Engines and Generators"  
+**Location:** `api/routes/webhook_routes.py` - `DOCKSIDE_PROS_SERVICES` dictionary  
+**Impact:** Causes vendor matching to fail (no vendors for "Boater Resources" in Miami-Dade)
 
-### Vendor Application Forms:
-- "What is Your Company Name?" → vendor_company_name
-- "What Main Service Does Your Company Offer?" → services_provided
-- "Service Areas" → service_zip_codes
-- "Years in Business" → years_in_business
+**Missing Service Mappings:**
+```python
+DOCKSIDE_PROS_SERVICES = {
+    # MISSING ENTRIES IDENTIFIED:
+    "engines_generators": "Engines and Generators",  # ← CRITICAL FIX NEEDED
+    "outboard_engine_service": "Engines and Generators",
+    "generator_service": "Engines and Generators",
+    "marine_systems": "Marine Systems",
+    "boat_maintenance": "Boat Maintenance",
+    # ... existing mappings
+}
+```
 
-### GHL Custom Field Mappings:
-- vessel_make → "Vessel Make" (ID: B0wHr7XBtjkawyP5O6qH)
-- vessel_model → "Vessel Model" (ID: FfBSzKytAmjHpgeadINR)
-- vessel_year → "Vessel Year" (ID: 8HWqslCRX6hXl6lWYrWZ)
-- vessel_length_ft → "Vessel Length (ft)" (ID: er480ND4nXmk5gFO1kWG)
-- vessel_location__slip → "Vessel Location / Slip" (ID: 43F7QfjDIM0Zf9AcluWa)
-- desired_timeline → "Desired Timeline" (ID: x3eHJ91v180aLs3HidEB)
-- special_requests__notes → "Special Requests / Notes" (ID: 16b5tLOqrBbL61IDPbBz)
-- budget_range → "Budget Range" (ID: lzPNBivJaiVIh9FEpLbE)
-- preferred_contact_method → "Preferred Contact Method" (ID: 3DfFfFktWJtsynpOy6z9)
+**Evidence from Production Logs:**
+```
+🎯 Default service mapping: engines_generators → Boater Resources  # ← WRONG
+# Should be:
+🎯 Direct service mapping: engines_generators → Engines and Generators  # ← CORRECT
+```
 
 ---
 
-## Data Flow Summary:
+## Database Operation Issues ⚠️
 
-1. **Webhook Receipt:** Form data arrives at `/api/v1/webhooks/elementor/{form_identifier}`
-2. **Field Normalization:** WordPress field names → Standard field names
-3. **Service Classification:** Direct mapping to service categories (no AI)
-4. **Field Mapping:** Standard names → GHL field names
-5. **GHL Payload Creation:** Custom fields array built with proper IDs
-6. **Database Storage:** Mapped fields stored in appropriate table columns
-7. **Vendor Routing:** System uses service_category, zip_code for vendor matching
+**Background Task Variable Scope Error:**
+- **Function:** `trigger_clean_lead_routing_workflow()`
+- **Error:** `cannot access local variable 'lead_id' where it is not associated with a value`
+- **Fix Required:** Initialize `lead_id = None` at function start
 
-**System Fields (marked with *):** Generated by application logic, timestamps, calculations, foreign keys, status tracking
-**Mapped Fields (no marking):** Come from form submissions or GHL custom field synchronization
+**Previous Schema Issues (Resolved):**
+- "28 values for 27 columns" error fixed during debugging session
+- Column count now matches INSERT statement placeholders
 
----
-
-*Generated: 2025-07-09*
-*Database: smart_lead_router.db*
-*System: Lead Router Pro*
+**Current Status:**
+- ✅ GHL contact creation: 100% success rate
+- ✅ GHL opportunity creation: Works when background task succeeds  
+- ❌ Lead database storage: Fails due to variable scope error
+- ❌ Vendor routing: Blocked by classification and storage failures
