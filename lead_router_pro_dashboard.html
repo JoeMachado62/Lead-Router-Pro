@@ -937,8 +937,12 @@ ${data.data.leads.map((lead, index) =>
                         };
                         const statusClass = statusColors[vendor.status] || "bg-gray-100 text-gray-800";
                         
+                        const performancePercent = vendor.performance_score 
+                            ? (vendor.performance_score * 100).toFixed(0) 
+                            : vendor.lead_close_percentage || 0;
+                        
                         vendorsHTML += `
-                            <tr>
+                            <tr id="vendor-row-${vendor.id}">
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <div>
                                         <div class="text-sm font-medium text-gray-900">${vendor.name}</div>
@@ -954,10 +958,20 @@ ${data.data.leads.map((lead, index) =>
                                     </span>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                    ${(vendor.performance_score * 100).toFixed(0)}%
+                                    ${performancePercent}%
                                 </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                    ${vendor.taking_new_work ? "✅ Yes" : "❌ No"}
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <label class="flex items-center cursor-pointer">
+                                        <input 
+                                            type="checkbox" 
+                                            ${vendor.taking_new_work ? 'checked' : ''} 
+                                            onchange="toggleVendorWork('${vendor.id}', this.checked)"
+                                            class="form-checkbox h-4 w-4 text-blue-600"
+                                        />
+                                        <span class="ml-2 text-sm vendor-status-text ${vendor.taking_new_work ? 'text-green-600' : 'text-red-600'}">
+                                            ${vendor.taking_new_work ? 'Yes' : 'No'}
+                                        </span>
+                                    </label>
                                 </td>
                             </tr>
                         `;
@@ -970,6 +984,44 @@ ${data.data.leads.map((lead, index) =>
                 }
             } catch (error) {
                 document.getElementById("vendorsList").innerHTML = '<p class="text-red-500">Error loading vendors</p>';
+                console.error('Error loading vendors:', error);
+            }
+        }
+
+        async function toggleVendorWork(vendorId, isChecked) {
+            try {
+                const response = await fetch(`${baseURL}/api/v1/vendor-toggle/availability`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        vendor_id: vendorId,
+                        taking_new_work: isChecked
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    // Update UI immediately
+                    const row = document.getElementById(`vendor-row-${vendorId}`);
+                    const span = row.querySelector('.vendor-status-text');
+                    span.textContent = isChecked ? 'Yes' : 'No';
+                    span.className = `ml-2 text-sm vendor-status-text ${isChecked ? 'text-green-600' : 'text-red-600'}`;
+                    
+                    showNotification(`Vendor availability updated successfully`, 'success');
+                } else {
+                    // Revert checkbox
+                    const checkbox = document.querySelector(`input[onchange*="${vendorId}"]`);
+                    checkbox.checked = !isChecked;
+                    showNotification('Failed to update vendor', 'error');
+                }
+                
+            } catch (error) {
+                // Revert checkbox
+                const checkbox = document.querySelector(`input[onchange*="${vendorId}"]`);
+                checkbox.checked = !isChecked;
+                showNotification('Error updating vendor', 'error');
+                console.error('Error:', error);
             }
         }
 

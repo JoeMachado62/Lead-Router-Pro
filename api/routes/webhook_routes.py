@@ -21,6 +21,29 @@ from api.services.location_service import location_service
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/webhooks", tags=["Clean Elementor Webhooks - Direct Processing"])
 
+# Location services router for widget integration
+location_router = APIRouter(prefix="/api/v1/locations", tags=["Location Services"])
+
+@location_router.get("/states/{state_code}/counties")
+async def get_counties_by_state(state_code: str):
+    """Return all counties for a given state"""
+    try:
+        counties = location_service.get_state_counties(state_code.upper())
+        return {
+            "status": "success",
+            "state": state_code.upper(),
+            "counties": counties,
+            "count": len(counties)
+        }
+    except Exception as e:
+        logger.error(f"Error getting counties for state {state_code}: {e}")
+        return {
+            "status": "error",
+            "message": "Failed to retrieve counties",
+            "state": state_code.upper(),
+            "counties": []
+        }
+
 async def create_lead_from_ghl_contact(
     ghl_contact_data: Dict[str, Any],
     account_id: str,
@@ -99,7 +122,7 @@ async def create_lead_from_ghl_contact(
             cursor.execute('''
                 INSERT INTO leads (
                     id, account_id, ghl_contact_id, ghl_opportunity_id, customer_name,
-                    customer_email, customer_phone, service_category, specific_services,
+                    customer_email, customer_phone, primary_service_category, specific_service_requested,
                     service_zip_code, service_county, service_state, vendor_id, 
                     status, priority, source, service_details, 
                     created_at, updated_at, service_city, 
@@ -114,8 +137,8 @@ async def create_lead_from_ghl_contact(
                 customer_data.get("name", ""),                              # customer_name
                 customer_data.get("email", "").lower().strip() if customer_data.get("email") else None,  # customer_email
                 customer_data.get("phone", ""),                             # customer_phone
-                service_category,                                           # service_category (FIXED)
-                json.dumps([mapped_payload.get("specific_service_needed", "")]), # specific_services (FIXED)
+                service_category,                                           # primary_service_category (FIXED)
+                mapped_payload.get("specific_service_needed", ""),                # specific_service_requested (FIXED)
                 zip_code,                                                   # service_zip_code (FIXED)
                 service_county,                                             # service_county
                 service_state,                                              # service_state
@@ -799,27 +822,185 @@ def process_payload_to_ghl_format(elementor_payload: Dict[str, Any], form_config
                     })
                     logger.debug(f"Added static custom field: {field_details['name']} ({ghl_key}) = {static_value}")
 
-    # SPECIAL HANDLING: For vendor applications, add the full service categories to Service Category field
+    # SPECIAL HANDLING: For vendor applications, ensure all vendor-specific fields are properly mapped
     if form_config.get("form_type") == "vendor_application":
-        service_categories_selected = elementor_payload.get('service_categories_selected', '')
-        if service_categories_selected:
-            # Get the Service Category field details (O84LyhN1QjZ8Zz5mteCM)
+        # 1. Handle NEW multi-step service category structure
+        # Primary service category (single selection)
+        primary_service_category = elementor_payload.get('primary_service_category', '')
+        if primary_service_category:
+            primary_category_field = field_mapper.get_ghl_field_details("primary_service_category")
+            if primary_category_field and primary_category_field.get("id"):
+                field_exists = any(cf["id"] == primary_category_field["id"] for cf in custom_fields_array)
+                if not field_exists:
+                    custom_fields_array.append({
+                        "id": primary_category_field["id"],
+                        "value": primary_service_category
+                    })
+                    logger.info(f"✅ Added Primary Service Category field: {primary_service_category}")
+        
+        # Combined service categories (primary + additional, max 3 total)
+        combined_categories = []
+        if primary_service_category:
+            combined_categories.append(primary_service_category)
+        
+        # Add additional categories (up to 2 more)
+        additional_categories = elementor_payload.get('additional_categories', [])
+        if isinstance(additional_categories, list):
+            combined_categories.extend(additional_categories[:2])  # Max 2 additional
+        elif isinstance(additional_categories, str) and additional_categories:
+            # Handle comma-separated string
+            additional_list = [cat.strip() for cat in additional_categories.split(',')]
+            combined_categories.extend(additional_list[:2])
+        
+        # Store combined categories in the general service_category field for backward compatibility
+        if combined_categories:
             service_category_field = field_mapper.get_ghl_field_details("service_category")
             if service_category_field and service_category_field.get("id"):
-                # Check if this field is already in the custom fields array
                 field_exists = any(cf["id"] == service_category_field["id"] for cf in custom_fields_array)
-                
                 if not field_exists:
-                    # Add the full list of service categories to the Service Category field
+                    combined_categories_str = ', '.join(combined_categories)
                     custom_fields_array.append({
-                        "id": service_category_field["id"],  # O84LyhN1QjZ8Zz5mteCM
-                        "value": service_categories_selected  # Full list: "Engines and Generators, Boat Maintenance, Buying or Selling a Boat"
+                        "id": service_category_field["id"],
+                        "value": combined_categories_str
                     })
-                    logger.info(f"✅ Added Service Category field: {service_categories_selected}")
-                else:
-                    logger.info(f"ℹ️ Service Category field already exists in payload")
+                    logger.info(f"✅ Added Combined Service Categories field: {combined_categories_str}")
             else:
                 logger.warning(f"⚠️ Could not find Service Category field details in field_mapper")
+        
+        # 2. Handle services provided (from multi-step selection)
+        # Combine primary services and additional services
+        all_services = []
+        
+        # Primary services from the primary category
+        primary_services = elementor_payload.get('primary_services', [])
+        if isinstance(primary_services, list):
+            all_services.extend(primary_services)
+        elif isinstance(primary_services, str) and primary_services:
+            primary_list = [svc.strip() for svc in primary_services.split(',')]
+            all_services.extend(primary_list)
+        
+        # Additional services from additional categories
+        additional_services = elementor_payload.get('additional_services', [])
+        if isinstance(additional_services, list):
+            all_services.extend(additional_services)
+        elif isinstance(additional_services, str) and additional_services:
+            additional_list = [svc.strip() for svc in additional_services.split(',')]
+            all_services.extend(additional_list)
+        
+        # Store combined services
+        if all_services:
+            services_provided_field = field_mapper.get_ghl_field_details("services_provided")
+            if services_provided_field and services_provided_field.get("id"):
+                field_exists = any(cf["id"] == services_provided_field["id"] for cf in custom_fields_array)
+                if not field_exists:
+                    combined_services_str = ', '.join(all_services)
+                    custom_fields_array.append({
+                        "id": services_provided_field["id"],
+                        "value": combined_services_str
+                    })
+                    logger.info(f"✅ Added Combined Services Provided field: {combined_services_str}")
+        
+        # Also check for legacy services_provided field for backward compatibility
+        legacy_services = elementor_payload.get('services_provided', '')
+        if legacy_services and not all_services:
+            services_provided_field = field_mapper.get_ghl_field_details("services_provided")
+            if services_provided_field and services_provided_field.get("id"):
+                field_exists = any(cf["id"] == services_provided_field["id"] for cf in custom_fields_array)
+                if not field_exists:
+                    custom_fields_array.append({
+                        "id": services_provided_field["id"],
+                        "value": legacy_services
+                    })
+                    logger.info(f"✅ Added Legacy Services Provided field: {legacy_services}")
+        
+        # 3. Handle service ZIP codes (use existing service_zip_codes field)
+        # Store coverage data in service_zip_codes field based on coverage type
+        coverage_type = elementor_payload.get('coverage_type', 'county')
+        service_coverage_area = elementor_payload.get('service_coverage_area', '')
+        
+        # Get the service_zip_codes field which exists in GHL
+        service_zip_codes_field = field_mapper.get_ghl_field_details("service_zip_codes")
+        if service_zip_codes_field and service_zip_codes_field.get("id"):
+            field_exists = any(cf["id"] == service_zip_codes_field["id"] for cf in custom_fields_array)
+            if not field_exists:
+                # Format the coverage data appropriately
+                coverage_value = ""
+                
+                if coverage_type == "global":
+                    coverage_value = "GLOBAL COVERAGE"
+                elif coverage_type == "national":
+                    coverage_value = "NATIONAL COVERAGE (USA)"
+                elif coverage_type == "state":
+                    coverage_states = elementor_payload.get('coverage_states', [])
+                    if coverage_states:
+                        coverage_value = f"STATES: {', '.join(coverage_states)}"
+                elif coverage_type == "county":
+                    coverage_counties = elementor_payload.get('coverage_counties', [])
+                    if coverage_counties:
+                        coverage_value = f"COUNTIES: {'; '.join(coverage_counties)}"
+                elif coverage_type == "zip":
+                    zip_codes = elementor_payload.get('service_zip_codes', '')
+                    if zip_codes:
+                        coverage_value = f"ZIP CODES: {zip_codes}"
+                
+                # If we have coverage data, add it to the field
+                if coverage_value:
+                    custom_fields_array.append({
+                        "id": service_zip_codes_field["id"],
+                        "value": coverage_value
+                    })
+                    logger.info(f"✅ Added Service Coverage to service_zip_codes field: {coverage_value}")
+        
+        # 4. Add taking new work field
+        taking_new_work = elementor_payload.get('taking_new_work', '')
+        if taking_new_work:
+            taking_work_field = field_mapper.get_ghl_field_details("taking_new_work")
+            if taking_work_field and taking_work_field.get("id"):
+                field_exists = any(cf["id"] == taking_work_field["id"] for cf in custom_fields_array)
+                if not field_exists:
+                    custom_fields_array.append({
+                        "id": taking_work_field["id"],
+                        "value": taking_new_work
+                    })
+                    logger.info(f"✅ Added Taking New Work field: {taking_new_work}")
+        
+        # 5. Add reviews URL field
+        reviews_url = elementor_payload.get('reviews__google_profile_url', '')
+        if reviews_url:
+            reviews_field = field_mapper.get_ghl_field_details("reviews__google_profile_url")
+            if reviews_field and reviews_field.get("id"):
+                field_exists = any(cf["id"] == reviews_field["id"] for cf in custom_fields_array)
+                if not field_exists:
+                    custom_fields_array.append({
+                        "id": reviews_field["id"],
+                        "value": reviews_url
+                    })
+                    logger.info(f"✅ Added Reviews URL field: {reviews_url}")
+        
+        # 6. Add vendor preferred contact method
+        contact_method = elementor_payload.get('vendor_preferred_contact_method', '')
+        if contact_method:
+            contact_method_field = field_mapper.get_ghl_field_details("vendor_preferred_contact_method")
+            if contact_method_field and contact_method_field.get("id"):
+                field_exists = any(cf["id"] == contact_method_field["id"] for cf in custom_fields_array)
+                if not field_exists:
+                    custom_fields_array.append({
+                        "id": contact_method_field["id"],
+                        "value": contact_method
+                    })
+                    logger.info(f"✅ Added Vendor Preferred Contact Method field: {contact_method}")
+        
+        # 7. Add vendor address information if available
+        if elementor_payload.get('address1'):
+            vendor_address_field = field_mapper.get_ghl_field_details("vendor_address")
+            if vendor_address_field and vendor_address_field.get("id"):
+                field_exists = any(cf["id"] == vendor_address_field["id"] for cf in custom_fields_array)
+                if not field_exists:
+                    custom_fields_array.append({
+                        "id": vendor_address_field["id"],
+                        "value": elementor_payload.get('address1', '')
+                    })
+                    logger.info(f"✅ Added Vendor Address field")
 
     # Add customFields array to payload if we have any custom fields
     if custom_fields_array:
@@ -1004,53 +1185,53 @@ async def handle_clean_elementor_webhook(
         # Process payload into GHL format - PRESERVE ALL FIELDS
         final_ghl_payload = process_payload_to_ghl_format(elementor_payload, form_config)
         
-        # County conversion for vendor applications (direct location service only)
+        # Handle vendor application specific coverage data processing
         if form_config.get("form_type") == "vendor_application":
-            service_zip_codes = elementor_payload.get('service_zip_codes') or elementor_payload.get('Service Areas')
+            coverage_type = elementor_payload.get('coverage_type', 'county')
             
-            if service_zip_codes:
-                logger.info(f"🔄 Converting service ZIP codes to counties for vendor application")
+            # For ZIP code coverage type, attempt to convert to counties
+            if coverage_type == 'zip':
+                service_zip_codes = elementor_payload.get('service_zip_codes', '')
                 
-                county_conversion = convert_service_areas_to_counties(service_zip_codes)
-                
-                if county_conversion['conversion_success']:
-                    counties_str = ', '.join(county_conversion['counties'])
+                if service_zip_codes:
+                    logger.info(f"🔄 Converting service ZIP codes to counties for vendor application")
                     
-                    # Add county information to GHL payload
-                    service_counties_field = field_mapper.get_ghl_field_details("service_counties")
-                    service_coverage_type_field = field_mapper.get_ghl_field_details("service_coverage_type")
+                    county_conversion = convert_service_areas_to_counties(service_zip_codes)
                     
-                    if not final_ghl_payload.get("customFields"):
-                        final_ghl_payload["customFields"] = []
-                    
-                    if service_counties_field and service_counties_field.get("id"):
-                        final_ghl_payload["customFields"].append({
-                            "id": service_counties_field["id"],
-                            "value": counties_str
-                        })
-                        logger.info(f"✅ Added service_counties to GHL payload: {counties_str}")
-                    
-                    if service_coverage_type_field and service_coverage_type_field.get("id"):
-                        final_ghl_payload["customFields"].append({
-                            "id": service_coverage_type_field["id"],
-                            "value": "county"
-                        })
-                        logger.info(f"✅ Set service_coverage_type to 'county'")
-                    
-                    logger.info(f"✅ Vendor Application: Converted {county_conversion['successful_conversions']}/{county_conversion['total_zip_codes']} ZIP codes")
-                    logger.info(f"📍 Vendor Application: Service counties: {', '.join(county_conversion['counties'])}")
-                else:
-                    logger.warning(f"⚠️ Vendor Application: Could not convert any ZIP codes to counties")
-                    # Set coverage type to ZIP-based as fallback
-                    service_coverage_type_field = field_mapper.get_ghl_field_details("service_coverage_type")
-                    if service_coverage_type_field and service_coverage_type_field.get("id"):
+                    if county_conversion['conversion_success']:
+                        counties_str = ', '.join(county_conversion['counties'])
+                        
+                        # Add county information to GHL payload
+                        service_counties_field = field_mapper.get_ghl_field_details("service_counties")
+                        
                         if not final_ghl_payload.get("customFields"):
                             final_ghl_payload["customFields"] = []
-                        final_ghl_payload["customFields"].append({
-                            "id": service_coverage_type_field["id"],
-                            "value": "zip"
-                        })
-                        logger.info(f"⚠️ Fallback: Set service_coverage_type to 'zip' (county conversion failed)")
+                        
+                        if service_counties_field and service_counties_field.get("id"):
+                            # Check if field already exists
+                            field_exists = any(cf["id"] == service_counties_field["id"] for cf in final_ghl_payload["customFields"])
+                            if not field_exists:
+                                final_ghl_payload["customFields"].append({
+                                    "id": service_counties_field["id"],
+                                    "value": counties_str
+                                })
+                                logger.info(f"✅ Added service_counties to GHL payload: {counties_str}")
+                        
+                        logger.info(f"✅ Vendor Application: Converted {county_conversion['successful_conversions']}/{county_conversion['total_zip_codes']} ZIP codes")
+                        logger.info(f"📍 Vendor Application: Service counties: {', '.join(county_conversion['counties'])}")
+                        
+                        # Store the county conversion result in the elementor_payload for database storage
+                        elementor_payload['_converted_counties'] = county_conversion['counties']
+                    else:
+                        logger.warning(f"⚠️ Vendor Application: Could not convert any ZIP codes to counties")
+            
+            # Log what coverage data we have for debugging
+            logger.info(f"🌍 Vendor coverage processing complete:")
+            logger.info(f"   Coverage Type: {coverage_type}")
+            logger.info(f"   Coverage Area: {elementor_payload.get('service_coverage_area', 'Not specified')}")
+            logger.info(f"   Coverage States: {elementor_payload.get('coverage_states', [])}")
+            logger.info(f"   Coverage Counties: {elementor_payload.get('coverage_counties', [])}")
+            logger.info(f"   Service ZIP Codes: {elementor_payload.get('service_zip_codes', 'Not specified')}")
         
         # Ensure email is present and normalized
         if not final_ghl_payload.get("email"):
@@ -1188,66 +1369,109 @@ async def handle_clean_elementor_webhook(
                     vendor_email = elementor_payload.get('email', '')
                     vendor_phone = elementor_payload.get('phone', '')
                     
-                    # FIXED: Process service categories properly - no more UnboundLocalError
-                    service_categories_selected = elementor_payload.get('service_categories_selected', '')
+                    # Process service categories - NEW LOGIC for primary + additional structure
+                    primary_service_category = elementor_payload.get('primary_service_category', '')
+                    service_categories = elementor_payload.get('service_categories', '')
                     
-                    if service_categories_selected:
-                        # Parse the full list of categories from the main field
-                        categories_list = [s.strip() for s in service_categories_selected.split(',') if s.strip()]
+                    # Build final categories list (primary + additional up to 3 total)
+                    categories_list = []
+                    if primary_service_category:
+                        categories_list.append(primary_service_category)
+                        logger.info(f"📋 Primary service category: {primary_service_category}")
+                    
+                    if service_categories:
+                        # Parse additional categories from service_categories field
+                        additional_categories = [s.strip() for s in service_categories.split(',') if s.strip() and s.strip() != primary_service_category]
+                        categories_list.extend(additional_categories[:2])  # Max 2 additional
+                        logger.info(f"📋 Service categories: {service_categories}")
+                        logger.info(f"📋 Final categories list: {categories_list}")
+                    
+                    # Create JSON for database storage
+                    if categories_list:
                         service_categories_json = json.dumps(categories_list)
-                        logger.info(f"📋 Using service_categories_selected: {service_categories_selected}")
-                        logger.info(f"📋 Parsed categories: {categories_list}")
+                        logger.info(f"📋 Final service categories JSON: {service_categories_json}")
                     else:
-                        # Fallback: Try services_provided field
-                        services_provided = elementor_payload.get('services_provided', '')
-                        if services_provided:
-                            services_list = [s.strip() for s in services_provided.split(',') if s.strip()]
-                            service_categories_json = json.dumps(services_list)
-                            logger.info(f"📋 Fallback to services_provided: {services_provided}")
-                        else:
-                            # Final fallback to primary service
-                            primary_service = elementor_payload.get('primary_service_category', 'General Services')
-                            service_categories_json = json.dumps([primary_service])
-                            logger.info(f"📋 Final fallback to primary service: {primary_service}")
+                        # Fallback if no categories provided
+                        service_categories_json = json.dumps(['General Services'])
+                        logger.warning(f"📋 No categories provided, using fallback")
                     
-                    # FIXED: Extract and process services_offered for database storage
-                    raw_services = elementor_payload.get('services_provided', '')
-                    if raw_services:
-                        services_list = [s.strip() for s in raw_services.split(',') if s.strip()]
+                    # Extract specific services offered
+                    services_provided = elementor_payload.get('services_provided', '')
+                    if services_provided:
+                        # These are the specific services (Boat Detailing, Ceramic Coating, etc.)
+                        services_list = [s.strip() for s in services_provided.split(',') if s.strip()]
+                        services_offered_json = json.dumps(services_list)
+                        logger.info(f"📋 Services provided: {services_provided}")
+                        logger.info(f"📋 Parsed services: {services_list}")
                     else:
-                        services_list = []
-                    services_offered_json = json.dumps(services_list)
+                        services_offered_json = json.dumps([])
+                        logger.info(f"📋 No specific services provided")
                     
-                    logger.info(f"📋 GHL 'Services Provided': {raw_services}")
-                    logger.info(f"📋 DB 'services_offered': {services_offered_json}")
+                    # Extract coverage type and coverage areas
+                    coverage_type = elementor_payload.get('coverage_type', 'county')
+                    logger.info(f"📋 Coverage type: {coverage_type}")
                     
-                    # FIXED: Handle service_zip_codes data type issue - Handle all formats correctly
-                    service_zip_codes = elementor_payload.get('service_zip_codes', '')
-                    
-                    if isinstance(service_zip_codes, list):
-                        # ✅ CORRECT: It's already a list, convert to JSON string for database storage
-                        coverage_counties_json = json.dumps(service_zip_codes)
-                        logger.info(f"📋 Service zip codes received as list: {service_zip_codes}")
-                    elif isinstance(service_zip_codes, str):
-                        if service_zip_codes.startswith('[') and service_zip_codes.endswith(']'):
-                            # It's a JSON string, keep as is
-                            coverage_counties_json = service_zip_codes
-                            logger.info(f"📋 Service zip codes received as JSON string")
-                        elif service_zip_codes:
-                            # It's a comma-separated string, convert to list then JSON
-                            counties = [s.strip() for s in service_zip_codes.split(',') if s.strip()]
-                            coverage_counties_json = json.dumps(counties)
-                            logger.info(f"📋 Service zip codes converted from CSV: {counties}")
-                        else:
-                            # Empty string
-                            coverage_counties_json = json.dumps([])
+                    # Handle coverage states (for state-level coverage)
+                    coverage_states = elementor_payload.get('coverage_states', [])
+                    if isinstance(coverage_states, list):
+                        coverage_states_json = json.dumps(coverage_states)
+                        logger.info(f"📋 Coverage states: {coverage_states}")
+                    elif isinstance(coverage_states, str) and coverage_states:
+                        # If it's a comma-separated string
+                        states_list = [s.strip() for s in coverage_states.split(',') if s.strip()]
+                        coverage_states_json = json.dumps(states_list)
+                        logger.info(f"📋 Coverage states parsed from string: {states_list}")
                     else:
-                        # Unknown type, default to empty
+                        coverage_states_json = json.dumps([])
+                    
+                    # Handle coverage data based on coverage type
+                    service_coverage_area = elementor_payload.get('service_coverage_area', '')
+                    coverage_counties_json = json.dumps([])
+                    
+                    # Process coverage data based on type
+                    if coverage_type == 'state':
+                        # Already handled above in coverage_states
+                        pass
+                    
+                    elif coverage_type == 'county':
+                        # Handle county coverage from the widget
+                        coverage_counties = elementor_payload.get('coverage_counties', [])
+                        if isinstance(coverage_counties, list) and coverage_counties:
+                            coverage_counties_json = json.dumps(coverage_counties)
+                            logger.info(f"📋 Coverage counties: {coverage_counties}")
+                        elif isinstance(coverage_counties, str) and coverage_counties:
+                            # Parse comma-separated counties
+                            counties_list = [c.strip() for c in coverage_counties.split(',') if c.strip()]
+                            coverage_counties_json = json.dumps(counties_list)
+                            logger.info(f"📋 Parsed coverage counties: {counties_list}")
+                    
+                    elif coverage_type == 'zip':
+                        # Handle ZIP code coverage
+                        service_zip_codes = elementor_payload.get('service_zip_codes', '')
+                        if service_zip_codes:
+                            # Check if we have converted counties from earlier ZIP conversion
+                            converted_counties = elementor_payload.get('_converted_counties', [])
+                            if converted_counties:
+                                coverage_counties_json = json.dumps(converted_counties)
+                                logger.info(f"📋 Using converted counties from ZIP codes: {converted_counties}")
+                            else:
+                                # Store ZIP codes as coverage
+                                if isinstance(service_zip_codes, str):
+                                    zips_list = [z.strip() for z in service_zip_codes.split(',') if z.strip()]
+                                    coverage_counties_json = json.dumps(zips_list)
+                                    logger.info(f"📋 Storing ZIP codes as coverage: {zips_list}")
+                    
+                    elif coverage_type in ['global', 'national']:
+                        # For global/national, we store empty counties but note in service_coverage_area
                         coverage_counties_json = json.dumps([])
-                        logger.warning(f"⚠️ Unknown service_zip_codes type: {type(service_zip_codes)}")
+                        logger.info(f"🌍 {coverage_type.title()} coverage - no specific counties")
                     
-                    logger.info(f"🗂️ Final coverage counties JSON: {coverage_counties_json}")
-                    logger.info(f"🗂️ Final service categories JSON: {service_categories_json}")
+                    logger.info(f"🗺️ Final coverage data:")
+                    logger.info(f"   Coverage Type: {coverage_type}")
+                    logger.info(f"   Coverage States: {coverage_states_json}")
+                    logger.info(f"   Coverage Counties: {coverage_counties_json}")
+                    logger.info(f"   Service Categories: {service_categories_json}")
+                    logger.info(f"   Services Offered: {services_offered_json}")
                     
                     # Get account
                     account_record = simple_db_instance.get_account_by_ghl_location_id(AppConfig.GHL_LOCATION_ID)
@@ -1283,6 +1507,9 @@ async def handle_clean_elementor_webhook(
                             logger.warning(f"⚠️ Failed to update existing vendor: {update_error}")
                     else:
                         # Create new vendor record
+                        primary_category = elementor_payload.get('primary_service_category', '')
+                        taking_work = elementor_payload.get('taking_new_work', 'Yes') == 'Yes'
+                        
                         vendor_id = simple_db_instance.create_vendor(
                             account_id=account_id,
                             name=f"{vendor_first_name} {vendor_last_name}".strip(),
@@ -1291,9 +1518,13 @@ async def handle_clean_elementor_webhook(
                             phone=vendor_phone,
                             ghl_contact_id=final_ghl_contact_id,
                             status='pending',  # Start as pending until approved
-                            service_categories=service_categories_json,  # CORRECT parameter name
-                            services_offered=services_offered_json,      # FIXED: Add missing services_offered parameter
-                            coverage_counties=coverage_counties_json     # CORRECT parameter name
+                            service_categories=service_categories_json,  # Categories like "Boat Maintenance"
+                            services_offered=services_offered_json,      # Specific services like "Boat Detailing"
+                            coverage_type=coverage_type,                 # state, county, zip, etc.
+                            coverage_states=coverage_states_json,        # ["FL", "GA"] for state coverage
+                            coverage_counties=coverage_counties_json,    # Counties or ZIP codes
+                            primary_service_category=primary_category,   # Primary category from multi-step flow
+                            taking_new_work=taking_work                  # Boolean for taking new work
                         )
                         logger.info(f"✅ Created vendor record: {vendor_id}")
                         logger.info(f"   Company: {vendor_company_name}")
@@ -1501,7 +1732,7 @@ async def trigger_clean_lead_routing_workflow(
                 customer_email, customer_phone, primary_service_category, specific_service_requested,
                 customer_zip_code, service_county, service_state, vendor_id, 
                 assigned_at, status, priority, source, service_details, 
-                service_zip_code, service_city, specific_services,
+                service_zip_code, service_city, specific_service_requested,
                 service_complexity, estimated_duration, requires_emergency_response, 
                 classification_confidence, classification_reasoning
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -1986,6 +2217,9 @@ async def handle_vendor_user_creation_webhook(request: Request):
                     ghl_contact_id=contact_id,
                     status='active',  # They're getting user access, so mark as active
                     service_categories=json.dumps(['General Services']),  # Default
+                    services_offered=json.dumps([]),  # Will be updated later
+                    coverage_type='county',  # Default coverage type
+                    coverage_states=json.dumps([]),  # Will be updated later
                     coverage_counties=json.dumps([])  # Will be updated later
                 )
                 

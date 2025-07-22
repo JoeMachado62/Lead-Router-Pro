@@ -23,13 +23,14 @@ from pathlib import Path # os was not used, Path is already imported
 BASE_DIR = Path(__file__).resolve().parent
 
 # Import your existing routes
-from api.routes.webhook_routes import router as webhook_router
+from api.routes.webhook_routes import router as webhook_router, location_router
 from api.routes.admin_routes import router as admin_router
 from api.routes.simple_admin import router as simple_admin_router
 from api.routes.field_mapping_routes import router as field_mapping_router
 from api.routes.security_admin import router as security_admin_router
 from api.routes.auth_routes import router as auth_router
 from api.routes.routing_admin import router as routing_admin_router
+from api.routes.vendor_toggle import router as vendor_toggle_router
 
 # Import security middleware
 from api.security.middleware import IPSecurityMiddleware, SecurityCleanupMiddleware
@@ -104,12 +105,14 @@ app.add_middleware(
 
 # Include API routes
 app.include_router(webhook_router)
+app.include_router(location_router)
 app.include_router(admin_router)
 app.include_router(simple_admin_router)
 app.include_router(field_mapping_router)
 app.include_router(security_admin_router)
 app.include_router(auth_router)
 app.include_router(routing_admin_router)
+app.include_router(vendor_toggle_router)
 
 # Create static and templates directories if they don't exist relative to BASE_DIR
 static_dir = BASE_DIR / "static"
@@ -334,6 +337,14 @@ async def root(request: Request):
 async def dashboard_content(request: Request):
     """Serve main dashboard content - protected route"""
     return HTMLResponse(content=read_html_file(BASE_DIR / "lead_router_pro_dashboard.html"))
+
+# Vendor Widget Route - Public Access
+@app.get("/vendor-widget", response_class=HTMLResponse)
+@app.get("/vendor-application", response_class=HTMLResponse)
+async def vendor_widget_page():
+    """Serve the vendor application widget - no authentication required"""
+    vendor_widget_path = BASE_DIR / "vendor_widget.html"
+    return HTMLResponse(content=read_html_file(vendor_widget_path))
 
 # Health check endpoint
 @app.get("/health")

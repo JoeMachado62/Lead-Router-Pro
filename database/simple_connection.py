@@ -361,20 +361,35 @@ class SimpleDatabase:
                      company_name: str = "", phone: str = "",
                      ghl_contact_id: str = None, status: str = "pending",
                      service_categories: str = "", services_offered: str = "",
-                     coverage_counties: str = "") -> str:
-        """Create new vendor - FIXED to include services_offered parameter"""
+                     coverage_type: str = "county", coverage_states: str = "",
+                     coverage_counties: str = "", primary_service_category: str = "",
+                     taking_new_work: bool = True) -> str:
+        """Create new vendor with complete coverage information"""
         conn = None
         try:
             vendor_id = str(uuid.uuid4())
             conn = self._get_conn()
             cursor = conn.cursor()
             
+            # First ensure the primary_service_category column exists
+            try:
+                cursor.execute("ALTER TABLE vendors ADD COLUMN primary_service_category TEXT DEFAULT ''")
+                conn.commit()
+                logger.info("✅ Added primary_service_category column to vendors table")
+            except sqlite3.OperationalError as e:
+                if "duplicate column name" not in str(e).lower():
+                    logger.warning(f"⚠️ Could not add primary_service_category column: {e}")
+            
             cursor.execute('''
                 INSERT INTO vendors (id, account_id, name, company_name, email, phone, 
-                                   ghl_contact_id, status, service_categories, services_offered, coverage_counties)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                   ghl_contact_id, status, service_categories, services_offered, 
+                                   coverage_type, coverage_states, coverage_counties, 
+                                   primary_service_category, taking_new_work)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (vendor_id, account_id, name, company_name, email, phone,
-                  ghl_contact_id, status, service_categories, services_offered, coverage_counties))
+                  ghl_contact_id, status, service_categories, services_offered, 
+                  coverage_type, coverage_states, coverage_counties, primary_service_category,
+                  taking_new_work))
             
             conn.commit()
             logger.info(f"✅ Vendor created: {vendor_id}")
@@ -1198,6 +1213,98 @@ class SimpleDatabase:
         except Exception as e:
             logger.error(f"❌ Error unassigning lead {lead_id}: {e}")
             return False
+        finally:
+            if conn:
+                conn.close()
+
+    def update_vendor_availability(self, vendor_id: str, taking_new_work: bool) -> bool:
+        """Update vendor taking_new_work status"""
+        try:
+            conn = self._get_conn()
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE vendors 
+                SET taking_new_work = ?, updated_at = CURRENT_TIMESTAMP 
+                WHERE id = ?
+            """, (taking_new_work, vendor_id))
+            
+            success = cursor.rowcount > 0
+            conn.commit()
+            conn.close()
+            return success
+        except Exception as e:
+            logger.error(f"Error updating vendor availability: {e}")
+            return False
+
+    def get_vendor_by_ghl_contact_id(self, ghl_contact_id: str) -> Optional[Dict[str, Any]]:
+        """Get vendor by GHL contact ID for webhook integration"""
+        conn = None
+        try:
+            conn = self._get_conn()
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT id, account_id, name, company_name, email, phone, ghl_contact_id, 
+                       ghl_user_id, service_categories, services_offered, coverage_type,
+                       coverage_states, coverage_counties, last_lead_assigned, lead_close_percentage,
+                       status, taking_new_work, created_at, updated_at
+                FROM vendors WHERE ghl_contact_id = ?
+            ''', (ghl_contact_id,))
+            
+            row = cursor.fetchone()
+            if row:
+                return {
+                    "id": row[0], "account_id": row[1], "name": row[2], "company_name": row[3],
+                    "email": row[4], "phone": row[5], "ghl_contact_id": row[6], "ghl_user_id": row[7],
+                    "service_categories": json.loads(row[8]) if row[8] else [],
+                    "services_offered": json.loads(row[9]) if row[9] else [],
+                    "coverage_type": row[10],
+                    "coverage_states": json.loads(row[11]) if row[11] else [],
+                    "coverage_counties": json.loads(row[12]) if row[12] else [],
+                    "last_lead_assigned": row[13], "lead_close_percentage": row[14],
+                    "status": row[15], "taking_new_work": bool(row[16]),
+                    "created_at": row[17], "updated_at": row[18]
+                }
+            return None
+        except Exception as e:
+            logger.error(f"Error getting vendor by GHL contact ID: {e}")
+            return None
+        finally:
+            if conn:
+                conn.close()
+
+    def get_vendor_by_id(self, vendor_id: str) -> Optional[Dict[str, Any]]:
+        """Get vendor by ID"""
+        conn = None
+        try:
+            conn = self._get_conn()
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT id, account_id, name, company_name, email, phone, ghl_contact_id, 
+                       ghl_user_id, service_categories, services_offered, coverage_type,
+                       coverage_states, coverage_counties, last_lead_assigned, lead_close_percentage,
+                       status, taking_new_work, created_at, updated_at
+                FROM vendors WHERE id = ?
+            ''', (vendor_id,))
+            
+            row = cursor.fetchone()
+            if row:
+                return {
+                    "id": row[0], "account_id": row[1], "name": row[2], "company_name": row[3],
+                    "email": row[4], "phone": row[5], "ghl_contact_id": row[6], "ghl_user_id": row[7],
+                    "service_categories": json.loads(row[8]) if row[8] else [],
+                    "services_offered": json.loads(row[9]) if row[9] else [],
+                    "coverage_type": row[10],
+                    "coverage_states": json.loads(row[11]) if row[11] else [],
+                    "coverage_counties": json.loads(row[12]) if row[12] else [],
+                    "last_lead_assigned": row[13], "lead_close_percentage": row[14],
+                    "status": row[15], "taking_new_work": bool(row[16]),
+                    "created_at": row[17], "updated_at": row[18]
+                }
+            return None
+            
+        except Exception as e:
+            logger.error(f"❌ Error getting vendor by ID: {e}")
+            return None
         finally:
             if conn:
                 conn.close()

@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>County Selection Functionality Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        h1 { color: #0066cc; }
+        h2 { color: #333; margin-top: 30px; }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #e8f4f8;
+            border-radius: 5px;
+        }
+        .test-button {
+            background-color: #0066cc;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .test-button:hover { background-color: #0052a3; }
+        .test-output {
+            background-color: #f0f0f0;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 10px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .success { color: #27ae60; font-weight: bold; }
+        .error { color: #e74c3c; font-weight: bold; }
+        .info { color: #3498db; }
+        .test-demo {
+            border: 2px solid #ddd;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            background-color: #f9f9f9;
+        }
+        select, input {
+            padding: 8px;
+            margin: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .county-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin: 10px 0;
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .county-item {
+            display: flex;
+            align-items: center;
+            padding: 5px;
+        }
+        .county-item input {
+            margin-right: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🧪 County Selection Functionality Test</h1>
+        <p>This page tests the dynamic county loading and selection functionality</p>
+        
+        <h2>API Endpoint Tests</h2>
+        <div class="test-section">
+            <button class="test-button" onclick="testFloridaCounties()">Test Florida Counties</button>
+            <button class="test-button" onclick="testCaliforniaCounties()">Test California Counties</button>
+            <button class="test-button" onclick="testTexasCounties()">Test Texas Counties</button>
+            <button class="test-button" onclick="testInvalidState()">Test Invalid State</button>
+            <button class="test-button" onclick="clearTests()">Clear Tests</button>
+        </div>
+
+        <h2>Interactive Demo</h2>
+        <div class="test-demo">
+            <h3>County Selection Demo</h3>
+            <p>1. Select Coverage Type: County</p>
+            <select id="demoCoverage" onchange="handleCoverageChange()">
+                <option value="">Select Coverage Type</option>
+                <option value="global">Global</option>
+                <option value="national">National</option>
+                <option value="state">State</option>
+                <option value="county">County</option>
+                <option value="zip">ZIP Code</option>
+            </select>
+            
+            <div id="demoStateSelector" style="display: none;">
+                <p>2. Select State:</p>
+                <select id="demoState" onchange="loadDemoCounties()">
+                    <option value="">Select State</option>
+                    <option value="FL">Florida</option>
+                    <option value="CA">California</option>
+                    <option value="TX">Texas</option>
+                    <option value="NY">New York</option>
+                    <option value="GA">Georgia</option>
+                </select>
+            </div>
+            
+            <div id="demoCountyContainer" style="display: none;">
+                <p>3. Select Counties:</p>
+                <div id="demoCountyLoading" style="display: none;">Loading counties...</div>
+                <div id="demoCountyGrid" class="county-grid"></div>
+                <div id="demoCountyCount" style="margin-top: 10px; font-weight: bold;">0 counties selected</div>
+            </div>
+            
+            <div id="demoResults" style="margin-top: 20px; padding: 15px; background-color: #e8f5e8; border-radius: 5px; display: none;">
+                <h4>Selected Counties:</h4>
+                <div id="demoSelectedCounties"></div>
+            </div>
+        </div>
+
+        <h2>Test Results</h2>
+        <div class="test-output" id="testOutput">Test results will appear here...</div>
+
+        <h2>Expected Behavior</h2>
+        <div class="test-section">
+            <h3>✅ County Loading Process</h3>
+            <ol>
+                <li>User selects "County" as coverage type</li>
+                <li>State selector appears</li>
+                <li>User selects a state (e.g., "FL")</li>
+                <li>API call is made to <code>/api/v1/locations/states/FL/counties</code></li>
+                <li>Counties are loaded and displayed as checkboxes</li>
+                <li>User can select multiple counties</li>
+                <li>Selected counties are formatted as "County Name, STATE"</li>
+            </ol>
+
+            <h3>✅ Error Handling</h3>
+            <ul>
+                <li>If API fails, show fallback textarea</li>
+                <li>If no state selected, show validation error</li>
+                <li>If no counties selected, show validation error</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000'; // Change for production
+
+        function log(message, type = 'info') {
+            const output = document.getElementById('testOutput');
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'success' ? 'success' : type === 'error' ? 'error' : 'info';
+            output.innerHTML += `<span class="${className}">[${timestamp}] ${message}</span>\n`;
+            output.scrollTop = output.scrollHeight;
+        }
+
+        function clearTests() {
+            document.getElementById('testOutput').innerHTML = 'Test results will appear here...\n';
+        }
+
+        async function testStateCounties(stateCode, stateName) {
+            log(`Testing ${stateName} (${stateCode}) counties...`);
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/locations/states/${stateCode}/counties`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                
+                if (data.status === "success" && data.counties) {
+                    log(`✅ SUCCESS: Loaded ${data.count} counties for ${stateName}`, 'success');
+                    log(`First 5 counties: ${data.counties.slice(0, 5).join(', ')}`);
+                    
+                    if (data.count > 0) {
+                        log(`Sample formatted county: "${data.counties[0]}, ${stateCode}"`);
+                    }
+                } else {
+                    log(`❌ FAILED: Invalid response structure`, 'error');
+                    log(JSON.stringify(data, null, 2));
+                }
+            } catch (error) {
+                log(`❌ ERROR: ${error.message}`, 'error');
+            }
+            
+            log(''); // Add spacing
+        }
+
+        async function testFloridaCounties() {
+            await testStateCounties('FL', 'Florida');
+        }
+
+        async function testCaliforniaCounties() {
+            await testStateCounties('CA', 'California');
+        }
+
+        async function testTexasCounties() {
+            await testStateCounties('TX', 'Texas');
+        }
+
+        async function testInvalidState() {
+            log('Testing invalid state code...');
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/locations/states/XX/counties`);
+                const data = await response.json();
+                
+                if (response.ok && data.status === "success") {
+                    log(`⚠️ UNEXPECTED: Invalid state returned success`, 'error');
+                } else {
+                    log(`✅ CORRECT: Invalid state properly rejected`, 'success');
+                    log(`Response: ${JSON.stringify(data, null, 2)}`);
+                }
+            } catch (error) {
+                log(`✅ CORRECT: Invalid state caused error - ${error.message}`, 'success');
+            }
+            
+            log(''); // Add spacing
+        }
+
+        // Demo functionality
+        function handleCoverageChange() {
+            const coverageType = document.getElementById('demoCoverage').value;
+            const stateSelector = document.getElementById('demoStateSelector');
+            const countyContainer = document.getElementById('demoCountyContainer');
+            const results = document.getElementById('demoResults');
+            
+            if (coverageType === 'county') {
+                stateSelector.style.display = 'block';
+            } else {
+                stateSelector.style.display = 'none';
+                countyContainer.style.display = 'none';
+                results.style.display = 'none';
+            }
+        }
+
+        async function loadDemoCounties() {
+            const stateCode = document.getElementById('demoState').value;
+            const container = document.getElementById('demoCountyContainer');
+            const loading = document.getElementById('demoCountyLoading');
+            const grid = document.getElementById('demoCountyGrid');
+            
+            if (!stateCode) {
+                container.style.display = 'none';
+                return;
+            }
+            
+            container.style.display = 'block';
+            loading.style.display = 'block';
+            grid.innerHTML = '';
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/locations/states/${stateCode}/counties`);
+                const data = await response.json();
+                
+                if (data.status === "success" && data.counties) {
+                    const countiesHtml = data.counties.map(county => {
+                        const countyId = `demo-county-${county.replace(/[^a-zA-Z0-9]/g, '-')}`;
+                        return `
+                            <div class="county-item">
+                                <input type="checkbox" 
+                                       id="${countyId}" 
+                                       value="${county}, ${stateCode}"
+                                       onchange="updateDemoCount()">
+                                <label for="${countyId}">${county}</label>
+                            </div>
+                        `;
+                    }).join('');
+                    
+                    grid.innerHTML = countiesHtml;
+                    loading.style.display = 'none';
+                    updateDemoCount();
+                } else {
+                    throw new Error('Failed to load counties');
+                }
+            } catch (error) {
+                grid.innerHTML = `<div style="color: red;">Error loading counties: ${error.message}</div>`;
+                loading.style.display = 'none';
+            }
+        }
+
+        function updateDemoCount() {
+            const checked = document.querySelectorAll('#demoCountyGrid input:checked');
+            const countDiv = document.getElementById('demoCountyCount');
+            const resultsDiv = document.getElementById('demoResults');
+            const selectedDiv = document.getElementById('demoSelectedCounties');
+            
+            countDiv.textContent = `${checked.length} counties selected`;
+            
+            if (checked.length > 0) {
+                const selectedCounties = Array.from(checked).map(cb => cb.value);
+                selectedDiv.innerHTML = selectedCounties.join('<br>');
+                resultsDiv.style.display = 'block';
+            } else {
+                resultsDiv.style.display = 'none';
+            }
+        }
+
+        // Auto-run basic test on load
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                log('🎯 County functionality test page loaded');
+                log('Click the test buttons above to verify county loading works correctly');
+            }, 500);
+        });
+    </script>
+</body>
+</html>
