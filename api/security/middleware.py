@@ -150,7 +150,20 @@ class IPSecurityMiddleware(BaseHTTPMiddleware):
         
         # Check if this is an Elementor webhook endpoint
         if path.startswith("/api/v1/webhooks/elementor/"):
-            # Only allow whitelisted IPs for Elementor endpoints
+            
+            # EXEMPTION: Allow public access to vendor application endpoints
+            vendor_application_paths = [
+                "/api/v1/webhooks/elementor/vendor_application",
+                "/api/v1/webhooks/elementor/vendor_application_general",
+                "/api/v1/webhooks/elementor/vendor_application_v2"
+            ]
+            
+            if path in vendor_application_paths:
+                # Allow public access to vendor applications - no IP restriction
+                logger.info(f"✅ Allowing public access to vendor application endpoint: {path} from {client_ip}")
+                return True
+            
+            # For all other Elementor endpoints, require IP whitelisting
             if not security_manager.is_whitelisted(client_ip):
                 logger.warning(f"🚫 Blocked non-whitelisted IP {client_ip} from accessing Elementor endpoint: {path}")
                 return False
@@ -168,7 +181,9 @@ class IPSecurityMiddleware(BaseHTTPMiddleware):
         
         # Add general security headers
         response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["X-Frame-Options"] = "DENY"
+        # Allow iframe embedding from docksidepros.com
+        response.headers["X-Frame-Options"] = "ALLOW-FROM https://docksidepros.com"
+        response.headers["Content-Security-Policy"] = "frame-ancestors 'self' https://docksidepros.com https://*.docksidepros.com"
         response.headers["X-XSS-Protection"] = "1; mode=block"
         
         # Don't add HSTS for local development
