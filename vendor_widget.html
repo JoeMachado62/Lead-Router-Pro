@@ -1154,6 +1154,9 @@
             totalSlides: 9,
             formData: {},
             coverageType: '',
+            selectedStates: new Set(),
+            selectedCounties: new Set(),
+            selectedZipCodes: '',
             debugMode: window.location.hostname === 'localhost' || window.location.search.includes('debug=true')
         };
 
@@ -1228,39 +1231,50 @@
         }
 
         window.prevSlide = function(currentSlideNum) {
-            debugLog(`Moving from slide ${currentSlideNum} to previous`);
-            
-            // Clear any temporary UI state that might cause issues
-            clearTemporaryUIState();
-            
-            // Clear subsequent form data when going back
-            clearSubsequentFormData(currentSlideNum);
-            
-            // Special handling for slides that might be skipped
-            let prevSlideNum = currentSlideNum - 1;
-            
-            // Skip slide 6 when going back if no additional categories
-            if (currentSlideNum === 7 && widgetState.additionalCategories.size === 0) {
-                prevSlideNum = 5;
-            }
-            
-            // Hide current slide
-            const currentSlide = document.getElementById(`slide-${currentSlideNum}`);
-            currentSlide.classList.remove('active');
-            
-            // Show previous slide
-            const prevSlide = document.getElementById(`slide-${prevSlideNum}`);
-            if (prevSlide) {
-                prevSlide.classList.add('active');
-                widgetState.currentSlide = prevSlideNum;
+            try {
+                debugLog(`Moving from slide ${currentSlideNum} to previous`);
                 
-                // Refresh slide-specific UI state
-                refreshSlideUIState(prevSlideNum);
+                // Clear any temporary UI state that might cause issues
+                clearTemporaryUIState();
                 
-                updateProgress();
+                // Clear subsequent form data when going back
+                clearSubsequentFormData(currentSlideNum);
                 
-                // Scroll to top
-                window.scrollTo(0, 0);
+                // Special handling for slides that might be skipped
+                let prevSlideNum = currentSlideNum - 1;
+                
+                // Skip slide 6 when going back if no additional categories
+                if (currentSlideNum === 7 && widgetState.additionalCategories.size === 0) {
+                    prevSlideNum = 5;
+                }
+                
+                // Hide current slide
+                const currentSlide = document.getElementById(`slide-${currentSlideNum}`);
+                if (!currentSlide) {
+                    console.error(`Current slide not found: slide-${currentSlideNum}`);
+                    return;
+                }
+                currentSlide.classList.remove('active');
+                
+                // Show previous slide
+                const prevSlide = document.getElementById(`slide-${prevSlideNum}`);
+                if (prevSlide) {
+                    prevSlide.classList.add('active');
+                    widgetState.currentSlide = prevSlideNum;
+                    
+                    // Refresh slide-specific UI state
+                    refreshSlideUIState(prevSlideNum);
+                    
+                    updateProgress();
+                    
+                    // Scroll to top
+                    window.scrollTo(0, 0);
+                } else {
+                    console.error(`Previous slide not found: slide-${prevSlideNum}`);
+                }
+            } catch (error) {
+                console.error('Error in prevSlide:', error);
+                debugLog('Navigation error:', error);
             }
         }
 
@@ -2230,6 +2244,16 @@
                 case 4: // Going back from primary category - clear everything after
                     widgetState.primaryCategory = '';
                     widgetState.primaryServices.clear();
+                    // Reset the select element to default option
+                    const primaryCategorySelect = document.getElementById('primary_service_category');
+                    if (primaryCategorySelect) {
+                        primaryCategorySelect.value = '';
+                    }
+                    // Clear the services container
+                    const servicesContainer = document.getElementById('primary-services-container');
+                    if (servicesContainer) {
+                        servicesContainer.innerHTML = '';
+                    }
                     // Fall through to clear additional data
                 case 5: // Going back from additional categories
                     widgetState.additionalCategories.clear();
@@ -2243,9 +2267,9 @@
                     widgetState.selectedCounties.clear();
                     widgetState.selectedZipCodes = '';
                     // Clear form fields
-                    const coverageRadios = document.querySelectorAll('input[name="coverage_type"]');
-                    coverageRadios.forEach(radio => radio.checked = false);
-                    const zipInput = document.getElementById('zip-input');
+                    const coverageSelect = document.getElementById('coverage_type');
+                    if (coverageSelect) coverageSelect.value = '';
+                    const zipInput = document.getElementById('service_zip_codes');
                     if (zipInput) zipInput.value = '';
                     clearStateCountySelections();
                     // Fall through to clear final details
@@ -2324,6 +2348,20 @@
                                 if (serviceTag) serviceTag.classList.add('selected');
                             });
                         }, 50);
+                    } else {
+                        // No primary category selected - ensure UI is reset
+                        const primaryCategorySelect = document.getElementById('primary_service_category');
+                        if (primaryCategorySelect) {
+                            primaryCategorySelect.value = '';
+                        }
+                        const servicesSection = document.getElementById('primary-services-section');
+                        if (servicesSection) {
+                            servicesSection.style.display = 'none';
+                        }
+                        const servicesContainer = document.getElementById('primary-services-container');
+                        if (servicesContainer) {
+                            servicesContainer.innerHTML = '';
+                        }
                     }
                     break;
                     
