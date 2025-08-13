@@ -54,10 +54,10 @@ class FieldMapper:
                 self._mappings = {
                     "default_mappings": {
                         # Service and location mappings
-                        "ServiceNeeded": "specific_service_needed",
-                        "serviceNeeded": "specific_service_needed", 
-                        "service_needed": "specific_service_needed",
-                        "specificService": "specific_service_needed",  # Handle this field too
+                        "ServiceNeeded": "specific_service_requested",
+                        "serviceNeeded": "specific_service_requested", 
+                        "service_needed": "specific_service_requested",
+                        "specificService": "specific_service_requested",  # Handle this field too
                         "zipCode": "zip_code_of_service",
                         "zip_code": "zip_code_of_service",
                         "serviceZipCode": "zip_code_of_service",
@@ -109,7 +109,7 @@ class FieldMapper:
                             "marinaName": "vessel_location__slip",
                             "emergencyTow": "need_emergency_tow",
                             "towService": "need_emergency_tow",
-                            "marineService": "specific_service_needed"
+                            "marineService": "specific_service_requested"
                         },
                         "automotive": {
                             # Automotive mappings for future expansion

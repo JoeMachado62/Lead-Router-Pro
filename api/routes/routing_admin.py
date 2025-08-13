@@ -504,9 +504,58 @@ async def _process_single_unassigned_lead(ghl_lead: Dict[str, Any], account_id: 
             opportunity_id = existing_lead.get('ghl_opportunity_id')
             lead_result["database_lead_created"] = False  # Already existed
             
-            # Extract existing lead data for routing
+            # Extract existing lead data for routing (don't overwrite)
             service_category = existing_lead.get('primary_service_category') or existing_lead.get('service_category', '')
             zip_code = existing_lead.get('service_zip_code') or existing_lead.get('customer_zip_code', '')
+            
+            # If existing lead has incomplete data, try to update from GHL
+            if not service_category or service_category == 'Boater Resources' or not zip_code:
+                logger.info(f"🔄 Existing lead has incomplete data, checking GHL for updates...")
+                
+                # Get full contact data from GHL
+                from api.services.ghl_api import GoHighLevelAPI
+                from config import AppConfig
+                
+                ghl_api = GoHighLevelAPI(
+                    location_id=AppConfig.GHL_LOCATION_ID,
+                    private_token=AppConfig.GHL_PRIVATE_TOKEN
+                )
+                
+                contact_response = ghl_api.get_contact(contact_id)
+                if contact_response.get('success'):
+                    full_contact = contact_response.get('contact', {})
+                    custom_fields = full_contact.get('customFields', {})
+                    
+                    # Extract specific service from custom fields
+                    specific_service = ""
+                    if isinstance(custom_fields, dict):
+                        specific_service = custom_fields.get('FT85QGi0tBq1AfVGNJ9v', '')
+                    elif isinstance(custom_fields, list):
+                        for field in custom_fields:
+                            if isinstance(field, dict) and field.get('id') == 'FT85QGi0tBq1AfVGNJ9v':
+                                specific_service = field.get('value', '')
+                                break
+                    
+                    # Update service category if we found specific service
+                    if specific_service and (not service_category or service_category == 'Boater Resources'):
+                        service_category = find_category_from_specific_service(specific_service)
+                        logger.info(f"🎯 Updated service category from GHL: {service_category}")
+                        
+                        # Update database with new category (but preserve source and created_at)
+                        try:
+                            db.update_lead_field(lead_id, 'primary_service_category', service_category)
+                            db.update_lead_field(lead_id, 'specific_service_requested', specific_service)
+                        except:
+                            pass
+                    
+                    # Update ZIP if missing
+                    if not zip_code:
+                        zip_code = full_contact.get('postalCode', '')
+                        if zip_code:
+                            try:
+                                db.update_lead_field(lead_id, 'customer_zip_code', zip_code)
+                            except:
+                                pass
             
         else:
             # Step 2: CREATE LEAD IN DATABASE (same pipeline as webhooks)
@@ -545,12 +594,35 @@ async def _process_single_unassigned_lead(ghl_lead: Dict[str, Any], account_id: 
                 lead_result["opportunity_created"] = bool(opportunity_id)
                 
                 # Extract service category and ZIP for routing
+                # Try to get specific service from custom fields
+                custom_fields = ghl_contact_data.get('customFields', {})
+                specific_service = ""
+                
+                # Handle custom fields as either dict or list
+                if isinstance(custom_fields, dict):
+                    # Look for specific service in custom fields (GHL field ID for specific_service_requested)
+                    for field_id, field_value in custom_fields.items():
+                        if field_id == 'FT85QGi0tBq1AfVGNJ9v':  # specific_service_requested field ID
+                            specific_service = field_value
+                            break
+                elif isinstance(custom_fields, list):
+                    # Handle list format (GHL sometimes returns as list of {id, value} objects)
+                    for field in custom_fields:
+                        if isinstance(field, dict) and field.get('id') == 'FT85QGi0tBq1AfVGNJ9v':
+                            specific_service = field.get('value', '')
+                            break
+                
                 # Smart category lookup from specific service
                 if specific_service:
                     service_category = find_category_from_specific_service(specific_service)
                     logger.info(f"🧠 Smart lookup: '{specific_service}' → {service_category}")
                 else:
-                    service_category = "Boater Resources"  # Final fallback  # Default category for bulk leads
+                    # Try to extract from lead data before defaulting
+                    service_category = ghl_lead.get('service_category', '')
+                    if not service_category:
+                        service_category = "Boater Resources"  # Final fallback
+                        logger.warning(f"⚠️ No service category found for {contact_id}, using default")
+                
                 zip_code = ghl_lead.get('postal_code', '')
                 
             except Exception as create_error:

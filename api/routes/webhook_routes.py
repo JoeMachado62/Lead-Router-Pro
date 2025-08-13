@@ -138,7 +138,7 @@ async def create_lead_from_ghl_contact(
                 customer_data.get("email", "").lower().strip() if customer_data.get("email") else None,  # customer_email
                 customer_data.get("phone", ""),                             # customer_phone
                 service_category,                                           # primary_service_category (FIXED)
-                mapped_payload.get("specific_service_needed", ""),                # specific_service_requested (FIXED)
+                mapped_payload.get("specific_service_requested", ""),                # specific_service_requested (FIXED)
                 zip_code,                                                   # service_zip_code (FIXED)
                 service_county,                                             # service_county
                 service_state,                                              # service_state
@@ -165,43 +165,53 @@ async def create_lead_from_ghl_contact(
             if conn:
                 conn.close()
         
-        # Step 6: Create opportunity if needed
+        # Step 6: Create opportunity if needed (check for existing first)
         opportunity_id = None
         if AppConfig.PIPELINE_ID and AppConfig.NEW_LEAD_STAGE_ID:
-            logger.info(f"📈 Shared pipeline creating opportunity for {service_category} lead")
-            
             ghl_api_client = GoHighLevelAPI(
                 private_token=AppConfig.GHL_PRIVATE_TOKEN,
                 location_id=AppConfig.GHL_LOCATION_ID
             )
             
-            customer_name = customer_data["name"]
+            # First check if an opportunity already exists for this contact
+            existing_opportunities = ghl_api_client.get_opportunities_by_contact(ghl_contact_data.get('id'))
             
-            opportunity_data = {
-                'contactId': ghl_contact_data.get('id'),
-                'pipelineId': AppConfig.PIPELINE_ID,
-                'pipelineStageId': AppConfig.NEW_LEAD_STAGE_ID,
-                'name': f"{customer_name} - {service_category}",
-                'monetaryValue': 0,
-                'status': 'open',
-                'source': f"{form_identifier} (DSP Shared Pipeline)",
-                'locationId': AppConfig.GHL_LOCATION_ID,
-            }
-            
-            opportunity_response = ghl_api_client.create_opportunity(opportunity_data)
-            
-            if opportunity_response and opportunity_response.get('id'):
-                opportunity_id = opportunity_response['id']
-                logger.info(f"✅ Shared pipeline created opportunity: {opportunity_id}")
+            if existing_opportunities and len(existing_opportunities) > 0:
+                # Use existing opportunity
+                opportunity_id = existing_opportunities[0].get('id')
+                logger.info(f"📋 Shared pipeline using existing opportunity: {opportunity_id}")
+            else:
+                # Create new opportunity
+                logger.info(f"📈 Shared pipeline creating opportunity for {service_category} lead")
                 
-                # Update lead with opportunity ID
+                customer_name = customer_data["name"]
+                
+                opportunity_data = {
+                    'contactId': ghl_contact_data.get('id'),
+                    'pipelineId': AppConfig.PIPELINE_ID,
+                    'pipelineStageId': AppConfig.NEW_LEAD_STAGE_ID,
+                    'name': f"{customer_name} - {service_category}",
+                    'monetaryValue': 0,
+                    'status': 'open',
+                    'source': f"{form_identifier} (DSP Shared Pipeline)",
+                    'locationId': AppConfig.GHL_LOCATION_ID,
+                }
+                
+                opportunity_response = ghl_api_client.create_opportunity(opportunity_data)
+                
+                if opportunity_response and opportunity_response.get('id'):
+                    opportunity_id = opportunity_response['id']
+                    logger.info(f"✅ Shared pipeline created opportunity: {opportunity_id}")
+                else:
+                    logger.error(f"❌ Shared pipeline failed to create opportunity: {opportunity_response}")
+            
+            # Update lead with opportunity ID if we have one
+            if opportunity_id:
                 try:
                     simple_db_instance.update_lead_opportunity_id(lead_id_str, opportunity_id)
                     logger.info(f"✅ Shared pipeline linked opportunity {opportunity_id} to lead {lead_id_str}")
                 except Exception as e:
                     logger.warning(f"⚠️ Shared pipeline could not link opportunity ID: {e}")
-            else:
-                logger.error(f"❌ Shared pipeline failed to create opportunity: {opportunity_response}")
         else:
             logger.warning("⚠️ Shared pipeline: Pipeline not configured - skipping opportunity creation")
         
@@ -251,19 +261,22 @@ DOCKSIDE_PROS_SERVICES = {
     "wholesale_or_dealer_product_pricing": "Wholesale or Dealer Product Pricing",
     "yacht_management": "Yacht Management",
     
-    # Boat and Yacht Repair (7 services)
+    # Boat and Yacht Repair (9 services)
+    "boat_yacht_repair": "Boat and Yacht Repair",
     "fiberglass_repair": "Boat and Yacht Repair",
     "welding_metal_fabrication": "Boat and Yacht Repair",
+    "welding_fabrication": "Boat and Yacht Repair",
     "carpentry_woodwork": "Boat and Yacht Repair",
     "riggers_masts": "Boat and Yacht Repair",
     "jet_ski_repair": "Boat and Yacht Repair",
     "boat_canvas_upholstery": "Boat and Yacht Repair",
     "boat_decking_yacht_flooring": "Boat and Yacht Repair",
     
-    # Boat Charters and Rentals (7 services)
+    # Boat Charters and Rentals (8 services)
     "boat_charters_rentals": "Boat Charters and Rentals",
     "boat_clubs": "Boat Charters and Rentals",
     "fishing_charters": "Boat Charters and Rentals",
+    "yacht_charters": "Boat Charters and Rentals",
     "yacht_catamaran_charters": "Boat Charters and Rentals",
     "sailboat_charters": "Boat Charters and Rentals",
     "efoil_kiteboarding_wing_surfing": "Boat Charters and Rentals",
@@ -312,23 +325,29 @@ DOCKSIDE_PROS_SERVICES = {
     "boat_insurance": "Buying or Selling a Boat",
     "yacht_insurance": "Buying or Selling a Boat",
     
-    # Docks, Seawalls and Lifts (4 services)
+    # Docks, Seawalls and Lifts (ALL 6 SUBCATEGORIES - COMPLETE)
     "dock_seawall_builders_repair": "Docks, Seawalls and Lifts",
+    "dock_builders": "Docks, Seawalls and Lifts",
+    "seawall_construction": "Docks, Seawalls and Lifts",
+    "seawall_repair": "Docks, Seawalls and Lifts",
     "boat_lift_installers": "Docks, Seawalls and Lifts",
     "floating_dock_sales": "Docks, Seawalls and Lifts",
     "davit_hydraulic_platform": "Docks, Seawalls and Lifts",
+    "hull_dock_seawall_piling_cleaning": "Docks, Seawalls and Lifts",
+    "piling_cleaning": "Docks, Seawalls and Lifts",
     
     # Dock and Slip Rental (2 services)
     "dock_slip_rental": "Dock and Slip Rental",
     "rent_my_dock": "Dock and Slip Rental",
     
-    # Engines and Generators (8 services)
+    # Engines and Generators (9 services)
     "outboard_engine_service": "Engines and Generators",
     "outboard_engine_sales": "Engines and Generators",
     "inboard_engine_service": "Engines and Generators",
     "inboard_engine_sales": "Engines and Generators",
     "diesel_engine_service": "Engines and Generators",
     "diesel_engine_sales": "Engines and Generators",
+    "generator_service": "Engines and Generators",
     "generator_service_repair": "Engines and Generators",
     "generator_sales": "Engines and Generators",
     
@@ -371,7 +390,60 @@ DOCKSIDE_PROS_SERVICES = {
     # General fallback
     "general_inquiry": "Boater Resources",
     "contact": "Boater Resources",
-    "quote_request": "Boater Resources"
+    "quote_request": "Boater Resources",
+    
+    # Additional endpoint mappings to ensure proper categorization
+    # Boat Charters and Rentals - Additional mappings
+    "dive_equipment": "Boat Charters and Rentals",
+    "efoil_kiteboarding": "Boat Charters and Rentals",
+
+    # Boat Maintenance - Additional mappings
+    "bilge_cleaning": "Boat Maintenance",
+    # REMOVED: "boat_maintenance": "Boat Maintenance", - This was Level 1 to Level 1!
+    "bottom_cleaning": "Boat Maintenance",
+    "oil_change": "Boat Maintenance",
+
+    # Boat Towing - Additional mappings
+    "emergency_tow": "Boat Towing",
+    "towing_membership": "Boat Towing",
+
+    # Boat and Yacht Repair - Additional mappings
+    "canvas_upholstery": "Boat and Yacht Repair",
+    "decking_flooring": "Boat and Yacht Repair",
+
+    # Boater Resources - Additional mappings
+    "email_subscribe": "Boater Resources",
+    "maritime_advertising": "Boater Resources",
+    "yacht_accounting": "Boater Resources",
+    "yacht_crew": "Boater Resources",
+    "yacht_parts": "Boater Resources",
+
+    # Buying or Selling a Boat - Additional mappings
+    "boat_broker": "Buying or Selling a Boat",
+    "buying_selling_boats": "Buying or Selling a Boat",
+
+    # Docks, Seawalls and Lifts - Additional mappings
+    "davit_hydraulic": "Docks, Seawalls and Lifts",
+    "dock_seawall_builders": "Docks, Seawalls and Lifts",
+    "hull_dock_cleaning": "Docks, Seawalls and Lifts",
+
+    # Engines and Generators - Additional mappings
+    "engine_sales": "Engines and Generators",
+    "engine_service": "Engines and Generators",
+    # REMOVED DUPLICATE: "engines_generators" already defined at line 247
+
+    # Marine Systems - Additional mappings
+    "ac_sales": "Marine Systems",
+    "ac_service": "Marine Systems",
+    "electrical_service": "Marine Systems",
+    # REMOVED DUPLICATE: "marine_systems" already defined at line 258
+    "plumbing": "Marine Systems",
+
+    # Maritime Education and Training - Additional mappings
+    "maritime_education": "Maritime Education and Training",
+
+    # Waterfront Property - Additional mappings
+    "waterfront_developments": "Waterfront Property"
 }
 
 def get_direct_service_category(form_identifier: str) -> str:
@@ -397,6 +469,119 @@ def get_direct_service_category(form_identifier: str) -> str:
     default_category = "Boater Resources"
     logger.info(f"🎯 Default service mapping: {form_identifier} → {default_category}")
     return default_category
+
+
+# New mapping for form identifiers to Level 2 subcategories (for vendor matching)
+# This ensures we capture the Level 2 subcategory when there's no Level 3 question
+FORM_TO_SPECIFIC_SERVICE = {
+    # Boat Maintenance subcategories
+    "bottom_cleaning": "Bottom Cleaning",
+    "boat_bottom_cleaning": "Bottom Cleaning",
+    "boat_detailing": "Boat Detailing",
+    "boat_oil_change": "Boat Oil Change",
+    "boat_bilge_cleaning": "Boat Bilge Cleaning",
+    "barnacle_cleaning": "Barnacle Cleaning",
+    "ceramic_coating": "Ceramic Coating",
+    "jet_ski_maintenance": "Jet Ski Maintenance",
+    "yacht_armor": "Yacht Armor",
+    "yacht_fire_detection": "Yacht Fire Detection Systems",
+    "boat_wrapping_marine_protection": "Boat Wrapping and Marine Protection Film",
+    
+    # Boat and Yacht Repair subcategories
+    "fiberglass_repair": "Fiberglass Repair",
+    "welding_metal_fabrication": "Welding & Metal Fabrication",
+    "carpentry_woodwork": "Carpentry & Woodwork",
+    
+    # Marine Systems subcategories
+    "ac_service": "AC Service",
+    "yacht_ac_service": "AC Service",
+    "marine_electronics": "Marine Electronics",
+    
+    # Engines and Generators subcategories
+    "outboard_engine_service": "Outboard Engine Service",
+    "inboard_engine_service": "Inboard Engine Service",
+    "diesel_engine_service": "Diesel Engine Service",
+    "generator_service": "Generator Service",
+    
+    # Fuel Delivery
+    "fuel_delivery": "Fuel Delivery",
+    
+    # Boat Insurance
+    "boat_insurance": "Boat Insurance",
+    
+    # Dock and Slip Rental
+    "dock_slip_rental": "Dock and Slip Rental",
+    "rent_my_dock": "Rent My Dock",
+    
+    # Docks, Seawalls and Lifts subcategories
+    "dock_seawall_builders_repair": "Dock and Seawall Builders or Repair",
+    "dock_builders": "Dock Builders",
+    "seawall_construction": "Seawall Construction",
+    "seawall_repair": "Seawall Repair",
+    "boat_lift_installers": "Boat Lift Installers",
+    "floating_dock_sales": "Floating Dock Sales",
+    "davit_hydraulic_platform": "Davit and Hydraulic Platform",
+    "hull_dock_seawall_piling_cleaning": "Hull Dock Seawall or Piling Cleaning",
+    "piling_cleaning": "Piling Cleaning",
+    
+    # Boat and Yacht Repair subcategories
+    "welding_metal_fabrication": "Welding & Metal Fabrication",
+    "carpentry_woodwork": "Carpentry & Woodwork",
+    "canvas_upholstery": "Canvas & Upholstery",
+    "decking_flooring": "Decking & Flooring",
+    "yacht_restoration": "Yacht Restoration",
+    
+    # Boat Towing subcategories
+    "emergency_tow": "Emergency Towing",
+    "towing_membership": "Towing Membership",
+    "on_water_assistance": "On-Water Assistance",
+    
+    # Boat Hauling and Yacht Delivery subcategories
+    "boat_hauling": "Boat Hauling",
+    "yacht_delivery": "Yacht Delivery",
+    "boat_transport_by_road": "Boat Transport By Road",
+    
+    # Buying or Selling a Boat subcategories
+    "boat_brokers": "Boat Brokers",
+    "boat_surveyors": "Boat Surveyors",
+    "yacht_brokers": "Yacht Brokers",
+    "yacht_builders": "Yacht Builders",
+    
+    # Maritime Education and Training subcategories
+    "maritime_certification": "Maritime Certification",
+    "maritime_academy": "Maritime Academy",
+    "sailing_schools": "Sailing Schools",
+    "yacht_training": "Yacht Training",
+    
+    # Waterfront Property subcategories
+    "waterfront_homes_sale": "Waterfront Homes for Sale",
+    "sell_waterfront_home": "Sell My Waterfront Home",
+    "new_waterfront_developments": "New Waterfront Developments",
+    
+    # Yacht Management
+    "yacht_management": "Yacht Management",
+    
+    # Wholesale or Dealer Product Pricing
+    "wholesale_dealer_pricing": "Wholesale or Dealer Product Pricing"
+    
+    # NOTE: This dictionary is now COMPLETE with all known subcategories
+}
+
+def get_specific_service_from_form(form_identifier: str) -> str:
+    """
+    Get the specific service name from form identifier for vendor matching.
+    This returns the actual service name that vendors would have selected.
+    """
+    form_lower = form_identifier.lower()
+    
+    # Check direct mapping
+    if form_lower in FORM_TO_SPECIFIC_SERVICE:
+        service = FORM_TO_SPECIFIC_SERVICE[form_lower]
+        logger.info(f"🎯 Form '{form_identifier}' maps to specific service: '{service}'")
+        return service
+    
+    # If no specific mapping, return None (will use category instead)
+    return None
 
 
 def find_matching_service(specific_service_text: str) -> str:
@@ -527,11 +712,15 @@ def normalize_field_names(payload: Dict[str, Any]) -> Dict[str, Any]:
         
         # Service-specific fields
         "What Zip Code Are You Requesting Service In?": "zip_code_of_service",
+        "What Zip Code Are You Requesting a Charter In?": "zip_code_of_service",
+        "What Zip Code Are You Requesting a Fishing Charter In?": "zip_code_of_service",
+        "What Zip Code Are You Requesting a Generator Service In?": "zip_code_of_service",
         "Zip Code": "zip_code_of_service",
         "Service Zip Code": "zip_code_of_service",
         "Location": "zip_code_of_service",
         
         "What Specific Service(s) Do You Request?": "specific_service_needed",
+        "What Specific Charter Do You Request?": "specific_service_needed",
         "Service Needed": "specific_service_needed",
         "Service Request": "specific_service_needed",
         "Services": "specific_service_needed",
@@ -871,21 +1060,54 @@ def process_payload_to_ghl_format(elementor_payload: Dict[str, Any], form_config
         # Combine primary services and additional services
         all_services = []
         
-        # Primary services from the primary category
-        primary_services = elementor_payload.get('primary_services', [])
-        if isinstance(primary_services, list):
-            all_services.extend(primary_services)
-        elif isinstance(primary_services, str) and primary_services:
-            primary_list = [svc.strip() for svc in primary_services.split(',')]
-            all_services.extend(primary_list)
+        # CRITICAL FIX: Handle Level 3 services when available, otherwise use Level 2
+        # Level 3 services are the specific services within subcategories
+        primary_level3_services = elementor_payload.get('primary_level3_services', {})
+        additional_level3_services = elementor_payload.get('additional_level3_services', {})
         
-        # Additional services from additional categories
-        additional_services = elementor_payload.get('additional_services', [])
-        if isinstance(additional_services, list):
-            all_services.extend(additional_services)
-        elif isinstance(additional_services, str) and additional_services:
-            additional_list = [svc.strip() for svc in additional_services.split(',')]
-            all_services.extend(additional_list)
+        # Combine all Level 3 services if they exist
+        all_level3_services = []
+        
+        # Process primary Level 3 services
+        if primary_level3_services and isinstance(primary_level3_services, dict):
+            for subcategory, level3_list in primary_level3_services.items():
+                if isinstance(level3_list, list):
+                    all_level3_services.extend(level3_list)
+                    logger.info(f"📋 Primary Level 3 services for {subcategory}: {level3_list}")
+        
+        # Process additional Level 3 services
+        if additional_level3_services and isinstance(additional_level3_services, dict):
+            for subcategory, level3_list in additional_level3_services.items():
+                if isinstance(level3_list, list):
+                    all_level3_services.extend(level3_list)
+                    logger.info(f"📋 Additional Level 3 services for {subcategory}: {level3_list}")
+        
+        # If we have Level 3 services, use them. Otherwise fall back to Level 2
+        if all_level3_services:
+            # Use Level 3 services as the specific services offered
+            all_services = all_level3_services
+            logger.info(f"✅ Using Level 3 services: {all_services}")
+        else:
+            # Fall back to Level 2 services (subcategories) when no Level 3 exists
+            all_services = []
+            
+            # Primary services from the primary category (Level 2)
+            primary_services = elementor_payload.get('primary_services', [])
+            if isinstance(primary_services, list):
+                all_services.extend(primary_services)
+            elif isinstance(primary_services, str) and primary_services:
+                primary_list = [svc.strip() for svc in primary_services.split(',')]
+                all_services.extend(primary_list)
+            
+            # Additional services from additional categories (Level 2)
+            additional_services = elementor_payload.get('additional_services', [])
+            if isinstance(additional_services, list):
+                all_services.extend(additional_services)
+            elif isinstance(additional_services, str) and additional_services:
+                additional_list = [svc.strip() for svc in additional_services.split(',')]
+                all_services.extend(additional_list)
+            
+            logger.info(f"ℹ️ No Level 3 services found, using Level 2 services: {all_services}")
         
         # Store combined services
         if all_services:
@@ -1395,17 +1617,58 @@ async def handle_clean_elementor_webhook(
                         service_categories_json = json.dumps(['General Services'])
                         logger.warning(f"📋 No categories provided, using fallback")
                     
-                    # Extract specific services offered
-                    services_provided = elementor_payload.get('services_provided', '')
-                    if services_provided:
-                        # These are the specific services (Boat Detailing, Ceramic Coating, etc.)
-                        services_list = [s.strip() for s in services_provided.split(',') if s.strip()]
+                    # CRITICAL FIX: Extract specific services offered using Level 3 when available
+                    # First, check for Level 3 services (most specific)
+                    primary_level3_services = elementor_payload.get('primary_level3_services', {})
+                    additional_level3_services = elementor_payload.get('additional_level3_services', {})
+                    
+                    services_list = []
+                    
+                    # Collect all Level 3 services
+                    if primary_level3_services and isinstance(primary_level3_services, dict):
+                        for subcategory, level3_list in primary_level3_services.items():
+                            if isinstance(level3_list, list):
+                                services_list.extend(level3_list)
+                                logger.info(f"📋 Level 3 services for {subcategory}: {level3_list}")
+                    
+                    if additional_level3_services and isinstance(additional_level3_services, dict):
+                        for subcategory, level3_list in additional_level3_services.items():
+                            if isinstance(level3_list, list):
+                                services_list.extend(level3_list)
+                                logger.info(f"📋 Additional Level 3 services for {subcategory}: {level3_list}")
+                    
+                    # If no Level 3 services, fall back to services_provided field (Level 2 or combined)
+                    if not services_list:
+                        services_provided = elementor_payload.get('services_provided', '')
+                        if services_provided:
+                            # These are the Level 2 services or combined services
+                            services_list = [s.strip() for s in services_provided.split(',') if s.strip()]
+                            logger.info(f"📋 Using Level 2 services from services_provided: {services_list}")
+                        else:
+                            # If still no services, try to use primary_services and additional_services (Level 2)
+                            primary_services = elementor_payload.get('primary_services', [])
+                            additional_services = elementor_payload.get('additional_services', [])
+                            
+                            if isinstance(primary_services, list):
+                                services_list.extend(primary_services)
+                            elif isinstance(primary_services, str) and primary_services:
+                                services_list.extend([s.strip() for s in primary_services.split(',') if s.strip()])
+                            
+                            if isinstance(additional_services, list):
+                                services_list.extend(additional_services)
+                            elif isinstance(additional_services, str) and additional_services:
+                                services_list.extend([s.strip() for s in additional_services.split(',') if s.strip()])
+                            
+                            if services_list:
+                                logger.info(f"📋 Using Level 2 services from primary/additional: {services_list}")
+                    
+                    # Store the final services list
+                    if services_list:
                         services_offered_json = json.dumps(services_list)
-                        logger.info(f"📋 Services provided: {services_provided}")
-                        logger.info(f"📋 Parsed services: {services_list}")
+                        logger.info(f"✅ Final services offered for vendor: {services_list}")
                     else:
                         services_offered_json = json.dumps([])
-                        logger.info(f"📋 No specific services provided")
+                        logger.warning(f"⚠️ No specific services provided for vendor")
                     
                     # Extract coverage type and coverage areas
                     coverage_type = elementor_payload.get('coverage_type', 'county')
@@ -1548,12 +1811,62 @@ async def handle_clean_elementor_webhook(
             
             # Trigger background tasks based on form type
             if form_config.get("requires_immediate_routing"):
+                # PRE-SELECT VENDOR BEFORE BACKGROUND TASK TO PREVENT RACE CONDITIONS
+                selected_vendor = None
+                selected_vendor_id = None
+                selected_vendor_ghl_user = None
+                
+                form_type = form_config.get("form_type", "unknown")
+                if form_type == "client_lead" or form_type == "emergency_service":
+                    # Extract service details for vendor matching
+                    mapped_payload = field_mapper.map_payload(elementor_payload, industry="marine")
+                    zip_code = mapped_payload.get("zip_code_of_service", "")
+                    specific_service = mapped_payload.get("specific_service_needed", "")
+                    service_category = form_config.get("service_category", "No Category")
+                    priority = form_config.get("priority", "normal")
+                    
+                    # Try to get specific service from form identifier if not provided
+                    if not specific_service:
+                        specific_service = get_specific_service_from_form(form_identifier)
+                    
+                    logger.info(f"🎯 Pre-selecting vendor for: Category='{service_category}', Specific='{specific_service}', ZIP='{zip_code}'")
+                    
+                    if zip_code and service_category:
+                        # Find matching vendors
+                        available_vendors = lead_routing_service.find_matching_vendors(
+                            account_id=account_id,
+                            service_category=service_category,
+                            zip_code=zip_code,
+                            priority=priority,
+                            specific_service=specific_service if specific_service else service_category
+                        )
+                        
+                        if available_vendors:
+                            logger.info(f"🎯 Found {len(available_vendors)} matching vendors")
+                            
+                            # SELECT VENDOR NOW (before background task)
+                            selected_vendor = lead_routing_service.select_vendor_from_pool(
+                                available_vendors, account_id
+                            )
+                            
+                            if selected_vendor:
+                                selected_vendor_id = selected_vendor['id']
+                                selected_vendor_ghl_user = selected_vendor.get('ghl_user_id')
+                                logger.info(f"✅ PRE-SELECTED vendor: {selected_vendor['name']} (ID: {selected_vendor_id}, GHL: {selected_vendor_ghl_user})")
+                            else:
+                                logger.warning(f"⚠️ Vendor selection failed during pre-selection")
+                        else:
+                            logger.warning(f"⚠️ No matching vendors found during pre-selection")
+                
+                # Pass vendor selection to background task
                 background_tasks.add_task(
                     trigger_clean_lead_routing_workflow, 
                     ghl_contact_id=final_ghl_contact_id,
                     form_identifier=form_identifier,
                     form_config=form_config,
-                    form_data=elementor_payload
+                    form_data=elementor_payload,
+                    selected_vendor_id=selected_vendor_id,        # Pass vendor ID
+                    selected_vendor_ghl_user=selected_vendor_ghl_user  # Pass GHL user ID
                 )
             
             # NOTE: Opportunity creation now handled in background task for client leads
@@ -1628,7 +1941,9 @@ async def trigger_clean_lead_routing_workflow(
     ghl_contact_id: str, 
     form_identifier: str, 
     form_config: Dict[str, Any],
-    form_data: Dict[str, Any]
+    form_data: Dict[str, Any],
+    selected_vendor_id: Optional[str] = None,      # Pre-selected vendor ID
+    selected_vendor_ghl_user: Optional[str] = None  # Pre-selected vendor GHL user ID
 ):
     """
     Clean background task for lead routing - NO AI processing
@@ -1725,6 +2040,18 @@ async def trigger_clean_lead_routing_workflow(
             # Get service values from mapped payload (mapped from GHL custom fields)
             specific_service_requested = mapped_payload.get("specific_service_needed", "")  # From GHL field FT85QGi0tBq1AfVGNJ9v
             
+            # If no Level 3 specific service, extract Level 2 from form identifier
+            if not specific_service_requested:
+                # Try to get the Level 2 subcategory from form identifier
+                level2_service = get_specific_service_from_form(form_identifier)
+                if level2_service:
+                    specific_service_requested = level2_service
+                    logger.info(f"📝 Using Level 2 subcategory from form identifier: {specific_service_requested}")
+                else:
+                    # Last resort: use the form identifier itself as a readable service name
+                    specific_service_requested = form_identifier.replace("_", " ").title()
+                    logger.info(f"📝 Using form identifier as Level 2: {specific_service_requested}")
+            
             # FIXED: INSERT using actual database schema field names (26 fields)
             cursor.execute('''
             INSERT INTO leads (
@@ -1732,7 +2059,7 @@ async def trigger_clean_lead_routing_workflow(
                 customer_email, customer_phone, primary_service_category, specific_service_requested,
                 customer_zip_code, service_county, service_state, vendor_id, 
                 assigned_at, status, priority, source, service_details, 
-                service_zip_code, service_city, specific_service_requested,
+                service_zip_code, service_city, specific_services,
                 service_complexity, estimated_duration, requires_emergency_response, 
                 classification_confidence, classification_reasoning
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -1841,93 +2168,60 @@ async def trigger_clean_lead_routing_workflow(
         priority = form_config.get("priority", "normal")
         
         if form_type == "client_lead" or form_type == "emergency_service":
-            zip_code = mapped_payload.get("zip_code_of_service", "")
-            specific_service = mapped_payload.get("specific_service_needed", "")
-            
-            logger.info(f"🎯 Direct lead routing: Category='{service_category}', Specific Service='{specific_service}', ZIP='{zip_code}'")
-            
-            if zip_code and service_category:
-                # Find matching vendors using lead_routing_service
-                available_vendors = lead_routing_service.find_matching_vendors(
-                    account_id=account_id,
-                    service_category=service_category,
-                    zip_code=zip_code,
-                    priority=priority,
-                    specific_service=specific_service
-                )
+            # CHECK IF VENDOR WAS PRE-SELECTED (to prevent race conditions)
+            if selected_vendor_id and selected_vendor_ghl_user:
+                logger.info(f"✅ Using PRE-SELECTED vendor ID: {selected_vendor_id}, GHL User: {selected_vendor_ghl_user}")
                 
-                if available_vendors:
-                    logger.info(f"🎯 Found {len(available_vendors)} matching vendors for lead {lead_id}")
+                # Update database with pre-selected vendor assignment
+                db_assignment_success = simple_db_instance.assign_lead_to_vendor(lead_id, selected_vendor_id)
+                
+                if db_assignment_success:
+                    logger.info(f"✅ Successfully assigned lead {lead_id} to pre-selected vendor {selected_vendor_id} in database")
                     
-                    # Select vendor using existing logic
-                    selected_vendor = lead_routing_service.select_vendor_from_pool(
-                        available_vendors, account_id
-                    )
-                    
-                    if selected_vendor:
-                        # Update database with vendor assignment
-                        db_assignment_success = simple_db_instance.assign_lead_to_vendor(lead_id, selected_vendor['id'])
+                    # Assign opportunity to vendor using pre-selected GHL user ID
+                    if selected_vendor_ghl_user and opportunity_id:
+                        logger.info(f"🎯 Assigning opportunity {opportunity_id} to pre-selected vendor GHL User ID: {selected_vendor_ghl_user}")
                         
-                        if db_assignment_success:
-                            logger.info(f"✅ Successfully assigned lead {lead_id} to vendor {selected_vendor['name']} in database")
+                        # Self-contained opportunity assignment (no routing_admin dependency)
+                        try:
+                            ghl_api_client = GoHighLevelAPI(
+                                private_token=AppConfig.GHL_PRIVATE_TOKEN,
+                                location_id=AppConfig.GHL_LOCATION_ID
+                            )
                             
-                            # Assign opportunity to vendor using self-contained GHL API call
-                            vendor_ghl_user_id = selected_vendor.get("ghl_user_id")
-                            if vendor_ghl_user_id and opportunity_id:
-                                logger.info(f"🎯 Assigning opportunity {opportunity_id} to vendor GHL User ID: {vendor_ghl_user_id}")
+                            # Update opportunity with vendor assignment
+                            update_data = {
+                                'assignedTo': selected_vendor_ghl_user,
+                                'pipelineId': AppConfig.PIPELINE_ID,
+                                'pipelineStageId': AppConfig.NEW_LEAD_STAGE_ID
+                            }
+                            
+                            assignment_success = ghl_api_client.update_opportunity(opportunity_id, update_data)
+                            
+                            if assignment_success:
+                                logger.info(f"✅ Successfully assigned opportunity to pre-selected vendor - GHL workflows will handle notifications")
+                            else:
+                                logger.error(f"❌ Failed to assign opportunity to pre-selected vendor")
                                 
-                                # Self-contained opportunity assignment (no routing_admin dependency)
-                                try:
-                                    ghl_api_client = GoHighLevelAPI(
-                                        private_token=AppConfig.GHL_PRIVATE_TOKEN,
-                                        location_id=AppConfig.GHL_LOCATION_ID
-                                    )
-                                    
-                                    # Update opportunity with vendor assignment
-                                    update_data = {
-                                        'assignedTo': vendor_ghl_user_id,
-                                        'pipelineId': AppConfig.PIPELINE_ID,
-                                        'pipelineStageId': AppConfig.NEW_LEAD_STAGE_ID
-                                    }
-                                    
-                                    assignment_success = ghl_api_client.update_opportunity(opportunity_id, update_data)
-                                    
-                                    if assignment_success:
-                                        logger.info(f"✅ Successfully assigned opportunity to vendor {selected_vendor['name']} - GHL workflows will handle notifications")
-                                    else:
-                                        logger.error(f"❌ Failed to assign opportunity to vendor {selected_vendor['name']}")
-                                        
-                                except Exception as e:
-                                    logger.error(f"❌ Error assigning opportunity to vendor: {e}")
-                                    
-                            elif not vendor_ghl_user_id:
-                                logger.warning(f"⚠️ Vendor {selected_vendor['name']} has no GHL User ID - cannot assign opportunity")
-                            elif not opportunity_id:
-                                logger.warning(f"⚠️ No opportunity ID available - cannot assign to vendor")
-                        else:
-                            logger.error(f"❌ Failed to assign lead in database")
-                    else:
-                        logger.warning(f"⚠️ Vendor selection failed")
+                        except Exception as e:
+                            logger.error(f"❌ Error assigning opportunity to vendor: {e}")
+                            
+                    elif not selected_vendor_ghl_user:
+                        logger.warning(f"⚠️ Pre-selected vendor has no GHL User ID - cannot assign opportunity")
+                    elif not opportunity_id:
+                        logger.warning(f"⚠️ No opportunity ID available - cannot assign to vendor")
                 else:
-                    logger.warning(f"⚠️ No matching vendors found for service '{service_category}' in area '{zip_code}'")
-                    
-                    # FIXED: Create proper data structure for notification
-                    unmatched_lead_data = {
-                        "customer_data": customer_data,
-                        "service_details": service_details,
-                        "zip_code": zip_code,
-                        "timeline": service_details.get("timeline", "Not specified")
-                    }
-                    
-                    # Notify admin of unmatched lead
-                    await notify_admin_of_unmatched_lead(
-                        lead_data=unmatched_lead_data,  # ✅ FIXED
-                        ghl_contact_id=ghl_contact_id,
-                        service_category=service_category,
-                        location=zip_code
-                    )
+                    logger.error(f"❌ Failed to assign lead in database")
             else:
-                logger.error(f"❌ Cannot route lead: missing ZIP code ('{zip_code}') or service category ('{service_category}')")
+                # NO PRE-SELECTED VENDOR - This shouldn't happen but handle gracefully
+                logger.warning(f"⚠️ No vendor was pre-selected for lead {lead_id}")
+                zip_code = mapped_payload.get("zip_code_of_service", "")
+                specific_service = mapped_payload.get("specific_service_needed", "")
+                
+                if not specific_service:
+                    specific_service = get_specific_service_from_form(form_identifier)
+                
+                logger.info(f"🔍 Looking for vendors: Category='{service_category}', Specific='{specific_service}', ZIP='{zip_code}'")
         
         # Log successful routing
         simple_db_instance.log_activity(
@@ -2197,39 +2491,26 @@ async def handle_vendor_user_creation_webhook(request: Request):
             existing_vendor = simple_db_instance.get_vendor_by_email_and_account(vendor_email, account_record['id'])
             
             if existing_vendor:
-                # Update existing vendor with GHL User ID
-                simple_db_instance.update_vendor_ghl_user_id(existing_vendor['id'], user_id)
-                logger.info(f"✅ Updated existing vendor {existing_vendor['id']} with GHL User ID: {user_id}")
+                # Update existing vendor with GHL User ID AND set status to active
+                simple_db_instance.update_vendor_status(existing_vendor['id'], 'active', user_id)
+                logger.info(f"✅ Updated existing vendor {existing_vendor['id']} with GHL User ID: {user_id} and set status to active")
             else:
-                # Create vendor record if it doesn't exist (fallback scenario)
-                logger.warning(f"⚠️ No vendor record found for {vendor_email}, creating one...")
+                # CRITICAL ERROR: Vendor approval webhook called but no vendor record exists
+                # This should not happen - vendors must be created via form submission first
+                logger.error(f"❌ CRITICAL: Vendor approval triggered for {vendor_email} but no vendor record exists!")
+                logger.error(f"   This suggests the vendor was never created via form submission.")
+                logger.error(f"   Contact ID: {contact_id}")
+                logger.error(f"   Name: {vendor_first_name} {vendor_last_name}")
+                logger.error(f"   Company: {vendor_company_name}")
                 
-                # Extract what data we can from the webhook
-                vendor_name = f"{vendor_first_name} {vendor_last_name}".strip()
-                
-                # Create minimal vendor record
-                vendor_id = simple_db_instance.create_vendor(
-                    account_id=account_record['id'],
-                    name=vendor_name,
-                    email=vendor_email,
-                    company_name=vendor_company_name or '',
-                    phone=vendor_phone or '',
-                    ghl_contact_id=contact_id,
-                    status='active',  # They're getting user access, so mark as active
-                    service_categories=json.dumps(['General Services']),  # Default
-                    services_offered=json.dumps([]),  # Will be updated later
-                    coverage_type='county',  # Default coverage type
-                    coverage_states=json.dumps([]),  # Will be updated later
-                    coverage_counties=json.dumps([])  # Will be updated later
-                )
-                
-                # Update the new vendor record with GHL User ID
-                simple_db_instance.update_vendor_ghl_user_id(vendor_id, user_id)
-                
-                logger.info(f"✅ Created fallback vendor record: {vendor_id}")
-                logger.info(f"   Name: {vendor_name}")
-                logger.info(f"   Company: {vendor_company_name}")
-                logger.info(f"   GHL User ID: {user_id}")
+                # Return error instead of creating bad data
+                return {
+                    "status": "error",
+                    "message": f"No vendor record found for {vendor_email}. Vendor must be created via form submission before approval.",
+                    "contact_id": contact_id,
+                    "action": "approval_failed_no_vendor_record",
+                    "error_code": "VENDOR_NOT_FOUND"
+                }
         
         except Exception as e:
             logger.error(f"❌ Failed to link vendor with GHL User ID: {str(e)}")

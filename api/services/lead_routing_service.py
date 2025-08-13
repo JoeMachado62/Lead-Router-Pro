@@ -59,15 +59,19 @@ class LeadRoutingService:
             eligible_vendors = []
             
             for vendor in all_vendors:
+                vendor_name = vendor.get('company_name', vendor.get('name', 'Unknown'))
+                
                 # Check if vendor is active and taking new work
                 if vendor.get("status") != "active" or not vendor.get("taking_new_work", False):
-                    logger.debug(f"Skipping vendor {vendor.get('name')} - not active or not taking work")
+                    logger.debug(f"❌ Skipping vendor {vendor_name} - status={vendor.get('status')}, taking_work={vendor.get('taking_new_work')}")
                     continue
                 
                 # DIRECT SERVICE MATCHING - match specific service if provided, otherwise category
                 service_to_match = specific_service if specific_service else service_category
+                logger.debug(f"🔍 Checking vendor {vendor_name} for service: '{service_to_match}'")
+                
                 if not self._vendor_matches_service(vendor, service_to_match):
-                    logger.debug(f"Skipping vendor {vendor.get('name')} - no exact service match for '{service_to_match}'")
+                    logger.debug(f"❌ Skipping vendor {vendor_name} - no service match for '{service_to_match}'")
                     continue
                 
                 # Check if vendor can serve this location
@@ -78,9 +82,9 @@ class LeadRoutingService:
                         vendor, zip_code, target_state, target_county
                     )
                     eligible_vendors.append(vendor_copy)
-                    logger.debug(f"✅ Vendor {vendor.get('name')} matches - {vendor_copy['coverage_match_reason']}")
+                    logger.info(f"✅ MATCH: Vendor {vendor_name} matches - {vendor_copy['coverage_match_reason']}")
                 else:
-                    logger.debug(f"Skipping vendor {vendor.get('name')} - location not covered")
+                    logger.debug(f"❌ Skipping vendor {vendor_name} - location not covered")
             
             service_desc = f"specific service '{specific_service}'" if specific_service else f"category '{service_category}'"
             logger.info(f"🎯 Found {len(eligible_vendors)} eligible vendors for {service_desc} in {zip_code}")
@@ -142,20 +146,22 @@ class LeadRoutingService:
             logger.error(f"❌ Error getting vendors from database: {e}")
             return []
     
-    def _vendor_matches_service(self, vendor: Dict[str, Any], service_category: str) -> bool:
+    def _vendor_matches_service(self, vendor: Dict[str, Any], service_requested: str) -> bool:
         """
-        Check if vendor provides the requested service using DIRECT STRING MATCHING ONLY.
-        
-        NO keyword matching, NO AI, NO parsing - just exact string comparison.
+        Check if vendor provides the requested service.
+        CRITICAL FIX: Properly handles Level 3 specific services vs Level 2 categories.
         
         Args:
             vendor: Vendor dictionary with services_offered field
-            service_category: Exact service name requested (e.g., "Inboard Engine Service")
+            service_requested: Service requested - can be Level 2 category or Level 3 specific service
             
         Returns:
-            bool: True if vendor offers the exact service, False otherwise
+            bool: True if vendor offers the service, False otherwise
         """
         try:
+            # Import service categories for Level 2/3 matching
+            from api.services.service_categories import SERVICE_CATEGORIES, LEVEL_3_SERVICES
+            
             services_offered = vendor.get('services_offered', [])
             
             # Handle string format (convert to list)
@@ -171,14 +177,94 @@ class LeadRoutingService:
                 logger.warning(f"Vendor {vendor.get('name')} has malformed services_offered: {services_offered}")
                 return False
             
-            # DIRECT STRING MATCHING ONLY - exact match required
+            # Direct string matching - case insensitive
+            service_lower = str(service_requested).strip().lower()
+            
+            # CRITICAL: Determine if vendor has Level 3 services
+            vendor_has_level3 = False
+            vendor_level3_services = set()
+            
+            # Check all vendor's services against known Level 3 services
+            for category_dict in LEVEL_3_SERVICES.values():
+                for subcategory, level3_list in category_dict.items():
+                    for offered_service in services_offered:
+                        if offered_service in level3_list:
+                            vendor_has_level3 = True
+                            vendor_level3_services.add(offered_service)
+            
+            if vendor_has_level3:
+                logger.debug(f"🔍 Vendor has Level 3 services: {vendor_level3_services}")
+                
+                # For vendors with Level 3 services, ONLY match on exact Level 3 service
+                for offered_service in services_offered:
+                    offered_lower = str(offered_service).strip().lower()
+                    if offered_lower == service_lower:
+                        logger.info(f"✅ Level 3 EXACT match: '{service_requested}' == '{offered_service}'")
+                        return True
+                
+                # Special case: If service_requested is a Level 1 category (like "Boat Maintenance")
+                # and vendor has specific Level 3 services for subcategories under it, do NOT match
+                # This prevents vendors who specified Level 3 services from getting generic category leads
+                if service_requested in SERVICE_CATEGORIES:
+                    logger.debug(f"❌ Lead requests Level 1 category '{service_requested}' but vendor has specific Level 3 services")
+                    return False
+                
+                # Check if requested service is a subcategory that has Level 3 services
+                for category, subcategories in LEVEL_3_SERVICES.items():
+                    if service_requested in subcategories:
+                        logger.debug(f"❌ Lead requests subcategory '{service_requested}' but vendor specified Level 3 services")
+                        return False
+                
+                logger.debug(f"❌ No Level 3 match: '{service_requested}' not in vendor's Level 3 services: {vendor_level3_services}")
+                return False
+            
+            # For vendors with only Level 2 services (backward compatibility)
+            logger.debug(f"🔍 Vendor uses Level 2 services: {services_offered}")
+            
+            # First try exact match
             for offered_service in services_offered:
-                if str(offered_service).strip() == str(service_category).strip():
-                    logger.debug(f"✅ Exact service match: '{service_category}' in vendor services")
+                offered_lower = str(offered_service).strip().lower()
+                
+                # Exact match
+                if offered_lower == service_lower:
+                    logger.info(f"✅ Level 2 EXACT match: '{service_requested}' == '{offered_service}'")
+                    return True
+                
+                # Handle common variations (e.g., "Boat Bottom Cleaning" matches "Bottom Cleaning")
+                if service_lower == "bottom cleaning" and "bottom cleaning" in offered_lower:
+                    logger.debug(f"✅ Service variant match: '{service_requested}' matched with '{offered_service}'")
                     return True
             
-            # No exact match found
-            logger.debug(f"❌ No exact match for '{service_category}' in {services_offered}")
+            # Check if service_requested is a child of any vendor's offered categories
+            for offered_service in services_offered:
+                # Check if offered_service is a category
+                if offered_service in SERVICE_CATEGORIES:
+                    # Get all services under this category
+                    category_services = SERVICE_CATEGORIES.get(offered_service, [])
+                    category_services_lower = [s.lower() for s in category_services]
+                    
+                    # Check if requested service is in this category
+                    if service_lower in category_services_lower:
+                        logger.info(f"✅ Level 2 parent match: Vendor offers category '{offered_service}' which includes '{service_requested}'")
+                        return True
+            
+            # Check if this is a Level 2 category requested and vendor offers services under it
+            if service_requested in SERVICE_CATEGORIES:
+                # This is a Level 2 category - check if vendor offers ANY Level 3 service under this category
+                category_services = SERVICE_CATEGORIES.get(service_requested, [])
+                category_services_lower = [s.lower() for s in category_services]
+                
+                for offered_service in services_offered:
+                    offered_lower = str(offered_service).strip().lower()
+                    if offered_lower in category_services_lower:
+                        logger.info(f"✅ Level 2 category match: Vendor offers '{offered_service}' under '{service_requested}'")
+                        return True
+                
+                logger.debug(f"❌ No Level 3 services found for category '{service_requested}' in vendor's services: {services_offered}")
+            else:
+                # Not a category and no exact match found
+                logger.debug(f"❌ No match for '{service_requested}' in services offered: {services_offered}")
+            
             return False
             
         except Exception as e:
@@ -192,28 +278,40 @@ class LeadRoutingService:
         FIXED: Uses actual database field names (coverage_type, coverage_states, coverage_counties)
         """
         coverage_type = vendor.get('coverage_type', 'zip')  # FIXED: Use actual field name
+        vendor_name = vendor.get('company_name', vendor.get('name', 'Unknown'))
+        
+        logger.debug(f"🔍 Checking coverage for vendor {vendor_name}: type={coverage_type}, target_state={target_state}, target_county={target_county}")
         
         if coverage_type == 'global':
+            logger.debug(f"✅ Vendor {vendor_name} has GLOBAL coverage - matches all locations")
             return True
         
         if coverage_type == 'national':
-            return target_state is not None
+            matches = target_state is not None
+            logger.debug(f"{'✅' if matches else '❌'} Vendor {vendor_name} has NATIONAL coverage - matches={matches} (target_state={target_state})")
+            return matches
         
         if coverage_type == 'state':
             if not target_state:
+                logger.debug(f"❌ Vendor {vendor_name} has STATE coverage but no target_state provided")
                 return False
             coverage_states = vendor.get('coverage_states', [])  # FIXED: Use actual field name
             if not isinstance(coverage_states, list):
-                logger.warning(f"Vendor {vendor.get('name')} has malformed coverage_states: {coverage_states}")
+                logger.warning(f"Vendor {vendor_name} has malformed coverage_states: {coverage_states}")
                 return False
-            return target_state in coverage_states
+            
+            # Check if target state is in coverage states
+            matches = target_state in coverage_states
+            logger.debug(f"{'✅' if matches else '❌'} Vendor {vendor_name} STATE coverage check: {target_state} in {coverage_states} = {matches}")
+            return matches
         
         if coverage_type == 'county':
             if not target_county or not target_state:
+                logger.debug(f"❌ Vendor {vendor_name} has COUNTY coverage but missing target location (county={target_county}, state={target_state})")
                 return False
             coverage_counties = vendor.get('coverage_counties', [])  # FIXED: Use actual field name
             if not isinstance(coverage_counties, list):
-                logger.warning(f"Vendor {vendor.get('name')} has malformed coverage_counties: {coverage_counties}")
+                logger.warning(f"Vendor {vendor_name} has malformed coverage_counties: {coverage_counties}")
                 return False
             
             # Build the full county string to match against vendor's coverage
@@ -222,7 +320,7 @@ class LeadRoutingService:
             for coverage_area in coverage_counties:
                 # Direct string comparison for exact match
                 if coverage_area.strip() == full_county_string:
-                    logger.debug(f"✅ Exact county match: '{full_county_string}' in vendor's coverage")
+                    logger.debug(f"✅ Vendor {vendor_name} COUNTY match: '{full_county_string}' in vendor's coverage")
                     return True
                 
                 # Also try component matching for flexibility
@@ -230,8 +328,10 @@ class LeadRoutingService:
                     county_part, state_part = coverage_area.split(',', 1)
                     if (target_county.lower() == county_part.strip().lower() and
                         target_state.lower() == state_part.strip().lower()):
-                        logger.debug(f"✅ Component county match: {target_county}, {target_state}")
+                        logger.debug(f"✅ Vendor {vendor_name} COUNTY component match: {target_county}, {target_state}")
                         return True
+            
+            logger.debug(f"❌ Vendor {vendor_name} COUNTY coverage: no match for {full_county_string} in {coverage_counties}")
             return False
         
         if coverage_type == 'zip':

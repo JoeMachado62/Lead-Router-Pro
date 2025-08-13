@@ -1,263 +1,585 @@
-# DockSide Pros Lead Router - Setup Guide
+# Lead Router Pro - Complete Setup Guide
 
-## 🎯 MVP Implementation Complete!
+## Table of Contents
+1. [Prerequisites](#prerequisites)
+2. [Environment Setup](#environment-setup)
+3. [GoHighLevel Configuration](#gohighlevel-configuration)
+4. [Database Initialization](#database-initialization)
+5. [Email & 2FA Setup](#email--2fa-setup)
+6. [Application Deployment](#application-deployment)
+7. [Admin Dashboard Setup](#admin-dashboard-setup)
+8. [Vendor Configuration](#vendor-configuration)
+9. [Testing & Validation](#testing--validation)
+10. [Production Deployment](#production-deployment)
 
-This guide will help you deploy and configure the DockSide Pros Lead Router MVP for automatic lead assignment.
+---
 
-## 📋 What's Included
+## Prerequisites
 
-### Core Components
-- **`lead_router.py`** - Main lead routing logic with vendor matching
-- **`webhook_server.py`** - Flask web server to handle Elementor webhooks
-- **`config.py`** - Configuration management
-- **`test_system.py`** - Comprehensive system testing
-- **`ghl_field_creator.py`** - Custom field creation (already working)
-- **`ghl_field_key_retriever.py`** - Field mapping utilities
+### System Requirements
+- **Operating System**: Ubuntu 20.04+ / macOS / Windows WSL2
+- **Python**: 3.8 or higher
+- **Memory**: Minimum 2GB RAM
+- **Storage**: 1GB free space
+- **Network**: Stable internet connection
 
-### Deployment Files
-- **`requirements.txt`** - Python dependencies
-- **`deploy.sh`** - Automated VPS deployment script
-- **`.env.example`** - Environment configuration template
+### Required Accounts
+- **GoHighLevel**: Agency account with API access
+- **Email Provider**: Gmail or SMTP server for 2FA
+- **Domain** (Production): For webhook endpoints
 
-## 🚀 Quick Start (Development)
+### Software Dependencies
+```bash
+# Check Python version
+python3 --version  # Should be 3.8+
 
-### 1. Install Dependencies
+# Install pip if not present
+sudo apt-get update
+sudo apt-get install python3-pip
+
+# Install virtual environment
+pip3 install virtualenv
+```
+
+---
+
+## Environment Setup
+
+### 1. Clone Repository
+```bash
+git clone https://github.com/your-org/Lead-Router-Pro.git
+cd Lead-Router-Pro
+```
+
+### 2. Create Virtual Environment
+```bash
+# Create virtual environment
+python3 -m venv venv
+
+# Activate virtual environment
+source venv/bin/activate  # Linux/Mac
+# OR
+venv\Scripts\activate  # Windows
+```
+
+### 3. Install Dependencies
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2. Configure Environment
+### 4. Create Environment File
 ```bash
 cp .env.example .env
-# Edit .env with your actual GHL credentials
 ```
 
-### 3. Test the System
-```bash
-python test_system.py
-```
+### 5. Configure Environment Variables
+Edit `.env` file with your credentials:
 
-### 4. Start the Webhook Server
-```bash
-python webhook_server.py
-```
-
-### 5. Test Webhook Endpoint
-```bash
-curl -X POST http://localhost:3000/webhook/test
-```
-
-## 🏗️ Production Deployment
-
-### Option 1: Automated VPS Deployment
-```bash
-# On your VPS (Ubuntu/Debian)
-sudo chmod +x deploy.sh
-sudo ./deploy.sh
-```
-
-### Option 2: Manual Setup
-1. **Install Python 3.8+**
-2. **Create virtual environment**
-3. **Install dependencies**
-4. **Configure nginx reverse proxy**
-5. **Set up systemd service**
-6. **Configure SSL certificate**
-
-## ⚙️ Configuration Steps
-
-### 1. GoHighLevel Setup
-
-#### A. Get Pipeline and Stage IDs
-1. Go to your GHL account → Settings → Pipelines
-2. Find your marine services pipeline
-3. Copy the pipeline ID and stage IDs
-4. Update `.env` file:
 ```env
-PIPELINE_ID=your_actual_pipeline_id
-NEW_LEAD_STAGE_ID=your_new_lead_stage_id
+# ======================
+# GoHighLevel Configuration
+# ======================
+GHL_LOCATION_ID=your_location_id_here
+GHL_PRIVATE_TOKEN=your_private_token_here
+GHL_AGENCY_API_KEY=your_agency_api_key_here
+GHL_COMPANY_ID=your_company_id_here
+GHL_WEBHOOK_API_KEY=generate_secure_key_here
+
+# ======================
+# Database Configuration
+# ======================
+DATABASE_URL=sqlite:///smart_lead_router.db
+# For PostgreSQL (production):
+# DATABASE_URL=postgresql://user:password@localhost/leadrouter
+
+# ======================
+# Security Configuration
+# ======================
+SECRET_KEY=generate_32_char_secret_key_here
+JWT_SECRET_KEY=generate_jwt_secret_here
+JWT_ALGORITHM=HS256
+JWT_EXPIRATION_HOURS=24
+
+# ======================
+# Email Configuration (2FA)
+# ======================
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USERNAME=your_email@gmail.com
+SMTP_PASSWORD=your_app_specific_password
+SMTP_FROM_EMAIL=noreply@yourdomain.com
+
+# ======================
+# Application Settings
+# ======================
+APP_ENV=development  # or production
+APP_DEBUG=true  # false in production
+APP_HOST=0.0.0.0
+APP_PORT=8000
+CORS_ORIGINS=http://localhost:3000,https://yourdomain.com
+
+# ======================
+# GHL Pipeline (Optional)
+# ======================
+PIPELINE_ID=your_pipeline_id
+PIPELINE_STAGE_ID=your_stage_id
+OPPORTUNITY_MONETARY_VALUE=1000
+
+# ======================
+# IP Security (Optional)
+# ======================
+ALLOWED_IPS=127.0.0.1,your_server_ip
+WEBHOOK_TIMEOUT=30
+MAX_RETRIES=3
 ```
 
-#### B. Verify Custom Fields
-Your custom fields are already created! The system uses:
+---
 
-**For Leads (Clients):**
-- `specific_service_needed`
-- `zip_code_of_service`
-- `service_category`
-- `vessel_make`, `vessel_model`, `vessel_year`
-- `special_requests__notes`
+## GoHighLevel Configuration
 
-**For Vendors:**
-- `services_provided`
-- `service_zip_codes`
-- `taking_new_work`
-- `ghl_user_id`
-- `last_lead_assigned`
-- `vendor_company_name`
+### 1. Obtain API Credentials
 
-#### C. Set Up Vendor Contacts
-For each vendor in GHL, ensure these fields are populated:
+#### Location ID
+1. Log into GoHighLevel
+2. Navigate to Settings → Business Info
+3. Copy the Location ID
+
+#### Private Token
+1. Go to Settings → Integrations → API
+2. Click "Generate Private Token"
+3. Name it "Lead Router Pro"
+4. Copy and save securely
+
+#### Agency API Key
+1. Access Agency Settings
+2. Navigate to API Keys
+3. Generate new key for "Lead Router Pro"
+4. Set appropriate permissions
+
+### 2. Create Custom Fields
+
+Run the field generation script:
+```bash
+python -c "
+from api.services.ghl_api import GoHighLevelAPI
+from config import AppConfig
+
+ghl = GoHighLevelAPI(
+    private_token=AppConfig.GHL_PRIVATE_TOKEN,
+    location_id=AppConfig.GHL_LOCATION_ID
+)
+
+# Create required custom fields
+fields = [
+    'service_category',
+    'specific_service',
+    'zip_code_of_service',
+    'vendor_company_name',
+    'services_offered',
+    'coverage_type',
+    'coverage_areas'
+]
+
+for field in fields:
+    ghl.create_custom_field(field, 'CONTACT')
+    print(f'Created field: {field}')
+"
 ```
-Services Provided: "Boat Maintenance, Engines and Generators"
-Service Zip Codes: "33101, 33102, 33103"
-Taking New Work?: "Yes"
-GHL User ID: "user_id_from_ghl"
+
+### 3. Configure Webhooks
+
+In GoHighLevel:
+1. Navigate to Settings → Webhooks
+2. Create new webhook
+3. Set URL: `https://yourdomain.com/api/v1/webhooks/elementor/{form_name}`
+4. Add header: `X-Webhook-API-Key: your_webhook_api_key`
+5. Select triggers: Contact Created, Contact Updated
+
+---
+
+## Database Initialization
+
+### 1. Create Database Tables
+```bash
+python -c "
+from database.simple_connection import db
+db.create_tables()
+print('Database tables created successfully')
+"
 ```
 
-### 2. Elementor Forms Setup
+### 2. Create Admin User
+```bash
+python test_scripts/create_admin_user.py
+```
 
-#### A. Add Webhook to Forms
-1. Edit your Elementor form
-2. Go to Actions After Submit
-3. Add "Webhook" action
-4. Set webhook URL: `https://your-domain.com/webhook/elementor`
+Follow prompts to set:
+- Admin email
+- Admin password
+- Admin name
 
-#### B. Form Field Mapping
-Ensure your forms have these field names (or similar):
-- `name` or `full_name`
-- `email` or `email_address`
-- `phone` or `phone_number`
-- `service` or `service_type`
-- `zip_code` or `postal_code`
-- `message` or `special_requests`
+### 3. Verify Database
+```bash
+sqlite3 smart_lead_router.db ".tables"
+# Should show: tenants, users, vendors, leads, etc.
+```
 
-#### C. Form Source Identification
-Set form names to help with service classification:
-- `boat-detailing`
-- `engine-repair`
-- `yacht-welding`
-- `ac-repair`
-- etc.
+---
 
-## 🧪 Testing Checklist
+## Email & 2FA Setup
 
-### Pre-Deployment Tests
-- [ ] GHL API connection works
-- [ ] Vendor detection finds your vendors
-- [ ] Service classification works correctly
-- [ ] Lead processing creates contacts
-- [ ] Webhook server responds to requests
+### Gmail Configuration
 
-### Post-Deployment Tests
-- [ ] Webhook URL is accessible from internet
-- [ ] SSL certificate is working
-- [ ] Form submissions create leads in GHL
-- [ ] Leads are assigned to correct vendors
-- [ ] Vendor assignment timestamps update
+1. **Enable 2-Step Verification**
+   - Go to Google Account settings
+   - Security → 2-Step Verification
+   - Enable and configure
 
-## 🔧 Troubleshooting
+2. **Generate App Password**
+   - Security → App passwords
+   - Select "Mail"
+   - Generate password
+   - Copy to `.env` as `SMTP_PASSWORD`
+
+3. **Test Email Configuration**
+```bash
+python test_scripts/test_email_direct.py
+```
+
+### Custom SMTP Configuration
+
+For other email providers, update `.env`:
+```env
+SMTP_HOST=mail.yourdomain.com
+SMTP_PORT=465  # or 587 for TLS
+SMTP_USERNAME=noreply@yourdomain.com
+SMTP_PASSWORD=your_password
+SMTP_USE_TLS=true  # or false for SSL
+```
+
+---
+
+## Application Deployment
+
+### Development Mode
+
+```bash
+# Start the application
+python main_working_final.py
+
+# Application will be available at:
+# - Admin Dashboard: http://localhost:8000/admin
+# - API Docs: http://localhost:8000/docs
+# - Health Check: http://localhost:8000/health
+```
+
+### Production Mode with Gunicorn
+
+```bash
+# Install Gunicorn
+pip install gunicorn
+
+# Run with Gunicorn
+gunicorn main_working_final:app \
+  --workers 4 \
+  --worker-class uvicorn.workers.UvicornWorker \
+  --bind 0.0.0.0:8000 \
+  --access-logfile /var/log/leadrouter/access.log \
+  --error-logfile /var/log/leadrouter/error.log
+```
+
+### Docker Deployment
+
+```bash
+# Build Docker image
+docker build -t leadrouter:latest .
+
+# Run container
+docker run -d \
+  --name leadrouter \
+  -p 8000:8000 \
+  -v $(pwd)/.env:/app/.env \
+  -v $(pwd)/smart_lead_router.db:/app/smart_lead_router.db \
+  leadrouter:latest
+```
+
+### SystemD Service (Production)
+
+Create `/etc/systemd/system/leadrouter.service`:
+
+```ini
+[Unit]
+Description=Lead Router Pro Application
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/opt/Lead-Router-Pro
+Environment="PATH=/opt/Lead-Router-Pro/venv/bin"
+ExecStart=/opt/Lead-Router-Pro/venv/bin/gunicorn main_working_final:app \
+  --workers 4 \
+  --worker-class uvicorn.workers.UvicornWorker \
+  --bind 0.0.0.0:8000
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Enable and start:
+```bash
+sudo systemctl enable leadrouter
+sudo systemctl start leadrouter
+sudo systemctl status leadrouter
+```
+
+---
+
+## Admin Dashboard Setup
+
+### 1. Access Dashboard
+Navigate to: `http://localhost:8000/admin`
+
+### 2. Login with 2FA
+1. Enter admin credentials
+2. Check email for 2FA code
+3. Enter code to complete login
+
+### 3. Initial Configuration
+
+#### System Health Check
+- Navigate to "System Health" tab
+- Verify all components are green
+- Check GHL connection status
+
+#### Field Reference Generation
+1. Go to "Field Management" tab
+2. Click "Generate Field Reference"
+3. System will sync with GHL
+4. Verify fields are loaded
+
+#### IP Whitelist Setup
+1. Navigate to "Security" tab
+2. Add trusted IP addresses
+3. Enable IP filtering if needed
+
+---
+
+## Vendor Configuration
+
+### 1. Service Categories Setup
+
+Verify service categories are loaded:
+```bash
+python -c "
+from api.services.service_categories import SERVICE_CATEGORIES, LEVEL_3_SERVICES
+print(f'Level 1 Categories: {len(SERVICE_CATEGORIES)}')
+print(f'Categories with Level 3: {len(LEVEL_3_SERVICES)}')
+"
+```
+
+### 2. Vendor Application Widget
+
+Deploy vendor application form:
+
+```html
+<!-- Add to your website -->
+<iframe 
+  src="https://yourdomain.com/vendor-widget" 
+  width="100%" 
+  height="800"
+  frameborder="0">
+</iframe>
+```
+
+### 3. Vendor Approval Workflow
+
+1. Vendor submits application via widget
+2. Admin reviews in dashboard
+3. Approve vendor → Creates GHL user
+4. Vendor receives credentials
+5. Vendor is activated for lead routing
+
+---
+
+## Testing & Validation
+
+### 1. Test Form Submission
+```bash
+curl -X POST http://localhost:8000/api/v1/webhooks/elementor/test \
+  -H "Content-Type: application/json" \
+  -H "X-Webhook-API-Key: your_webhook_key" \
+  -d '{
+    "firstName": "Test",
+    "lastName": "User",
+    "email": "test@example.com",
+    "phone": "555-0100",
+    "service_requested": "Boat Detailing",
+    "zip_code": "33139"
+  }'
+```
+
+### 2. Test Vendor Matching
+```bash
+python test_scripts/test_vendor_matching.py
+```
+
+### 3. Test GHL Integration
+```bash
+python test_scripts/test_ghl_connection.py
+```
+
+### 4. Load Testing
+```bash
+# Install locust
+pip install locust
+
+# Run load test
+locust -f test_scripts/load_test.py --host=http://localhost:8000
+```
+
+---
+
+## Production Deployment
+
+### 1. Domain Configuration
+
+#### Nginx Reverse Proxy
+```nginx
+server {
+    listen 80;
+    server_name api.yourdomain.com;
+    
+    location / {
+        proxy_pass http://localhost:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+#### SSL with Let's Encrypt
+```bash
+sudo apt-get install certbot python3-certbot-nginx
+sudo certbot --nginx -d api.yourdomain.com
+```
+
+### 2. Environment Hardening
+
+```bash
+# Set production environment
+export APP_ENV=production
+export APP_DEBUG=false
+
+# Restrict file permissions
+chmod 600 .env
+chmod 700 /opt/Lead-Router-Pro
+
+# Create non-root user
+useradd -m -s /bin/bash leadrouter
+chown -R leadrouter:leadrouter /opt/Lead-Router-Pro
+```
+
+### 3. Monitoring Setup
+
+#### Health Check Monitoring
+```bash
+# Add to crontab
+*/5 * * * * curl -f http://localhost:8000/health || systemctl restart leadrouter
+```
+
+#### Log Rotation
+Create `/etc/logrotate.d/leadrouter`:
+```
+/var/log/leadrouter/*.log {
+    daily
+    missingok
+    rotate 30
+    compress
+    delaycompress
+    notifempty
+    create 640 www-data www-data
+    sharedscripts
+    postrotate
+        systemctl reload leadrouter
+    endscript
+}
+```
+
+### 4. Backup Strategy
+
+```bash
+# Daily database backup
+0 2 * * * sqlite3 /opt/Lead-Router-Pro/smart_lead_router.db ".backup /backup/leadrouter-$(date +\%Y\%m\%d).db"
+
+# Weekly full backup
+0 3 * * 0 tar -czf /backup/leadrouter-full-$(date +\%Y\%m\%d).tar.gz /opt/Lead-Router-Pro
+```
+
+---
+
+## Troubleshooting
 
 ### Common Issues
 
-#### 1. "No vendors found"
-**Cause:** Vendor contacts missing required fields
-**Solution:** 
-- Check vendor contacts have `services_provided` field
-- Ensure `taking_new_work` is set to "Yes"
-- Verify `service_zip_codes` are populated
-
-#### 2. "Service type not classified"
-**Cause:** Form data doesn't match service mappings
-**Solution:**
-- Check form field names match expected values
-- Add custom mappings in `lead_router.py`
-- Verify form source names
-
-#### 3. "Failed to create contact"
-**Cause:** GHL API issues or missing required fields
-**Solution:**
-- Check GHL API credentials
-- Verify required fields (name, email) are present
-- Check GHL API rate limits
-
-#### 4. "Webhook not receiving data"
-**Cause:** Network/firewall issues
-**Solution:**
-- Check server is running on correct port
-- Verify firewall allows incoming connections
-- Test with curl or Postman
-
-### Debug Commands
+#### Port Already in Use
 ```bash
-# Check service status
-systemctl status lead-router
-
-# View logs
-tail -f /var/log/lead-router/webhook.log
-
-# Test webhook locally
-python test_system.py
-
-# Check nginx configuration
-nginx -t
-
-# Restart services
-systemctl restart lead-router nginx
+# Find process using port 8000
+lsof -i :8000
+# Kill process
+kill -9 <PID>
 ```
 
-## 📊 Monitoring & Maintenance
-
-### Key Metrics to Monitor
-- Lead processing success rate
-- Vendor assignment distribution
-- Response times
-- Error rates
-
-### Regular Maintenance
-- Monitor vendor "taking new work" status
-- Update service mappings as needed
-- Review and clean up test leads
-- Check system logs for errors
-
-## 🔄 Next Steps (Future Enhancements)
-
-### Phase 2 Improvements
-- [ ] Vendor performance scoring
-- [ ] Advanced service classification (AI)
-- [ ] Customer feedback integration
-- [ ] Analytics dashboard
-- [ ] Mobile notifications for vendors
-
-### Scaling Considerations
-- [ ] Database for lead history
-- [ ] Redis for caching
-- [ ] Load balancing for high traffic
-- [ ] Automated vendor onboarding
-
-## 📞 Support
-
-### System Architecture
-```
-WordPress/Elementor → Webhook → Lead Router → GoHighLevel
-                                     ↓
-                              Vendor Assignment
-                                     ↓
-                              Opportunity Creation
+#### Database Locked
+```bash
+# Check for locks
+fuser smart_lead_router.db
+# Clear locks
+rm smart_lead_router.db-journal
 ```
 
-### Key Files for Customization
-- **Service Mappings:** `lead_router.py` → `_load_service_mappings()`
-- **Vendor Logic:** `lead_router.py` → `find_matching_vendors()`
-- **Form Processing:** `webhook_server.py` → `extract_form_data()`
+#### GHL Connection Failed
+1. Verify API credentials in `.env`
+2. Check IP whitelist in GHL
+3. Test with `curl` to GHL API
+4. Review logs for specific errors
 
-## ✅ Success Criteria
+#### Email/2FA Not Working
+1. Verify SMTP settings
+2. Check app password (not regular password)
+3. Test with `test_scripts/test_email_direct.py`
+4. Check spam folder
 
-Your MVP is successful when:
-- [ ] 90% of form submissions are properly routed
-- [ ] Lead assignment happens within 30 seconds
-- [ ] Vendors receive leads fairly distributed
-- [ ] Zero manual lead routing required
-- [ ] System runs reliably 24/7
+### Debug Mode
 
-## 🎉 Congratulations!
+Enable detailed logging:
+```python
+# In main_working_final.py
+import logging
+logging.basicConfig(level=logging.DEBUG)
+```
 
-You now have a fully functional lead routing system that will:
-1. **Automatically receive** leads from Elementor forms
-2. **Classify service types** based on form data
-3. **Match vendors** by service and location
-4. **Assign leads fairly** using round-robin
-5. **Create contacts and opportunities** in GoHighLevel
-6. **Track assignment history** for reporting
+### Support
 
-The system is ready for production use and will significantly reduce manual lead routing work while ensuring fair distribution to your vendor network.
+For additional help:
+- Check logs: `/var/log/leadrouter/`
+- API Documentation: `/docs`
+- GitHub Issues: Report bugs and feature requests
+- Email: support@leadrouterpro.com
+
+---
+
+## Next Steps
+
+1. **Configure Webhooks**: Set up form integrations
+2. **Add Vendors**: Onboard service providers
+3. **Test Workflows**: Validate end-to-end process
+4. **Monitor Performance**: Set up analytics
+5. **Scale as Needed**: Add workers, upgrade database
+
+---
+
+**Last Updated**: December 2024 | **Version**: 2.0.0

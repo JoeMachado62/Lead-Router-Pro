@@ -1,0 +1,1969 @@
+<!-- Vendor Widget for Elementor HTML Widget -->
+<!-- Instructions: Copy this entire content into an Elementor HTML widget -->
+
+<div id="vendor-survey-widget">
+    <style>
+        /* Scoped styles for vendor widget - prevents conflicts with WordPress/Elementor */
+        #vendor-survey-widget {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.5;
+            max-width: 600px;
+            width: 100%;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            min-height: 500px;
+            position: relative;
+        }
+
+        #vendor-survey-widget * {
+            box-sizing: border-box;
+        }
+
+        /* Header */
+        #vendor-survey-widget .modal-header {
+            background: #4573a8;
+            color: white;
+            padding: 20px 30px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: relative;
+            padding-bottom: 35px;
+        }
+
+        #vendor-survey-widget .header-content {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            flex: 1;
+        }
+
+        #vendor-survey-widget .header-logo {
+            height: 40px;
+            width: auto;
+        }
+
+        #vendor-survey-widget .modal-header h2 {
+            font-size: 22px;
+            font-weight: 600;
+            margin: 0;
+            flex: 1;
+            text-align: center;
+        }
+
+        #vendor-survey-widget .close-button {
+            position: absolute;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            opacity: 0.8;
+            transition: opacity 0.3s;
+        }
+
+        #vendor-survey-widget .close-button:hover {
+            opacity: 1;
+        }
+
+        /* Rope Separator */
+        #vendor-survey-widget .rope-separator {
+            position: absolute;
+            bottom: -3px;
+            left: 0;
+            width: 100%;
+            height: 14px;
+            background-color: transparent;
+            background-image: url('https://dockside.life/static/DSP%20Rope.png');
+            background-repeat: repeat-x;
+            background-position: center;
+            background-size: auto 14px;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        /* Form Container */
+        #vendor-survey-widget .form-container {
+            padding: 30px;
+            background: white;
+            min-height: 400px;
+        }
+
+        /* Form Slides */
+        #vendor-survey-widget .form-slide {
+            display: none;
+            min-height: 350px;
+        }
+
+        #vendor-survey-widget .form-slide.active {
+            display: block;
+        }
+
+        #vendor-survey-widget .slide-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #2c3e50;
+            margin: 0 0 15px 0;
+            text-align: center;
+        }
+
+        #vendor-survey-widget .slide-subtitle {
+            color: #7f8c8d;
+            text-align: center;
+            margin-bottom: 25px;
+            font-size: 14px;
+        }
+
+        /* Form Groups */
+        #vendor-survey-widget .form-group {
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        #vendor-survey-widget .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        #vendor-survey-widget .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #34495e;
+            font-size: 14px;
+        }
+
+        #vendor-survey-widget .form-group input,
+        #vendor-survey-widget .form-group select,
+        #vendor-survey-widget .form-group textarea {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e1e8ed;
+            border-radius: 6px;
+            font-size: 14px;
+            font-family: inherit;
+            transition: border-color 0.3s ease;
+            background: white;
+        }
+
+        #vendor-survey-widget .form-group input:focus,
+        #vendor-survey-widget .form-group select:focus,
+        #vendor-survey-widget .form-group textarea:focus {
+            outline: none;
+            border-color: #4573a8;
+            box-shadow: 0 0 0 3px rgba(69, 115, 168, 0.1);
+        }
+
+        /* Error States */
+        #vendor-survey-widget .form-group.has-error input,
+        #vendor-survey-widget .form-group.has-error select {
+            border-color: #e74c3c;
+        }
+
+        #vendor-survey-widget .field-error {
+            color: #e74c3c;
+            font-size: 12px;
+            margin-top: 5px;
+            display: block;
+        }
+
+        /* Service Tags */
+        #vendor-survey-widget .service-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 15px;
+        }
+
+        #vendor-survey-widget .service-tag {
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            padding: 8px 12px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.3s ease;
+            user-select: none;
+            min-width: 120px;
+            text-align: center;
+        }
+
+        #vendor-survey-widget .service-tag:hover {
+            background: #e3f2fd;
+            border-color: #4573a8;
+        }
+
+        #vendor-survey-widget .service-tag.selected {
+            background: #4573a8;
+            color: white;
+            border-color: #4573a8;
+        }
+
+        /* Category Cards */
+        #vendor-survey-widget .category-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        #vendor-survey-widget .category-card {
+            border: 2px solid #e1e8ed;
+            border-radius: 8px;
+            padding: 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: white;
+        }
+
+        #vendor-survey-widget .category-card:hover {
+            border-color: #4573a8;
+            box-shadow: 0 2px 8px rgba(69, 115, 168, 0.1);
+        }
+
+        #vendor-survey-widget .category-card.selected {
+            border-color: #4573a8;
+            background: #f8fafe;
+        }
+
+        #vendor-survey-widget .category-card h4 {
+            margin: 0 0 8px 0;
+            color: #2c3e50;
+            font-size: 16px;
+        }
+
+        #vendor-survey-widget .category-card p {
+            margin: 0;
+            color: #7f8c8d;
+            font-size: 13px;
+        }
+
+        /* Checkbox Grid */
+        #vendor-survey-widget .checkbox-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin: 15px 0;
+            max-height: 250px;
+            overflow-y: auto;
+            padding: 10px;
+            border: 1px solid #e1e8ed;
+            border-radius: 6px;
+        }
+
+        #vendor-survey-widget .checkbox-item {
+            display: flex;
+            align-items: center;
+            padding: 8px;
+            border-radius: 4px;
+            transition: background-color 0.2s ease;
+        }
+
+        #vendor-survey-widget .checkbox-item:hover {
+            background-color: #f8f9fa;
+        }
+
+        #vendor-survey-widget .checkbox-item input[type="checkbox"] {
+            margin-right: 8px;
+            width: auto;
+        }
+
+        #vendor-survey-widget .checkbox-item label {
+            margin: 0;
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        /* Selection Controls */
+        #vendor-survey-widget .selection-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 6px;
+        }
+
+        #vendor-survey-widget .btn-small {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        #vendor-survey-widget .btn-small:hover {
+            background: #5a6268;
+        }
+
+        /* Navigation Buttons */
+        #vendor-survey-widget .navigation-buttons {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e1e8ed;
+        }
+
+        #vendor-survey-widget .nav-button {
+            background: #4573a8;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        #vendor-survey-widget .nav-button:hover {
+            background: #3d6491;
+            transform: translateY(-1px);
+        }
+
+        #vendor-survey-widget .nav-button.previous {
+            background: #6c757d;
+        }
+
+        #vendor-survey-widget .nav-button.previous:hover {
+            background: #5a6268;
+        }
+
+        #vendor-survey-widget .nav-button.clear {
+            background: #dc3545;
+        }
+
+        #vendor-survey-widget .nav-button.clear:hover {
+            background: #c82333;
+        }
+
+        #vendor-survey-widget .nav-button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Progress Bar */
+        #vendor-survey-widget .progress-container {
+            background: #f8f9fa;
+            padding: 15px 30px;
+            border-bottom: 1px solid #e1e8ed;
+        }
+
+        #vendor-survey-widget .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e1e8ed;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 8px;
+        }
+
+        #vendor-survey-widget .progress-fill {
+            height: 100%;
+            background: #4573a8;
+            border-radius: 4px;
+            transition: width 0.5s ease;
+            width: 11%;
+        }
+
+        #vendor-survey-widget .progress-text {
+            text-align: center;
+            color: #6c757d;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        /* Success Message */
+        #vendor-survey-widget .success-message {
+            text-align: center;
+            padding: 40px 20px;
+        }
+
+        #vendor-survey-widget .success-icon {
+            font-size: 48px;
+            color: #28a745;
+            margin-bottom: 20px;
+        }
+
+        #vendor-survey-widget .success-message h3 {
+            color: #28a745;
+            margin-bottom: 15px;
+        }
+
+        #vendor-survey-widget .success-message p {
+            color: #6c757d;
+            margin-bottom: 0;
+        }
+
+        /* Loading States */
+        #vendor-survey-widget .loading {
+            text-align: center;
+            padding: 30px;
+            color: #6c757d;
+        }
+
+        #vendor-survey-widget .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #4573a8;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Messages */
+        #vendor-survey-widget .message {
+            padding: 12px 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        #vendor-survey-widget .message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        #vendor-survey-widget .message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            #vendor-survey-widget {
+                border-radius: 0;
+                box-shadow: none;
+                margin: 0;
+            }
+
+            #vendor-survey-widget .modal-header {
+                padding: 15px 20px;
+                padding-bottom: 30px;
+            }
+
+            #vendor-survey-widget .modal-header h2 {
+                font-size: 18px;
+            }
+
+            #vendor-survey-widget .form-container {
+                padding: 20px;
+            }
+
+            #vendor-survey-widget .form-row {
+                grid-template-columns: 1fr;
+                gap: 10px;
+            }
+
+            #vendor-survey-widget .category-cards {
+                grid-template-columns: 1fr;
+                gap: 10px;
+            }
+
+            #vendor-survey-widget .service-tag {
+                min-width: 100px;
+                font-size: 12px;
+                padding: 6px 10px;
+            }
+
+            #vendor-survey-widget .navigation-buttons {
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            #vendor-survey-widget .nav-button {
+                width: 100%;
+                justify-content: center;
+            }
+
+            #vendor-survey-widget .checkbox-grid {
+                grid-template-columns: 1fr;
+                max-height: 200px;
+            }
+
+            #vendor-survey-widget .progress-container {
+                padding: 10px 20px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            #vendor-survey-widget .service-tags {
+                gap: 5px;
+            }
+
+            #vendor-survey-widget .service-tag {
+                min-width: 80px;
+                font-size: 11px;
+                padding: 5px 8px;
+            }
+        }
+    </style>
+
+    <!-- Progress Bar -->
+    <div class="progress-container">
+        <div class="progress-bar">
+            <div class="progress-fill" id="progress-fill"></div>
+        </div>
+        <div class="progress-text" id="progress-text">Step 1 of 9</div>
+    </div>
+
+    <!-- Header -->
+    <div class="modal-header">
+        <div class="rope-separator"></div>
+        <div class="header-content">
+            <img src="https://dockside.life/static/DSP%20Rope.png" alt="DocksidePros" class="header-logo">
+            <h2>Marine Vendor Application</h2>
+        </div>
+        <button type="button" class="close-button" onclick="closeWidget()" aria-label="Close">×</button>
+    </div>
+
+    <!-- Form Container -->
+    <div class="form-container">
+        <form id="vendorSurveyForm" action="https://dockside.life/api/v1/webhooks/elementor/vendor_application_v2" method="POST">
+                
+                <!-- Slide 1: Welcome -->
+                <div class="form-slide active" id="slide-1">
+                    <h3 class="slide-title">Welcome to Our Marine Vendor Network!</h3>
+                    <p style="text-align: center; color: #7f8c8d; margin-bottom: 30px;">
+                        Join thousands of marine service providers connecting with boat owners nationwide. 
+                        This application takes about 5 minutes to complete.
+                    </p>
+                    
+                    <div style="background: #f8fafe; padding: 20px; border-radius: 8px; border-left: 4px solid #4573a8; margin-bottom: 25px;">
+                        <h4 style="margin: 0 0 10px 0; color: #4573a8;">What You'll Get:</h4>
+                        <ul style="margin: 0; padding-left: 20px; color: #2c3e50;">
+                            <li>Direct leads from qualified customers</li>
+                            <li>Increased visibility in your service area</li>
+                            <li>Professional business profile</li>
+                            <li>Tools to grow your marine service business</li>
+                        </ul>
+                    </div>
+
+                    <div class="navigation-buttons" style="justify-content: center;">
+                        <button type="button" class="nav-button next" onclick="window.nextSlide(1)">
+                            Get Started <span>→</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Slide 2: Company Information -->
+                <div class="form-slide" id="slide-2">
+                    <h3 class="slide-title">Tell Us About Your Business</h3>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="company_name">Company Name *</label>
+                            <input type="text" id="company_name" name="company_name" required placeholder="Your Business Name">
+                            <span class="field-error"></span>
+                        </div>
+                        <div class="form-group">
+                            <label for="contact_name">Contact Name *</label>
+                            <input type="text" id="contact_name" name="contact_name" required placeholder="Your Full Name">
+                            <span class="field-error"></span>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="email">Email Address *</label>
+                            <input type="email" id="email" name="email" required placeholder="your@email.com">
+                            <span class="field-error"></span>
+                        </div>
+                        <div class="form-group">
+                            <label for="phone">Phone Number *</label>
+                            <input type="tel" id="phone" name="phone" required placeholder="(555) 123-4567">
+                            <span class="field-error"></span>
+                        </div>
+                    </div>
+
+                    <div class="navigation-buttons">
+                        <button type="button" class="nav-button previous" onclick="window.prevSlide(2)">
+                            <span>←</span> Previous
+                        </button>
+                        <button type="button" class="nav-button next" onclick="window.nextSlide(2)">
+                            Next <span>→</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Slide 3: Business Details -->
+                <div class="form-slide" id="slide-3">
+                    <h3 class="slide-title">Business Details</h3>
+                    
+                    <div class="form-group">
+                        <label for="business_address">Business Address *</label>
+                        <input type="text" id="business_address" name="business_address" required placeholder="123 Harbor Lane">
+                        <span class="field-error"></span>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="city">City *</label>
+                            <input type="text" id="city" name="city" required placeholder="Miami">
+                            <span class="field-error"></span>
+                        </div>
+                        <div class="form-group">
+                            <label for="state">State *</label>
+                            <select id="state" name="state" required>
+                                <option value="">Select State</option>
+                                <!-- States will be populated by JavaScript -->
+                            </select>
+                            <span class="field-error"></span>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="zip_code">ZIP Code *</label>
+                            <input type="text" id="zip_code" name="zip_code" required placeholder="33101" pattern="[0-9]{5}(-[0-9]{4})?">
+                            <span class="field-error"></span>
+                        </div>
+                        <div class="form-group">
+                            <label for="website_url">Website URL</label>
+                            <input type="url" id="website_url" name="website_url" placeholder="https://yourwebsite.com">
+                            <span class="field-error"></span>
+                        </div>
+                    </div>
+
+                    <div class="navigation-buttons">
+                        <button type="button" class="nav-button previous" onclick="window.prevSlide(3)">
+                            <span>←</span> Previous
+                        </button>
+                        <button type="button" class="nav-button clear" onclick="clearCurrentSlideAndAfter()">
+                            Clear Form
+                        </button>
+                        <button type="button" class="nav-button next" onclick="window.nextSlide(3)">
+                            Next <span>→</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Slide 4: Primary Service Category -->
+                <div class="form-slide" id="slide-4">
+                    <h3 class="slide-title">What Main Service Does Your Company Offer?</h3>
+                    
+                    <div class="form-group">
+                        <select id="primary_service_category" name="primary_service_category" placeholder="Select Your Main Service" required>
+                            <option value="">Select Your Main Service</option>
+                            <option value="Boat and Yacht Repair">Boat and Yacht Repair</option>
+                            <option value="Boat Maintenance">Boat Maintenance</option>
+                            <option value="Marine Systems">Marine Systems</option>
+                            <option value="Engines and Generators">Engines and Generators</option>
+                            <option value="Boat Towing">Boat Towing</option>
+                            <option value="Boater Resources">Boater Resources</option>
+                            <option value="Buying or Selling a Boat">Buying or Selling a Boat</option>
+                            <option value="Docks, Seawalls and Lifts">Docks, Seawalls and Lifts</option>
+                            <option value="Dock and Slip Rental">Dock and Slip Rental</option>
+                            <option value="Fuel Delivery">Fuel Delivery</option>
+                            <option value="Boat Charters and Rentals">Boat Charters and Rentals</option>
+                            <option value="Boat Hauling and Yacht Delivery">Boat Hauling and Yacht Delivery</option>
+                            <option value="Maritime Education and Training">Maritime Education and Training</option>
+                            <option value="Yacht Management">Yacht Management</option>
+                            <option value="Waterfront Property">Waterfront Property</option>
+                            <option value="Wholesale or Dealer Product Pricing">Wholesale or Dealer Product Pricing</option>
+                        </select>
+                        <span class="field-error"></span>
+                    </div>
+
+                    <!-- Primary Services Section (Hidden by default) -->
+                    <div id="primary-services-section" style="display: none; margin-top: 20px;">
+                        <h4 style="color: #2c3e50; margin-bottom: 15px;">Select Your Specific Services:</h4>
+                        <div id="primary-services-container" class="service-tags">
+                            <!-- Services will be populated here -->
+                        </div>
+                    </div>
+
+                    <div class="navigation-buttons">
+                        <button type="button" class="nav-button previous" onclick="window.prevSlide(4)">
+                            <span>←</span> Previous
+                        </button>
+                        <button type="button" class="nav-button clear" onclick="clearCurrentSlideAndAfter()">
+                            Clear Form
+                        </button>
+                        <button type="button" class="nav-button next" onclick="window.nextSlide(4)">
+                            Next <span>→</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Slide 5: Additional Categories -->
+                <div class="form-slide" id="slide-5">
+                    <h3 class="slide-title">Do You Offer Any Additional Services?</h3>
+                    <p class="slide-subtitle">You may select up to 2 additional categories (optional)</p>
+                    
+                    <div id="additional-categories-container" class="category-cards">
+                        <!-- Categories will be populated here -->
+                    </div>
+
+                    <div class="navigation-buttons">
+                        <button type="button" class="nav-button previous" onclick="window.prevSlide(5)">
+                            <span>←</span> Previous
+                        </button>
+                        <button type="button" class="nav-button clear" onclick="clearCurrentSlideAndAfter()">
+                            Clear Form
+                        </button>
+                        <button type="button" class="nav-button next" onclick="window.nextSlide(5)">
+                            Next <span>→</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Slide 6: Additional Services (if applicable) -->
+                <div class="form-slide" id="slide-6">
+                    <h3 class="slide-title">Select Services from Your Additional Categories</h3>
+                    
+                    <div id="additional-services-container">
+                        <!-- Additional services will be populated here -->
+                    </div>
+
+                    <div class="navigation-buttons">
+                        <button type="button" class="nav-button previous" onclick="window.prevSlide(6)">
+                            <span>←</span> Previous
+                        </button>
+                        <button type="button" class="nav-button clear" onclick="clearCurrentSlideAndAfter()">
+                            Clear Form
+                        </button>
+                        <button type="button" class="nav-button next" onclick="window.nextSlide(6)">
+                            Next <span>→</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Slide 7: Coverage Area -->
+                <div class="form-slide" id="slide-7">
+                    <h3 class="slide-title">Where Do You Provide Services?</h3>
+                    
+                    <div class="form-group">
+                        <label for="coverage_type">Coverage Type</label>
+                        <select id="coverage_type" name="coverage_type" required>
+                            <option value="">Select Coverage Type</option>
+                            <option value="global">Global - Worldwide Service</option>
+                            <option value="national">National - All United States</option>
+                            <option value="state">State - Specific States</option>
+                            <option value="county">County - Specific Counties</option>
+                            <option value="zip">ZIP Codes - Specific Areas</option>
+                        </select>
+                        <span class="field-error"></span>
+                    </div>
+
+                    <div id="coverage-details" style="display: none; margin: 0 -10px; padding: 0 10px;">
+                        <!-- Coverage type specific inputs -->
+                        <input type="hidden" id="service_coverage_area" name="service_coverage_area">
+                        
+                        <!-- State Selection -->
+                        <div id="stateSelectionContainer" style="display: none;">
+                            <div class="selection-controls">
+                                <button type="button" class="btn-small" onclick="selectAllStates()">Select All</button>
+                                <button type="button" class="btn-small" onclick="clearAllStates()">Clear All</button>
+                                <span id="state-count">0 selected</span>
+                            </div>
+                            <div class="checkbox-grid" id="state-checkboxes">
+                                <!-- State checkboxes will be populated here -->
+                            </div>
+                        </div>
+
+                        <!-- County Selection -->
+                        <div id="countyInputGroup" style="display: none; margin: 0 -10px; padding: 0 10px;">
+                            <div class="form-group">
+                                <label for="county_state_selector">Select State First</label>
+                                <select id="county_state_selector" style="width: 100%;">
+                                    <option value="">Select State</option>
+                                    <!-- States will be populated -->
+                                </select>
+                            </div>
+                            <div id="county-loading" style="display: none; text-align: center; padding: 30px; background: #f9f9f9; border: 1px solid #ddd; border-radius: 6px; margin: 10px 0;">
+                                <div style="color: #666;">Loading counties...</div>
+                            </div>
+                            <div id="county-checkboxes-container" style="display: none;">
+                                <div class="selection-controls">
+                                    <span id="county-count">0 counties selected</span>
+                                </div>
+                                <div class="checkbox-grid" id="county-checkboxes">
+                                    <!-- County checkboxes will be populated here -->
+                                </div>
+                            </div>
+                            <div id="county-error" style="display: none; color: #e74c3c; margin-top: 10px; padding: 20px; background: #fee; border: 1px solid #fcc; border-radius: 6px;">
+                                Unable to load counties. Please enter them manually in the field below.
+                            </div>
+                        </div>
+
+                        <!-- ZIP codes -->
+                        <div id="zipInputGroup" style="display: none;">
+                            <div class="form-group">
+                                <label for="service_zip_codes">Enter ZIP Codes (comma-separated)</label>
+                                <input type="text" id="service_zip_codes" name="service_zip_codes" placeholder="33101, 33139, 33154">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="navigation-buttons">
+                        <button type="button" class="nav-button previous" onclick="window.prevSlide(7)">
+                            <span>←</span> Previous
+                        </button>
+                        <button type="button" class="nav-button clear" onclick="clearCurrentSlideAndAfter()">
+                            Clear Form
+                        </button>
+                        <button type="button" class="nav-button next" onclick="window.nextSlide(7)">
+                            Next <span>→</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Slide 8: Additional Information -->
+                <div class="form-slide" id="slide-8">
+                    <h3 class="slide-title">Final Details</h3>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="years_in_business">Years in Business</label>
+                            <input type="number" id="years_in_business" name="years_in_business" min="0" placeholder="5">
+                        </div>
+                        <div class="form-group">
+                            <label for="taking_new_work">Taking New Work?</label>
+                            <select id="taking_new_work" name="taking_new_work" required>
+                                <option value="">Please select</option>
+                                <option value="Yes">Yes</option>
+                                <option value="No">No</option>
+                            </select>
+                            <span class="field-error"></span>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="additional_website_url">Additional Website/Social Media</label>
+                        <input type="url" id="additional_website_url" name="additional_website_url" placeholder="https://facebook.com/yourpage">
+                        <span class="field-error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="reviews__google_profile_url">Google Business Profile URL</label>
+                        <input type="url" id="reviews__google_profile_url" name="reviews__google_profile_url" placeholder="https://maps.google.com/your-business">
+                        <span class="field-error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="additional_notes">Additional Notes</label>
+                        <textarea id="additional_notes" name="additional_notes" rows="3" placeholder="Tell us anything else about your business..."></textarea>
+                    </div>
+
+                    <div class="navigation-buttons">
+                        <button type="button" class="nav-button previous" onclick="window.prevSlide(8)">
+                            <span>←</span> Previous
+                        </button>
+                        <button type="button" class="nav-button clear" onclick="clearCurrentSlideAndAfter()">
+                            Clear Form
+                        </button>
+                        <button type="button" class="nav-button next" onclick="window.nextSlide(8)">
+                            Review <span>→</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Slide 9: Review and Submit -->
+                <div class="form-slide" id="slide-9">
+                    <h3 class="slide-title">Review Your Application</h3>
+                    
+                    <div id="review-content" style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 25px;">
+                        <!-- Review content will be populated here -->
+                    </div>
+
+                    <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 6px; margin-bottom: 20px;">
+                        <p style="margin: 0; font-size: 14px; color: #856404;">
+                            <strong>Note:</strong> By submitting this application, you agree to our terms of service and privacy policy. 
+                            We'll review your application and contact you within 2-3 business days.
+                        </p>
+                    </div>
+
+                    <div class="navigation-buttons" style="justify-content: center; gap: 30px;">
+                        <button type="button" class="nav-button previous" onclick="window.prevSlide(9)">
+                            <span>←</span> Back to Edit
+                        </button>
+                        <button type="submit" class="nav-button" id="submit-button">
+                            Submit Application <span>✓</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Hidden form fields for service data -->
+                <input type="hidden" id="primary_services" name="primary_services">
+                <input type="hidden" id="additional_categories" name="additional_categories">
+                <input type="hidden" id="additional_services" name="additional_services">
+
+        </form>
+    </div>
+
+    <script>
+    (function() {
+        'use strict';
+        
+        // Ensure widget only initializes once and avoid conflicts with WordPress
+        if (window.vendorWidgetElementorInitialized) {
+            return;
+        }
+        window.vendorWidgetElementorInitialized = true;
+        
+        // Service Categories Data
+        const SERVICE_CATEGORIES = {
+            "Boat and Yacht Repair": [
+                "Fiberglass Repair",
+                "Welding & Metal Fabrication", 
+                "Carpentry & Woodwork",
+                "Riggers & Masts",
+                "Jet Ski Repair",
+                "Boat Canvas and Upholstery",
+                "Boat Decking and Yacht Flooring"
+            ],
+            "Boat Maintenance": [
+                "Barnacle Cleaning",
+                "Boat and Yacht Maintenance",
+                "Boat Bilge Cleaning",
+                "Boat Bottom Cleaning",
+                "Boat Detailing",
+                "Boat Oil Change",
+                "Boat Wrapping and Marine Protection Film",
+                "Ceramic Coating",
+                "Jet Ski Maintenance",
+                "Yacht Armor",
+                "Yacht Fire Detection Systems"
+            ],
+            "Marine Systems": [
+                "Marine Systems Install and Sales",
+                "Yacht Stabilizers and Seakeepers",
+                "Instrument Panel and Dashboard",
+                "Yacht AC Sales",
+                "Yacht AC Service",
+                "Boat Electrical Service",
+                "Boat Sound Systems",
+                "Yacht Plumbing",
+                "Boat Lighting",
+                "Yacht Refrigeration and Watermakers"
+            ],
+            "Engines and Generators": [
+                "Outboard Engine Service",
+                "Outboard Engine Sales",
+                "Inboard Engine Service",
+                "Inboard Engine Sales",
+                "Diesel Engine Service",
+                "Diesel Engine Sales",
+                "Generator Service and Repair",
+                "Generator Sales"
+            ],
+            "Boat Towing": [
+                "Get Emergency Tow",
+                "Get Towing Membership"
+            ],
+            "Boater Resources": [
+                "Yacht Wi-Fi",
+                "Provisioning",
+                "Boat and Yacht Parts",
+                "Boat Salvage",
+                "Yacht Photography",
+                "Yacht Videography",
+                "Yacht Crew Placement",
+                "Yacht Account Management and Bookkeeping"
+            ],
+            "Buying or Selling a Boat": [
+                "Boat Dealers",
+                "Yacht Dealers",
+                "Boat Surveyors",
+                "Boat Financing",
+                "Boat Builders",
+                "Boat Brokers",
+                "Yacht Brokers",
+                "Yacht Builders",
+                "Boat Insurance",
+                "Yacht Insurance"
+            ],
+            "Docks, Seawalls and Lifts": [
+                "Dock and Seawall Builders or Repair",
+                "Boat Lift Installers",
+                "Floating Dock Sales",
+                "Davit and Hydraulic Platform"
+            ],
+            "Dock and Slip Rental": [
+                "Dock and Slip Rental",
+                "Rent My Dock"
+            ],
+            "Fuel Delivery": [
+                "Fuel Delivery"
+            ],
+            "Boat Charters and Rentals": [
+                "Boat Charters and Rentals",
+                "Boat Clubs",
+                "Fishing Charters",
+                "Yacht and Catamaran Charters",
+                "Sailboat Charters",
+                "eFoil, Kiteboarding & Wing Surfing",
+                "Dive Equipment and Services"
+            ],
+            "Boat Hauling and Yacht Delivery": [
+                "Yacht Delivery",
+                "Boat Hauling and Transport"
+            ],
+            "Maritime Education and Training": [
+                "Maritime Education and Training"
+            ],
+            "Yacht Management": [
+                "Yacht Management"
+            ],
+            "Waterfront Property": [
+                "Waterfront Homes for Sale",
+                "Sell Your Waterfront Home",
+                "Waterfront New Developments"
+            ],
+            "Wholesale or Dealer Product Pricing": [
+                "Wholesale or Dealer Product Pricing"
+            ]
+        };
+
+        // Widget State
+        const widgetState = {
+            primaryCategory: '',
+            primaryServices: new Set(),
+            additionalCategories: new Set(),
+            additionalServices: new Set(),
+            currentSlide: 1,
+            totalSlides: 9,
+            formData: {},
+            coverageType: '',
+            selectedStates: new Set(),
+            selectedCounties: new Set(),
+            selectedZipCodes: '',
+            debugMode: window.location.hostname === 'localhost' || window.location.search.includes('debug=true')
+        };
+
+        // State abbreviations array
+        const states = [
+            {code: 'AL', name: 'Alabama'}, {code: 'AK', name: 'Alaska'}, {code: 'AZ', name: 'Arizona'},
+            {code: 'AR', name: 'Arkansas'}, {code: 'CA', name: 'California'}, {code: 'CO', name: 'Colorado'},
+            {code: 'CT', name: 'Connecticut'}, {code: 'DE', name: 'Delaware'}, {code: 'FL', name: 'Florida'},
+            {code: 'GA', name: 'Georgia'}, {code: 'HI', name: 'Hawaii'}, {code: 'ID', name: 'Idaho'},
+            {code: 'IL', name: 'Illinois'}, {code: 'IN', name: 'Indiana'}, {code: 'IA', name: 'Iowa'},
+            {code: 'KS', name: 'Kansas'}, {code: 'KY', name: 'Kentucky'}, {code: 'LA', name: 'Louisiana'},
+            {code: 'ME', name: 'Maine'}, {code: 'MD', name: 'Maryland'}, {code: 'MA', name: 'Massachusetts'},
+            {code: 'MI', name: 'Michigan'}, {code: 'MN', name: 'Minnesota'}, {code: 'MS', name: 'Mississippi'},
+            {code: 'MO', name: 'Missouri'}, {code: 'MT', name: 'Montana'}, {code: 'NE', name: 'Nebraska'},
+            {code: 'NV', name: 'Nevada'}, {code: 'NH', name: 'New Hampshire'}, {code: 'NJ', name: 'New Jersey'},
+            {code: 'NM', name: 'New Mexico'}, {code: 'NY', name: 'New York'}, {code: 'NC', name: 'North Carolina'},
+            {code: 'ND', name: 'North Dakota'}, {code: 'OH', name: 'Ohio'}, {code: 'OK', name: 'Oklahoma'},
+            {code: 'OR', name: 'Oregon'}, {code: 'PA', name: 'Pennsylvania'}, {code: 'RI', name: 'Rhode Island'},
+            {code: 'SC', name: 'South Carolina'}, {code: 'SD', name: 'South Dakota'}, {code: 'TN', name: 'Tennessee'},
+            {code: 'TX', name: 'Texas'}, {code: 'UT', name: 'Utah'}, {code: 'VT', name: 'Vermont'},
+            {code: 'VA', name: 'Virginia'}, {code: 'WA', name: 'Washington'}, {code: 'WV', name: 'West Virginia'},
+            {code: 'WI', name: 'Wisconsin'}, {code: 'WY', name: 'Wyoming'}
+        ];
+
+        // Debug logger
+        function debugLog(message, data = null) {
+            if (widgetState.debugMode) {
+                console.log(`[Vendor Widget Elementor] ${message}`, data || '');
+            }
+        }
+
+        // Close widget function
+        window.closeWidget = function() {
+            if (confirm('Are you sure you want to close? Your progress will be saved.')) {
+                // For Elementor, we can hide the widget or scroll away
+                const widget = document.getElementById('vendor-survey-widget');
+                if (widget) {
+                    widget.style.display = 'none';
+                }
+            }
+        }
+
+        // Slide Navigation Functions
+        window.nextSlide = function(currentSlideNum) {
+            try {
+                debugLog(`Moving from slide ${currentSlideNum} to next`);
+                
+                // Validate current slide before moving
+                if (!validateCurrentSlide(currentSlideNum)) {
+                    return;
+                }
+                
+                // Special handling for slides that might be skipped
+                let nextSlideNum = currentSlideNum + 1;
+                
+                // Skip slide 6 if no additional categories selected
+                if (currentSlideNum === 5 && widgetState.additionalCategories.size === 0) {
+                    nextSlideNum = 7;
+                }
+                
+                // Hide current slide
+                const currentSlide = document.getElementById(`slide-${currentSlideNum}`);
+                if (!currentSlide) {
+                    console.error(`Current slide not found: slide-${currentSlideNum}`);
+                    return;
+                }
+                currentSlide.classList.remove('active');
+                
+                // Show next slide
+                const nextSlide = document.getElementById(`slide-${nextSlideNum}`);
+                if (nextSlide) {
+                    nextSlide.classList.add('active');
+                    widgetState.currentSlide = nextSlideNum;
+                    updateProgress();
+                    
+                    // Scroll to widget for better UX in Elementor
+                    const widget = document.getElementById('vendor-survey-widget');
+                    if (widget) {
+                        widget.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                } else {
+                    console.error(`Next slide not found: slide-${nextSlideNum}`);
+                }
+            } catch (error) {
+                console.error('Error in nextSlide:', error);
+                debugLog('Navigation error:', error);
+            }
+        }
+
+        window.prevSlide = function(currentSlideNum) {
+            try {
+                debugLog(`Moving from slide ${currentSlideNum} to previous`);
+                
+                // Clear any temporary UI state that might cause issues
+                clearTemporaryUIState();
+                
+                // Clear subsequent form data when going back
+                clearSubsequentFormData(currentSlideNum);
+                
+                // Special handling for slides that might be skipped
+                let prevSlideNum = currentSlideNum - 1;
+                
+                // Skip slide 6 when going back if no additional categories
+                if (currentSlideNum === 7 && widgetState.additionalCategories.size === 0) {
+                    prevSlideNum = 5;
+                }
+                
+                // Hide current slide
+                const currentSlide = document.getElementById(`slide-${currentSlideNum}`);
+                if (!currentSlide) {
+                    console.error(`Current slide not found: slide-${currentSlideNum}`);
+                    return;
+                }
+                currentSlide.classList.remove('active');
+                
+                // Show previous slide
+                const prevSlide = document.getElementById(`slide-${prevSlideNum}`);
+                if (prevSlide) {
+                    prevSlide.classList.add('active');
+                    widgetState.currentSlide = prevSlideNum;
+                    
+                    // Refresh slide-specific UI state
+                    refreshSlideUIState(prevSlideNum);
+                    
+                    updateProgress();
+                    
+                    // Scroll to widget for better UX in Elementor
+                    const widget = document.getElementById('vendor-survey-widget');
+                    if (widget) {
+                        widget.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                } else {
+                    console.error(`Previous slide not found: slide-${prevSlideNum}`);
+                }
+            } catch (error) {
+                console.error('Error in prevSlide:', error);
+                debugLog('Navigation error:', error);
+            }
+        }
+
+        // Validate current slide
+        function validateCurrentSlide(slideNum) {
+            let isValid = true;
+            
+            // Clear previous error messages
+            clearFieldErrors();
+            
+            switch(slideNum) {
+                case 2: // Company information
+                    const requiredFields2 = ['company_name', 'contact_name', 'email', 'phone'];
+                    requiredFields2.forEach(fieldId => {
+                        const field = document.getElementById(fieldId);
+                        if (!field.value.trim()) {
+                            showFieldError(fieldId, 'This field is required');
+                            isValid = false;
+                        } else {
+                            validateField(field);
+                        }
+                    });
+                    break;
+                    
+                case 3: // Business details
+                    const requiredFields3 = ['business_address', 'city', 'state', 'zip_code'];
+                    requiredFields3.forEach(fieldId => {
+                        const field = document.getElementById(fieldId);
+                        if (!field.value.trim()) {
+                            showFieldError(fieldId, 'This field is required');
+                            isValid = false;
+                        } else {
+                            validateField(field);
+                        }
+                    });
+                    break;
+                    
+                case 4: // Primary category
+                    if (!widgetState.primaryCategory) {
+                        showFieldError('primary_service_category', 'Please select your main service category');
+                        isValid = false;
+                    }
+                    if (widgetState.primaryServices.size === 0) {
+                        showMessage('error', 'Please select at least one specific service from your main category');
+                        isValid = false;
+                    }
+                    break;
+                    
+                case 7: // Coverage area
+                    const coverageType = document.getElementById('coverage_type').value;
+                    if (!coverageType) {
+                        showFieldError('coverage_type', 'Please select a coverage type');
+                        isValid = false;
+                    } else {
+                        isValid = validateCoverageArea(coverageType);
+                    }
+                    break;
+                    
+                case 8: // Final details
+                    const takingNewWork = document.getElementById('taking_new_work').value;
+                    if (!takingNewWork) {
+                        showFieldError('taking_new_work', 'Please specify if you are taking new work');
+                        isValid = false;
+                    }
+                    break;
+            }
+            
+            return isValid;
+        }
+
+        // Continue with remaining JavaScript functions...
+        // [The rest of the JavaScript code would continue here with all the existing functionality]
+        // This is getting quite long, so I'll break it into parts...
+
+        // Initialize the widget when DOM is ready
+        function initializeWidget() {
+            debugLog('Initializing vendor survey widget for Elementor');
+            setupEventListeners();
+            populateStateSelectors();
+            updateProgress();
+            loadDraft();
+            debugLog('Widget initialized successfully');
+        }
+
+        // Initialize when DOM is ready - Elementor compatible
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initializeWidget);
+        } else {
+            // Small delay to ensure Elementor has finished loading
+            setTimeout(initializeWidget, 100);
+        }
+
+        // Validate coverage area based on type
+        function validateCoverageArea(coverageType) {
+            let isValid = true;
+            
+            switch(coverageType) {
+                case 'state':
+                    const selectedStates = document.querySelectorAll('#state-checkboxes input[type="checkbox"]:checked');
+                    if (selectedStates.length === 0) {
+                        showMessage('error', 'Please select at least one state');
+                        isValid = false;
+                    }
+                    break;
+                case 'county':
+                    // Check if counties are selected via checkboxes
+                    const selectedCounties = document.querySelectorAll('#county-checkboxes input[type="checkbox"]:checked');
+                    // Or fallback to manual input
+                    const manualCounties = document.getElementById('service_coverage_area').value;
+                    const hasFallbackValue = manualCounties && manualCounties.trim().length > 0;
+                    
+                    if (selectedCounties.length === 0 && !hasFallbackValue) {
+                        showMessage('error', 'Please select counties or enter them manually in the coverage area field');
+                        isValid = false;
+                    }
+                    break;
+                case 'zip':
+                    const zipCodes = document.getElementById('service_zip_codes').value;
+                    if (!zipCodes || zipCodes.trim().length === 0) {
+                        showFieldError('service_zip_codes', 'Please enter at least one ZIP code');
+                        isValid = false;
+                    }
+                    break;
+            }
+            
+            return isValid;
+        }
+
+        // Update progress bar
+        function updateProgress() {
+            const percentage = Math.round((widgetState.currentSlide / widgetState.totalSlides) * 100);
+            const progressFill = document.getElementById('progress-fill');
+            const progressText = document.getElementById('progress-text');
+            
+            if (progressFill) {
+                progressFill.style.width = percentage + '%';
+            }
+            
+            if (progressText) {
+                progressText.textContent = `Step ${widgetState.currentSlide} of ${widgetState.totalSlides}`;
+            }
+        }
+
+        // Setup Event Listeners
+        function setupEventListeners() {
+            // Primary category selection
+            const primaryCategorySelect = document.getElementById('primary_service_category');
+            if (primaryCategorySelect) {
+                primaryCategorySelect.addEventListener('change', handlePrimaryCategorySelection);
+            }
+            
+            // Coverage type selection
+            const coverageTypeSelect = document.getElementById('coverage_type');
+            if (coverageTypeSelect) {
+                coverageTypeSelect.addEventListener('change', handleCoverageTypeChange);
+            }
+            
+            // County state selector
+            const countyStateSelector = document.getElementById('county_state_selector');
+            if (countyStateSelector) {
+                countyStateSelector.addEventListener('change', handleCountyStateSelection);
+            }
+            
+            // Form submission
+            const form = document.getElementById('vendorSurveyForm');
+            if (form) {
+                form.addEventListener('submit', handleSubmit);
+            }
+            
+            // Auto-save draft
+            document.addEventListener('input', saveDraft);
+            document.addEventListener('change', saveDraft);
+            
+            // Add input formatting and validation
+            setupInputFormatting();
+        }
+
+        // Handle primary category selection
+        function handlePrimaryCategorySelection(e) {
+            const category = e.target.value;
+            debugLog('Primary category selected:', category);
+            
+            widgetState.primaryCategory = category;
+            
+            if (category) {
+                renderPrimaryServices(category);
+                document.getElementById('primary-services-section').style.display = 'block';
+            } else {
+                document.getElementById('primary-services-section').style.display = 'none';
+                widgetState.primaryServices.clear();
+            }
+            
+            saveDraft();
+        }
+
+        // Render primary services
+        function renderPrimaryServices(category) {
+            const container = document.getElementById('primary-services-container');
+            if (!container) return;
+            
+            container.innerHTML = '';
+            
+            const services = SERVICE_CATEGORIES[category] || [];
+            services.forEach(service => {
+                const serviceTag = document.createElement('div');
+                serviceTag.className = 'service-tag';
+                serviceTag.textContent = service;
+                serviceTag.dataset.service = service;
+                serviceTag.dataset.type = 'primary';
+                
+                serviceTag.addEventListener('click', function() {
+                    toggleServiceSelection(service, 'primary', serviceTag);
+                });
+                
+                container.appendChild(serviceTag);
+            });
+        }
+
+        // Toggle service selection
+        function toggleServiceSelection(service, type, element) {
+            if (type === 'primary') {
+                if (widgetState.primaryServices.has(service)) {
+                    widgetState.primaryServices.delete(service);
+                    element.classList.remove('selected');
+                } else {
+                    widgetState.primaryServices.add(service);
+                    element.classList.add('selected');
+                }
+            } else {
+                if (widgetState.additionalServices.has(service)) {
+                    widgetState.additionalServices.delete(service);
+                    element.classList.remove('selected');
+                } else {
+                    widgetState.additionalServices.add(service);
+                    element.classList.add('selected');
+                }
+            }
+            
+            saveDraft();
+        }
+
+        // Populate state selectors
+        function populateStateSelectors() {
+            // Populate main state selector
+            const stateSelect = document.getElementById('state');
+            if (stateSelect) {
+                states.forEach(state => {
+                    const option = document.createElement('option');
+                    option.value = state.code;
+                    option.textContent = state.name;
+                    stateSelect.appendChild(option);
+                });
+            }
+            
+            // Populate county state selector
+            const countyStateSelect = document.getElementById('county_state_selector');
+            if (countyStateSelect) {
+                states.forEach(state => {
+                    const option = document.createElement('option');
+                    option.value = state.code;
+                    option.textContent = state.name;
+                    countyStateSelect.appendChild(option);
+                });
+            }
+        }
+
+        // Show field error
+        function showFieldError(fieldId, message) {
+            const field = document.getElementById(fieldId);
+            if (!field) return;
+            
+            const errorSpan = field.parentNode.querySelector('.field-error');
+            if (errorSpan) {
+                errorSpan.textContent = message;
+                field.parentNode.classList.add('has-error');
+            }
+        }
+
+        // Clear field errors
+        function clearFieldErrors() {
+            document.querySelectorAll('.field-error').forEach(error => {
+                error.textContent = '';
+            });
+            
+            document.querySelectorAll('.form-group.has-error').forEach(group => {
+                group.classList.remove('has-error');
+            });
+        }
+
+        // Show message
+        function showMessage(type, text) {
+            // Remove existing messages
+            const existingMessages = document.querySelectorAll('.message');
+            existingMessages.forEach(msg => msg.remove());
+            
+            // Create new message
+            const message = document.createElement('div');
+            message.className = `message ${type}`;
+            message.textContent = text;
+            
+            // Insert at top of current slide
+            const currentSlide = document.querySelector('.form-slide.active');
+            if (currentSlide) {
+                currentSlide.insertBefore(message, currentSlide.firstChild);
+            }
+            
+            // Auto-remove after 5 seconds
+            setTimeout(() => {
+                if (message.parentNode) {
+                    message.remove();
+                }
+            }, 5000);
+        }
+
+        // Handle coverage type change
+        function handleCoverageTypeChange(e) {
+            const coverageType = e.target.value;
+            widgetState.coverageType = coverageType;
+            
+            // Show coverage details section
+            document.getElementById('coverage-details').style.display = coverageType ? 'block' : 'none';
+            
+            // Hide all input groups first
+            document.getElementById('stateSelectionContainer').style.display = 'none';
+            document.getElementById('countyInputGroup').style.display = 'none';
+            document.getElementById('zipInputGroup').style.display = 'none';
+            
+            // Show relevant input group
+            switch(coverageType) {
+                case 'state':
+                    document.getElementById('stateSelectionContainer').style.display = 'block';
+                    renderStateCheckboxes();
+                    break;
+                case 'county':
+                    document.getElementById('countyInputGroup').style.display = 'block';
+                    break;
+                case 'zip':
+                    document.getElementById('zipInputGroup').style.display = 'block';
+                    break;
+            }
+        }
+
+        // Render state checkboxes
+        function renderStateCheckboxes() {
+            const container = document.getElementById('state-checkboxes');
+            if (!container) return;
+            
+            container.innerHTML = '';
+            
+            states.forEach(state => {
+                const checkboxItem = document.createElement('div');
+                checkboxItem.className = 'checkbox-item';
+                
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.id = `state-${state.code}`;
+                checkbox.value = state.code;
+                checkbox.addEventListener('change', updateStateCount);
+                
+                const label = document.createElement('label');
+                label.htmlFor = `state-${state.code}`;
+                label.textContent = state.name;
+                
+                checkboxItem.appendChild(checkbox);
+                checkboxItem.appendChild(label);
+                container.appendChild(checkboxItem);
+            });
+        }
+
+        // Update state count
+        function updateStateCount() {
+            const selectedStates = document.querySelectorAll('#state-checkboxes input[type="checkbox"]:checked');
+            const countElement = document.getElementById('state-count');
+            if (countElement) {
+                countElement.textContent = `${selectedStates.length} selected`;
+            }
+        }
+
+        // Clear temporary UI state
+        function clearTemporaryUIState() {
+            document.querySelectorAll('.field-error').forEach(error => {
+                error.textContent = '';
+            });
+            
+            document.querySelectorAll('.form-group.has-error').forEach(group => {
+                group.classList.remove('has-error');
+            });
+        }
+
+        // Clear subsequent form data when going back
+        function clearSubsequentFormData(currentSlideNum) {
+            debugLog(`Clearing subsequent form data from slide ${currentSlideNum}`);
+            
+            switch(currentSlideNum) {
+                case 4: // Going back from primary category - clear everything after
+                    widgetState.primaryCategory = '';
+                    widgetState.primaryServices.clear();
+                    // Reset the select element to default option
+                    const primaryCategorySelect = document.getElementById('primary_service_category');
+                    if (primaryCategorySelect) {
+                        primaryCategorySelect.value = '';
+                    }
+                    // Clear the services container
+                    const servicesContainer = document.getElementById('primary-services-container');
+                    if (servicesContainer) {
+                        servicesContainer.innerHTML = '';
+                    }
+                    // Fall through to clear additional data
+                case 5: // Going back from additional categories
+                    widgetState.additionalCategories.clear();
+                    widgetState.additionalServices.clear();
+                    // Fall through to clear coverage data
+                case 6: // Going back from additional services
+                case 7: // Going back from coverage area
+                    // Clear coverage area selections
+                    widgetState.coverageType = '';
+                    widgetState.selectedStates.clear();
+                    widgetState.selectedCounties.clear();
+                    widgetState.selectedZipCodes = '';
+                    // Clear form fields
+                    const coverageSelect = document.getElementById('coverage_type');
+                    if (coverageSelect) coverageSelect.value = '';
+                    const zipInput = document.getElementById('service_zip_codes');
+                    if (zipInput) zipInput.value = '';
+                    clearStateCountySelections();
+                    // Fall through to clear final details
+                case 8: // Going back from final details
+                    // Clear final detail fields
+                    const yearsField = document.getElementById('years_in_business');
+                    const takingNewWorkField = document.getElementById('taking_new_work');
+                    const websiteField = document.getElementById('website_url');
+                    const additionalWebsiteField = document.getElementById('additional_website_url');
+                    const notesField = document.getElementById('additional_notes');
+                    const googleProfileField = document.getElementById('reviews__google_profile_url');
+                    
+                    if (yearsField) yearsField.value = '';
+                    if (takingNewWorkField) takingNewWorkField.value = '';
+                    if (websiteField) websiteField.value = '';
+                    if (additionalWebsiteField) additionalWebsiteField.value = '';
+                    if (notesField) notesField.value = '';
+                    if (googleProfileField) googleProfileField.value = '';
+                    break;
+            }
+        }
+
+        // Clear state and county selections
+        function clearStateCountySelections() {
+            // Clear state checkboxes
+            const stateCheckboxes = document.querySelectorAll('#state-checkboxes input[type="checkbox"]');
+            stateCheckboxes.forEach(checkbox => checkbox.checked = false);
+            updateStateCount();
+            
+            // Clear county selections
+            const countyCheckboxes = document.querySelectorAll('#county-checkboxes input[type="checkbox"]');
+            countyCheckboxes.forEach(checkbox => checkbox.checked = false);
+        }
+
+        // Refresh slide UI state
+        function refreshSlideUIState(slideNum) {
+            debugLog('Refreshing UI state for slide:', slideNum);
+            
+            switch(slideNum) {
+                case 4: // Primary category slide
+                    if (widgetState.primaryCategory) {
+                        // Re-render primary services to ensure UI matches state
+                        renderPrimaryServices(widgetState.primaryCategory);
+                        document.getElementById('primary-services-section').style.display = 'block';
+                        
+                        // Restore selected services
+                        setTimeout(() => {
+                            widgetState.primaryServices.forEach(service => {
+                                const serviceTag = document.querySelector(`[data-service="${service}"][data-type="primary"]`);
+                                if (serviceTag) serviceTag.classList.add('selected');
+                            });
+                        }, 50);
+                    } else {
+                        // No primary category selected - ensure UI is reset
+                        const primaryCategorySelect = document.getElementById('primary_service_category');
+                        if (primaryCategorySelect) {
+                            primaryCategorySelect.value = '';
+                        }
+                        const servicesSection = document.getElementById('primary-services-section');
+                        if (servicesSection) {
+                            servicesSection.style.display = 'none';
+                        }
+                        const servicesContainer = document.getElementById('primary-services-container');
+                        if (servicesContainer) {
+                            servicesContainer.innerHTML = '';
+                        }
+                    }
+                    break;
+                    
+                case 7: // Coverage area slide
+                    if (widgetState.coverageType) {
+                        const coverageSelect = document.getElementById('coverage_type');
+                        coverageSelect.value = widgetState.coverageType;
+                        handleCoverageTypeChange({ target: coverageSelect });
+                    }
+                    break;
+            }
+        }
+
+        // Setup input formatting and validation
+        function setupInputFormatting() {
+            // Phone number formatting
+            const phoneInput = document.getElementById('phone');
+            if (phoneInput) {
+                phoneInput.addEventListener('input', function(e) {
+                    let value = e.target.value.replace(/\D/g, '');
+                    if (value.length >= 6) {
+                        value = `(${value.substring(0,3)}) ${value.substring(3,6)}-${value.substring(6,10)}`;
+                    } else if (value.length >= 3) {
+                        value = `(${value.substring(0,3)}) ${value.substring(3)}`;
+                    }
+                    e.target.value = value;
+                });
+            }
+            
+            // Real-time validation
+            const fields = document.querySelectorAll('input, select, textarea');
+            fields.forEach(field => {
+                field.addEventListener('blur', function() {
+                    validateField(this);
+                });
+            });
+        }
+
+        // Validate individual field
+        function validateField(field) {
+            const value = field.value.trim();
+            let isValid = true;
+            let message = '';
+            
+            switch(field.type) {
+                case 'email':
+                    if (value && !isValidEmail(value)) {
+                        isValid = false;
+                        message = 'Please enter a valid email address';
+                    }
+                    break;
+                case 'url':
+                    if (value) {
+                        const urlPattern = /^https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z]{2,}(\.[a-zA-Z]{2,})*\b([-a-zA-Z0-9()@:%_\+.~#?&\/\/=]*)$/;
+                        if (!urlPattern.test(value)) {
+                            isValid = false;
+                            message = 'Please submit valid Link / URL';
+                        }
+                    }
+                    break;
+            }
+            
+            const errorSpan = field.parentNode.querySelector('.field-error');
+            if (errorSpan) {
+                errorSpan.textContent = isValid ? '' : message;
+                field.parentNode.classList.toggle('has-error', !isValid);
+            }
+        }
+
+        // Email validation
+        function isValidEmail(email) {
+            const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            return emailPattern.test(email);
+        }
+
+        // Handle form submission
+        function handleSubmit(e) {
+            e.preventDefault();
+            
+            // Final validation
+            if (!validateCurrentSlide(9)) {
+                return;
+            }
+            
+            // Prepare form data
+            prepareFormData();
+            
+            // Show loading state
+            const submitButton = document.getElementById('submit-button');
+            if (submitButton) {
+                submitButton.disabled = true;
+                submitButton.innerHTML = 'Submitting... <div class="spinner" style="display:inline-block;width:16px;height:16px;margin-left:8px;"></div>';
+            }
+            
+            // Submit form
+            const formData = new FormData(document.getElementById('vendorSurveyForm'));
+            
+            fetch(document.getElementById('vendorSurveyForm').action, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showSuccessMessage();
+                    clearDraft();
+                } else {
+                    throw new Error(data.message || 'Submission failed');
+                }
+            })
+            .catch(error => {
+                console.error('Submission error:', error);
+                showMessage('error', 'There was an error submitting your application. Please try again.');
+                
+                // Reset submit button
+                if (submitButton) {
+                    submitButton.disabled = false;
+                    submitButton.innerHTML = 'Submit Application <span>✓</span>';
+                }
+            });
+        }
+
+        // Prepare form data for submission
+        function prepareFormData() {
+            // Set hidden fields with service data
+            document.getElementById('primary_services').value = Array.from(widgetState.primaryServices).join(', ');
+            document.getElementById('additional_categories').value = Array.from(widgetState.additionalCategories).join(', ');
+            document.getElementById('additional_services').value = Array.from(widgetState.additionalServices).join(', ');
+            
+            // Handle coverage area data
+            const coverageArea = prepareCoverageAreaData();
+            document.getElementById('service_coverage_area').value = coverageArea;
+        }
+
+        // Prepare coverage area data
+        function prepareCoverageAreaData() {
+            const coverageType = widgetState.coverageType;
+            
+            switch(coverageType) {
+                case 'global':
+                    return 'Worldwide';
+                case 'national':
+                    return 'United States';
+                case 'state':
+                    const selectedStates = Array.from(document.querySelectorAll('#state-checkboxes input:checked')).map(cb => cb.value);
+                    return selectedStates.join(', ');
+                case 'county':
+                    const selectedCounties = Array.from(document.querySelectorAll('#county-checkboxes input:checked')).map(cb => cb.value);
+                    return selectedCounties.length > 0 ? selectedCounties.join(', ') : document.getElementById('service_coverage_area').value;
+                case 'zip':
+                    return document.getElementById('service_zip_codes').value;
+                default:
+                    return '';
+            }
+        }
+
+        // Show success message
+        function showSuccessMessage() {
+            const formContainer = document.querySelector('.form-container');
+            if (formContainer) {
+                formContainer.innerHTML = `
+                    <div class="success-message">
+                        <div class="success-icon">✓</div>
+                        <h3>Application Submitted Successfully!</h3>
+                        <p>Thank you for joining our marine vendor network. We'll review your application and contact you within 2-3 business days.</p>
+                        <p>You'll receive a confirmation email shortly at the address you provided.</p>
+                    </div>
+                `;
+            }
+        }
+
+        // Draft management functions
+        function saveDraft() {
+            // Implementation for saving draft data
+            debugLog('Saving draft...');
+        }
+
+        function loadDraft() {
+            // Implementation for loading draft data
+            debugLog('Loading draft...');
+        }
+
+        function clearDraft() {
+            // Implementation for clearing draft data
+            debugLog('Clearing draft...');
+        }
+
+        // Clear form from current slide onwards
+        window.clearCurrentSlideAndAfter = function() {
+            const currentSlide = widgetState.currentSlide;
+            
+            if (confirm('This will clear all information from this step onwards. Are you sure?')) {
+                debugLog(`Clearing form from slide ${currentSlide} onwards`);
+                
+                // Use the same logic as going back but for current slide
+                clearSubsequentFormData(currentSlide);
+                
+                // Refresh the current slide UI
+                refreshSlideUIState(currentSlide);
+                
+                // Show success message
+                showMessage('success', 'Form cleared successfully! You can start fresh from this step.');
+            }
+        }
+
+        // Utility functions for coverage area
+        window.selectAllStates = function() {
+            const checkboxes = document.querySelectorAll('#state-checkboxes input[type="checkbox"]');
+            checkboxes.forEach(checkbox => checkbox.checked = true);
+            updateStateCount();
+        }
+
+        window.clearAllStates = function() {
+            const checkboxes = document.querySelectorAll('#state-checkboxes input[type="checkbox"]');
+            checkboxes.forEach(checkbox => checkbox.checked = false);
+            updateStateCount();
+        }
+
+        // County state selection handler
+        function handleCountyStateSelection(e) {
+            const stateCode = e.target.value;
+            if (!stateCode) return;
+            
+            // Show loading
+            document.getElementById('county-loading').style.display = 'block';
+            document.getElementById('county-checkboxes-container').style.display = 'none';
+            document.getElementById('county-error').style.display = 'none';
+            
+            // Fetch counties for the selected state
+            fetch(`https://dockside.life/api/v1/admin/counties/${stateCode}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.counties) {
+                        renderCountyCheckboxes(data.counties);
+                        document.getElementById('county-loading').style.display = 'none';
+                        document.getElementById('county-checkboxes-container').style.display = 'block';
+                    } else {
+                        throw new Error('Failed to load counties');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading counties:', error);
+                    document.getElementById('county-loading').style.display = 'none';
+                    document.getElementById('county-error').style.display = 'block';
+                });
+        }
+
+        // Render county checkboxes
+        function renderCountyCheckboxes(counties) {
+            const container = document.getElementById('county-checkboxes');
+            if (!container) return;
+            
+            container.innerHTML = '';
+            
+            counties.forEach(county => {
+                const checkboxItem = document.createElement('div');
+                checkboxItem.className = 'checkbox-item';
+                
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.id = `county-${county.fips}`;
+                checkbox.value = county.name;
+                checkbox.addEventListener('change', updateCountyCount);
+                
+                const label = document.createElement('label');
+                label.htmlFor = `county-${county.fips}`;
+                label.textContent = county.name;
+                
+                checkboxItem.appendChild(checkbox);
+                checkboxItem.appendChild(label);
+                container.appendChild(checkboxItem);
+            });
+        }
+
+        // Update county count
+        function updateCountyCount() {
+            const selectedCounties = document.querySelectorAll('#county-checkboxes input[type="checkbox"]:checked');
+            const countElement = document.getElementById('county-count');
+            if (countElement) {
+                countElement.textContent = `${selectedCounties.length} counties selected`;
+            }
+        }
+
+    })();
+    </script>
+</div>

@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Vendor Widget Level 3 Services - Interactive</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        h1 {
+            color: #4573a8;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        iframe {
+            width: 100%;
+            height: 800px;
+            border: 2px solid #4573a8;
+            border-radius: 8px;
+        }
+        .info-box {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+        .info-box h3 {
+            margin-top: 0;
+            color: #1976d2;
+        }
+        .info-box ul {
+            margin: 10px 0;
+        }
+        .info-box li {
+            margin: 5px 0;
+        }
+        .badge {
+            background: #ff6600;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: bold;
+            display: inline-block;
+            margin-left: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Interactive Test: Vendor Widget with Level 3 Services</h1>
+    
+    <div class="info-box">
+        <h3>✅ Level 3 Services Feature Added!</h3>
+        <p>The vendor widget now includes comprehensive Level 3 services for fine-grained vendor control:</p>
+        <ul>
+            <li><strong>Orange badges</strong> <span class="badge">5</span> show the count of Level 3 services available</li>
+            <li><strong>Click services with badges</strong> to open a modal for specific service selection</li>
+            <li><strong>All Level 3 services are pre-selected</strong> - vendors uncheck what they DON'T offer</li>
+            <li><strong>16 main categories</strong> with complete subcategories and 300+ Level 3 services</li>
+        </ul>
+        
+        <h3>Test Instructions:</h3>
+        <ol>
+            <li>Select "Boat and Yacht Repair" as primary category</li>
+            <li>Click on "Fiberglass Repair" (it should have an orange badge with "6")</li>
+            <li>The Level 3 modal should open with 6 specific services</li>
+            <li>Try unchecking some services and click "Done"</li>
+            <li>Continue with the form to see the complete flow</li>
+        </ol>
+    </div>
+    
+    <div class="test-container">
+        <h2>Vendor Application Form</h2>
+        <iframe src="/vendor-widget" frameborder="0"></iframe>
+    </div>
+    
+    <div class="info-box">
+        <h3>What's Been Updated:</h3>
+        <ul>
+            <li>✅ SERVICE_CATEGORIES data structure now includes level3Services</li>
+            <li>✅ Service badges showing Level 3 count</li>
+            <li>✅ Modal popup for Level 3 service selection</li>
+            <li>✅ Level 3 services saved in widgetState</li>
+            <li>✅ Form submission includes Level 3 services data</li>
+            <li>✅ Draft saving/loading includes Level 3 selections</li>
+            <li>✅ Clear form functionality updated for Level 3</li>
+        </ul>
+    </div>
+</body>
+</html>

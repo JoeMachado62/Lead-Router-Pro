@@ -331,6 +331,30 @@ class GoHighLevelAPI:
                 "message": f"Exception occurred: {str(e)}"
             }
     
+    def get_opportunities_by_contact(self, contact_id: str) -> List[Dict]:
+        """Get opportunities for a specific contact"""
+        try:
+            url = f"{self.base_url}/opportunities"
+            params = {
+                "contactId": contact_id,
+                "locationId": self.location_id
+            }
+            
+            response = self._make_request_with_fallback("GET", url, params=params)
+            
+            if response.status_code == 200:
+                data = response.json()
+                opportunities = data.get('opportunities', [])
+                logger.info(f"Found {len(opportunities)} opportunities for contact {contact_id}")
+                return opportunities
+            else:
+                logger.error(f"Failed to get opportunities for contact: {response.status_code}")
+                return []
+                
+        except Exception as e:
+            logger.exception(f"Exception getting opportunities for contact: {str(e)}")
+            return []
+    
     def update_opportunity(self, opportunity_id: str, update_data: Dict) -> bool:
         """Update opportunity in GHL with fallback authentication"""
         try:

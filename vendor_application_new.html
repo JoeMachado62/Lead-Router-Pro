@@ -1,0 +1,2048 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vendor Survey - Lead Router Pro</title>
+    <style>
+        /* Reset and Base Styles - Scoped to widget container */
+        #vendor-survey-widget * {
+            box-sizing: border-box;
+        }
+        
+        #vendor-survey-widget {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.5;
+        }
+
+        /* Modal Container */
+        #vendor-survey-widget {
+            max-width: 600px;
+            width: 100%;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            min-height: 500px;
+            position: relative;
+        }
+        
+        /* Ensure body has no margin when in iframe */
+        body {
+            margin: 0;
+            padding: 0;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        /* Header */
+        .modal-header {
+            background: #4573a8;
+            color: white;
+            padding: 20px 30px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: relative;
+            padding-bottom: 35px;
+        }
+
+        .header-content {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            flex: 1;
+        }
+
+        .header-logo {
+            height: 40px;
+            width: auto;
+        }
+
+        .modal-header h2 {
+            font-size: 22px;
+            font-weight: 600;
+            margin: 0;
+            flex: 1;
+            text-align: center;
+        }
+
+        .close-button {
+            position: absolute;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            opacity: 0.8;
+            transition: opacity 0.3s;
+        }
+
+        .close-button:hover {
+            opacity: 1;
+        }
+
+        /* Rope Separator */
+        .rope-separator {
+            position: absolute;
+            bottom: -3px;
+            left: 0;
+            width: 100%;
+            height: 14px;
+            background-color: transparent;
+            background-image: url('https://dockside.life/static/DSP%20Rope.png');
+            background-repeat: repeat-x;
+            background-position: center;
+            background-size: auto 14px;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        /* Progress Bar */
+        .progress-container {
+            background: #e0e0e0;
+            height: 35px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            background: #4573a8;
+            height: 100%;
+            width: 0%;
+            transition: width 0.5s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        /* Content Area */
+        .modal-content {
+            background: #f9f6f2;
+            padding: 40px;
+            min-height: 400px;
+            position: relative;
+        }
+
+        /* Slide Container */
+        .form-slide {
+            display: none;
+        }
+
+        .form-slide.active {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Typography */
+        .slide-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .slide-subtitle {
+            font-size: 16px;
+            color: #666;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        /* Form Elements */
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 14px;
+            color: #555;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        input[type="text"],
+        input[type="email"],
+        input[type="tel"],
+        input[type="url"],
+        input[type="number"],
+        textarea,
+        select {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 16px;
+            font-family: inherit;
+            transition: all 0.3s ease;
+            background: white;
+        }
+
+        input:focus,
+        textarea:focus,
+        select:focus {
+            outline: none;
+            border-color: #4573a8;
+            box-shadow: 0 0 0 3px rgba(69, 115, 168, 0.1);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        /* Tag Selection Styles */
+        .category-container,
+        .services-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .category-tag,
+        .service-tag {
+            padding: 10px 18px;
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 14px;
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .category-tag:hover,
+        .service-tag:hover {
+            border-color: #4573a8;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .category-tag.selected,
+        .service-tag.selected {
+            background: #4573a8;
+            color: white;
+            border-color: #4573a8;
+        }
+
+        /* Orange badge for service count */
+        .service-count-badge {
+            background: #ff6b35;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-left: 5px;
+        }
+
+        .service-tag.selected .service-count-badge {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        /* Navigation Buttons */
+        .navigation-buttons {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 30px;
+            gap: 15px;
+        }
+
+        .nav-button {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .nav-button.prev {
+            background: #e0e0e0;
+            color: #333;
+        }
+
+        .nav-button.prev:hover {
+            background: #d0d0d0;
+        }
+
+        .nav-button.next,
+        .nav-button.submit {
+            background: #4573a8;
+            color: white;
+        }
+
+        .nav-button.next:hover,
+        .nav-button.submit:hover {
+            background: #356291;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .nav-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Success Message */
+        .success-message {
+            text-align: center;
+            padding: 40px;
+        }
+
+        .success-icon {
+            font-size: 60px;
+            color: #4caf50;
+            margin-bottom: 20px;
+        }
+
+        /* County Selection Grid */
+        .county-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 10px;
+            max-height: 300px;
+            overflow-y: auto;
+            padding: 10px;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            background: white;
+            margin-top: 15px;
+        }
+
+        .county-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 5px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .county-checkbox:hover {
+            background: #f0f0f0;
+            border-radius: 4px;
+        }
+
+        .county-checkbox input[type="checkbox"] {
+            cursor: pointer;
+        }
+
+        .county-checkbox label {
+            cursor: pointer;
+            margin: 0;
+            font-size: 14px;
+        }
+
+        /* Additional Categories Section */
+        .additional-category-section {
+            margin-bottom: 25px;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .additional-category-header {
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        /* Level 3 Services Modal */
+        .level3-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .level3-modal.active {
+            display: flex;
+        }
+
+        .level3-modal-content {
+            background: white;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 80vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .level3-modal-header {
+            background: #4573a8;
+            color: white;
+            padding: 20px;
+            position: relative;
+        }
+
+        .level3-modal-header h3 {
+            margin: 0;
+            font-size: 18px;
+        }
+
+        .level3-modal-close {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+        }
+
+        .level3-modal-body {
+            padding: 20px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .level3-service-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .level3-service-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            background: #f9f9f9;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .level3-service-item:hover {
+            background: #f0f0f0;
+        }
+
+        .level3-service-item input[type="checkbox"] {
+            cursor: pointer;
+        }
+
+        .level3-service-item label {
+            cursor: pointer;
+            margin: 0;
+            flex: 1;
+        }
+
+        .level3-modal-footer {
+            padding: 15px 20px;
+            border-top: 1px solid #e0e0e0;
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        .level3-done-button {
+            padding: 10px 25px;
+            background: #4573a8;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .level3-done-button:hover {
+            background: #356291;
+        }
+
+        .level3-info-text {
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 15px;
+            padding: 10px;
+            background: #f0f7ff;
+            border-radius: 6px;
+        }
+    </style>
+</head>
+<body>
+    <div id="vendor-survey-widget">
+        <!-- Header -->
+        <div class="modal-header">
+            <div class="header-content">
+                <img src="https://dockside.life/static/DSP%20Logo.webp" alt="DockSide Pros" class="header-logo">
+                <h2>Join Our Vendor Network</h2>
+            </div>
+            <button class="close-button" onclick="closeModal()">&times;</button>
+            <div class="rope-separator"></div>
+        </div>
+
+        <!-- Progress Bar -->
+        <div class="progress-container">
+            <div class="progress-bar" id="progressBar">
+                <span id="progressText">Step 1 of 6</span>
+            </div>
+        </div>
+
+        <!-- Content Area -->
+        <div class="modal-content">
+            <!-- Slide 1: Company Information -->
+            <div class="form-slide active" id="slide1">
+                <h3 class="slide-title">Company Information</h3>
+                <div class="form-group">
+                    <label for="company_name">Company Name *</label>
+                    <input type="text" id="company_name" name="company_name" required>
+                </div>
+                <div class="form-group">
+                    <label for="contact_name">Primary Contact Name *</label>
+                    <input type="text" id="contact_name" name="contact_name" required>
+                </div>
+                <div class="form-group">
+                    <label for="contact_email">Email Address *</label>
+                    <input type="email" id="contact_email" name="contact_email" required>
+                </div>
+                <div class="form-group">
+                    <label for="contact_phone">Phone Number *</label>
+                    <input type="tel" id="contact_phone" name="contact_phone" required>
+                </div>
+                <div class="form-group">
+                    <label for="website">Company Website</label>
+                    <input type="url" id="website" name="website" placeholder="https://">
+                </div>
+                <div class="navigation-buttons">
+                    <button class="nav-button prev" disabled>Previous</button>
+                    <button class="nav-button next" onclick="nextSlide()">Next</button>
+                </div>
+            </div>
+
+            <!-- Slide 2: Primary Service Category -->
+            <div class="form-slide" id="slide2">
+                <h3 class="slide-title">Primary Service Category</h3>
+                <p class="slide-subtitle">Select your company's main service category</p>
+                <div class="category-container" id="primaryCategoryContainer">
+                    <!-- Categories will be populated dynamically -->
+                </div>
+                <div class="navigation-buttons">
+                    <button class="nav-button prev" onclick="previousSlide()">Previous</button>
+                    <button class="nav-button next" onclick="nextSlide()" disabled id="primaryCategoryNext">Next</button>
+                </div>
+            </div>
+
+            <!-- Slide 3: Primary Services Selection -->
+            <div class="form-slide" id="slide3">
+                <h3 class="slide-title">Select Services in <span id="primaryCategoryName"></span></h3>
+                <p class="slide-subtitle">Choose all services you offer. Click services with badges to select specific sub-services.</p>
+                <div class="services-container" id="primaryServicesContainer">
+                    <!-- Services will be populated dynamically -->
+                </div>
+                <div class="navigation-buttons">
+                    <button class="nav-button prev" onclick="previousSlide()">Previous</button>
+                    <button class="nav-button next" onclick="nextSlide()">Next</button>
+                </div>
+            </div>
+
+            <!-- Slide 4: Additional Categories (Optional) -->
+            <div class="form-slide" id="slide4">
+                <h3 class="slide-title">Additional Service Categories (Optional)</h3>
+                <p class="slide-subtitle">Select any additional categories your company services</p>
+                <div class="category-container" id="additionalCategoryContainer">
+                    <!-- Additional categories will be populated dynamically -->
+                </div>
+                <div id="additionalServicesContainer">
+                    <!-- Selected additional categories and their services will appear here -->
+                </div>
+                <div class="navigation-buttons">
+                    <button class="nav-button prev" onclick="previousSlide()">Previous</button>
+                    <button class="nav-button next" onclick="nextSlide()">Next</button>
+                </div>
+            </div>
+
+            <!-- Slide 5: Coverage Area -->
+            <div class="form-slide" id="slide5">
+                <h3 class="slide-title">Service Coverage Area</h3>
+                <div class="form-group">
+                    <label for="coverage_type">Coverage Type *</label>
+                    <select id="coverage_type" name="coverage_type" onchange="updateCoverageOptions()">
+                        <option value="">Select coverage type</option>
+                        <option value="global">Global - Serve All Areas</option>
+                        <option value="national">National - Entire USA</option>
+                        <option value="state">State Level</option>
+                        <option value="county">County Level</option>
+                    </select>
+                </div>
+                
+                <div id="stateSelection" style="display: none;">
+                    <div class="form-group">
+                        <label for="vendor_state">Select State(s) *</label>
+                        <select id="vendor_state" name="vendor_state" onchange="loadCounties()">
+                            <option value="">Select a state</option>
+                            <!-- States will be populated dynamically -->
+                        </select>
+                    </div>
+                </div>
+                
+                <div id="countySelection" style="display: none;">
+                    <div class="form-group">
+                        <label>Select Counties You Service</label>
+                        <div id="countyContainer" class="county-grid">
+                            <!-- Counties will be populated dynamically -->
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="navigation-buttons">
+                    <button class="nav-button prev" onclick="previousSlide()">Previous</button>
+                    <button class="nav-button next" onclick="nextSlide()">Next</button>
+                </div>
+            </div>
+
+            <!-- Slide 6: Additional Information -->
+            <div class="form-slide" id="slide6">
+                <h3 class="slide-title">Additional Information</h3>
+                <div class="form-group">
+                    <label for="years_in_business">Years in Business</label>
+                    <input type="number" id="years_in_business" name="years_in_business" min="0">
+                </div>
+                <div class="form-group">
+                    <label for="certifications">Certifications & Licenses</label>
+                    <textarea id="certifications" name="certifications" placeholder="List any relevant certifications, licenses, or affiliations"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="insurance">Insurance Coverage</label>
+                    <textarea id="insurance" name="insurance" placeholder="Describe your insurance coverage"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="additional_notes">Additional Notes</label>
+                    <textarea id="additional_notes" name="additional_notes" placeholder="Any additional information you'd like to share"></textarea>
+                </div>
+                <div class="navigation-buttons">
+                    <button class="nav-button prev" onclick="previousSlide()">Previous</button>
+                    <button class="nav-button submit" onclick="submitForm()">Submit Application</button>
+                </div>
+            </div>
+
+            <!-- Success Message -->
+            <div class="form-slide" id="successSlide">
+                <div class="success-message">
+                    <div class="success-icon">✓</div>
+                    <h3>Application Submitted Successfully!</h3>
+                    <p>Thank you for joining the DockSide Pros vendor network. We'll review your application and contact you within 48 hours.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Level 3 Services Modal -->
+    <div class="level3-modal" id="level3Modal">
+        <div class="level3-modal-content">
+            <div class="level3-modal-header">
+                <h3 id="level3ModalTitle">Select Specific Services</h3>
+                <button class="level3-modal-close" onclick="closeLevel3Modal()">&times;</button>
+            </div>
+            <div class="level3-modal-body">
+                <div class="level3-info-text">
+                    Please un-check any services you do NOT offer. All services are pre-selected by default.
+                </div>
+                <div id="level3ServicesContainer">
+                    <!-- Dynamic content -->
+                </div>
+            </div>
+            <div class="level3-modal-footer">
+                <button class="level3-done-button" onclick="saveLevel3Services()">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Comprehensive Service Categories with ALL Level 3 Services from DockSidePros.com
+        const SERVICE_CATEGORIES = {
+            "Boat and Yacht Repair": {
+                subcategories: [
+                    "Fiberglass Repair",
+                    "Welding & Metal Fabrication",
+                    "Carpentry & Woodwork",
+                    "Riggers & Masts",
+                    "Jet Ski Repair",
+                    "Boat Canvas and Upholstery",
+                    "Boat Decking and Yacht Flooring"
+                ],
+                level3Services: {
+                    "Fiberglass Repair": [
+                        "Hull Crack or Structural Repair",
+                        "Gelcoat Repair and Color Matching",
+                        "Transom Repair & Reinforcement",
+                        "Deck Delamination & Soft Spot Repair",
+                        "Stringer & Bulkhead Repair",
+                        "Other"
+                    ],
+                    "Welding & Metal Fabrication": [
+                        "Aluminum or Stainless Steel Hull Repairs",
+                        "Custom Railings",
+                        "Ladders or Boarding Equipment",
+                        "T-Tops, Hardtops or Bimini Frames",
+                        "Fuel or Water Tank Fabrication",
+                        "Exhaust, Engine Bed or Structural Reinforcement",
+                        "Other"
+                    ],
+                    "Carpentry & Woodwork": [
+                        "Interior Woodwork and Cabinetry",
+                        "Teak Deck Repair or Replacement",
+                        "Varnishing & Wood Finishing",
+                        "Structural Wood Repairs",
+                        "Custom Furniture or Fixtures",
+                        "Other"
+                    ],
+                    "Riggers & Masts": [
+                        "Standing Rigging Inspection or Replacement",
+                        "Running Rigging Replacement",
+                        "Mast Stepping & Unstepping",
+                        "Mast Repair or Replacement",
+                        "Rig Tuning & Load Testing",
+                        "Fitting & Hardware Inspection",
+                        "Other"
+                    ],
+                    "Jet Ski Repair": [
+                        "Engine Diagnostics & Repair",
+                        "Jet Pump Rebuild or Replacement",
+                        "Fuel Systems Cleaning or Repair",
+                        "Battery or Electrical Repairs",
+                        "Cooling System Flush or Repair",
+                        "General Maintenance",
+                        "Other"
+                    ],
+                    "Boat Canvas and Upholstery": [
+                        "Upholstery",
+                        "Canvas or Sunshade",
+                        "Trim and Finish",
+                        "Boat Cover or T-Top",
+                        "Acrylic or Strataglass Enclosures",
+                        "Other"
+                    ],
+                    "Boat Decking and Yacht Flooring": [
+                        "SeaDek",
+                        "Real Teak Wood",
+                        "Cork",
+                        "Synthetic Teak",
+                        "Vinyl Flooring",
+                        "Tile Flooring",
+                        "Other"
+                    ]
+                }
+            },
+            "Boat Charters and Rentals": {
+                subcategories: [
+                    "Boat Charters and Rentals",
+                    "Boat Clubs",
+                    "Fishing Charters",
+                    "Yacht and Catamaran Charters",
+                    "Sailboat Charters",
+                    "eFoil, Kiteboarding & Wing Surfing",
+                    "Dive Equipment and Services",
+                    "Jet Ski Rental",
+                    "Kayak Rental",
+                    "Paddleboard Rental",
+                    "Pontoon Boat Charter or Rental",
+                    "Party Boat Charter",
+                    "Private Yacht Charter"
+                ],
+                level3Services: {
+                    "Boat Charters and Rentals": [
+                        "Weekly or Monthly Yacht or Catamaran Charter",
+                        "Daily Yacht or Catamaran Charter",
+                        "Sailboat Charter",
+                        "Fishing Charter",
+                        "Party Boat Charter",
+                        "Pontoon Boat Charter or Rental",
+                        "Jet Ski Rental",
+                        "Paddleboard Rental",
+                        "Kayak Rental",
+                        "eFoil, Kiteboarding or Wing Surfing Lessons",
+                        "Boat Club",
+                        "Boat Rental"
+                    ],
+                    "Boat Clubs": [
+                        "Membership Boat Club",
+                        "Yacht Club",
+                        "Private Fractional Ownership Club",
+                        "Sailing Club",
+                        "Luxury Boat Membership Club"
+                    ],
+                    "Fishing Charters": [
+                        "Inshore Fishing Charter",
+                        "Offshore (Deep Sea) Fishing Charter",
+                        "Reef & Wreck Fishing Charter",
+                        "Drift Boat Charter",
+                        "Freshwater Fishing Charter",
+                        "Private Party Boat Charter",
+                        "Fishing Resort Vacation"
+                    ],
+                    "Yacht and Catamaran Charters": [
+                        "Day Yacht Charter",
+                        "Day Catamaran Charter",
+                        "Group Yacht or Catamaran Charter",
+                        "Weekly or Monthly Catamaran or Yacht Charter",
+                        "Other"
+                    ],
+                    "Sailboat Charters": [
+                        "Bareboat Charter (No Captain or Crew)",
+                        "Skippered Charter",
+                        "Crewed Charter",
+                        "Cabin Charter",
+                        "Sailing Charter (Learn to Sail)",
+                        "Weekly or Monthly Charter"
+                    ],
+                    "eFoil, Kiteboarding & Wing Surfing": [
+                        "eFoil Lessons",
+                        "eFoil Equipment",
+                        "Kiteboarding Lessons",
+                        "Kiteboarding Equipment",
+                        "Wing Surfing Lessons",
+                        "Wing Surfing Equipment"
+                    ],
+                    "Dive Equipment and Services": [
+                        "Private Scuba Diving Charter",
+                        "Shared Scuba Diving Charter",
+                        "Scuba Equipment Rental",
+                        "Snorkel and Free Diving Charter",
+                        "Night Diving",
+                        "Underwater Scooter Rental"
+                    ],
+                    "Jet Ski Rental": [
+                        "Hourly Jet Ski Rental",
+                        "Multiple Day Jet Ski Rental",
+                        "Jet Ski Tour"
+                    ],
+                    "Kayak Rental": [
+                        "Hourly Kayak Rental",
+                        "Multiple Day Kayak Rental",
+                        "Kayak Tour"
+                    ],
+                    "Paddleboard Rental": [
+                        "Hourly Paddleboard Rental",
+                        "Multiple Day Paddleboard Rental",
+                        "Paddleboard Tour"
+                    ],
+                    "Pontoon Boat Charter or Rental": [
+                        "Hourly Pontoon Rental",
+                        "Multiple Day Pontoon Rental",
+                        "Pontoon Charter"
+                    ],
+                    "Party Boat Charter": [
+                        "Pontoon Party Boat",
+                        "Catamaran Party Boat",
+                        "Yacht Party Boat",
+                        "50+ Person Party Boat"
+                    ],
+                    "Private Yacht Charter": [
+                        "Private Motoryacht Charter",
+                        "Private Sailing Catamaran Charter",
+                        "Private Fishing Yacht Charter",
+                        "Superyacht Private Charter"
+                    ]
+                }
+            },
+            "Boat Hauling and Yacht Delivery": {
+                subcategories: [
+                    "Yacht Delivery",
+                    "Boat Hauling and Transport"
+                ],
+                level3Services: {}
+            },
+            "Boat Maintenance": {
+                subcategories: [
+                    "Ceramic Coating",
+                    "Boat Detailing",
+                    "Bottom Painting",
+                    "Boat and Yacht Maintenance",
+                    "Boat Oil Change",
+                    "Bilge Cleaning",
+                    "Jet Ski Maintenance",
+                    "Barnacle Cleaning",
+                    "Fire and Safety Equipment and Services",
+                    "Boat Wrapping and Marine Protection Film"
+                ],
+                level3Services: {
+                    "Boat and Yacht Maintenance": [
+                        "Ceramic Coating",
+                        "Boat Detailing",
+                        "Bottom Painting",
+                        "Oil Change",
+                        "Bilge Cleaning",
+                        "Jet Ski Maintenance",
+                        "Barnacle Cleaning",
+                        "Fire and Safety Equipment and Services",
+                        "Boat Wrapping or Marine Protection Film",
+                        "Other"
+                    ]
+                }
+            },
+            "Boat Towing": {
+                subcategories: [
+                    "Get Emergency Tow",
+                    "Get Towing Membership"
+                ],
+                level3Services: {}
+            },
+            "Boater Resources": {
+                subcategories: [
+                    "Boater Resources",
+                    "Yacht WiFi",
+                    "Provisioning",
+                    "Boat and Yacht Parts",
+                    "Yacht Photography",
+                    "Yacht Videography",
+                    "Maritime Advertising, PR and Web Design",
+                    "Yacht Crew Placement",
+                    "Yacht Account Management and Bookkeeping",
+                    "Boat Salvage",
+                    "Maritime Attorney"
+                ],
+                level3Services: {
+                    "Boater Resources": [
+                        "Boat or Yacht Parts",
+                        "Vessel WiFi or Communications",
+                        "Provisioning",
+                        "Boat Salvage",
+                        "Photography or Videography",
+                        "Crew Management",
+                        "Account Management and Bookkeeping",
+                        "Marketing or Web Design",
+                        "Vessel Management",
+                        "Maritime Attorney",
+                        "Other"
+                    ],
+                    "Yacht WiFi": [
+                        "New WiFi",
+                        "WiFi Diagnostics or Troubleshooting",
+                        "Boat Network",
+                        "Satellite",
+                        "Cellular",
+                        "Marina Connections"
+                    ],
+                    "Provisioning": [
+                        "Food & Beverage Provisioning",
+                        "Galley & Kitchen Supplies",
+                        "Crew Provisioning",
+                        "Cabin & Guest Comfort Supplies",
+                        "Medical & First Aid Provisioning",
+                        "Cleaning & Maintenance Supplies",
+                        "Floral & Décor Provisioning",
+                        "Custom Orders & Luxury Concierge Items",
+                        "Fishing, Dive or Watersports Supplies"
+                    ],
+                    "Boat and Yacht Parts": [
+                        "Engine & Propulsion Parts",
+                        "Electrical & Battery Systems Parts",
+                        "Steering & Control Systems Parts",
+                        "Navigation & Electronics Parts",
+                        "Plumbing & Water Systems Parts",
+                        "Hull, Deck & Hardware Parts",
+                        "Safety Equipment and Emergency Gear",
+                        "AC, Refrigeration or Watermaker Parts",
+                        "Canvas, Covers or Upholstery Parts",
+                        "Paint, Maintenance or Cleaning Supplies",
+                        "Trailer or Towing Components",
+                        "Anchoring or Mooring Gear Parts",
+                        "Other"
+                    ],
+                    "Yacht Photography": [
+                        "Listing Photography or Videography (Brokerage & Sales)",
+                        "Lifestyle & Charter Photography or Videography",
+                        "Drone & Aerial Photography or Videography",
+                        "Virtual Tours/3D Walkthroughs",
+                        "Refit or Restoration Progress Documentation",
+                        "Underwater Photography or Videography",
+                        "Event Coverage",
+                        "Social Media Reels/Short-Form Content"
+                    ],
+                    "Yacht Videography": [
+                        "Listing Photography or Videography (Brokerage & Sales)",
+                        "Lifestyle & Charter Photography or Videography",
+                        "Drone & Aerial Photography or Videography",
+                        "Virtual Tours/3D Walkthroughs",
+                        "Refit or Restoration Progress Documentation",
+                        "Underwater Photography or Videography",
+                        "Event Coverage",
+                        "Social Media Reels/Short-Form Content"
+                    ],
+                    "Maritime Advertising, PR and Web Design": [
+                        "Search Engine Optimization (SEO)",
+                        "Web Design",
+                        "PR, Influencer or Affiliate Marketing",
+                        "Podcasts",
+                        "Sponsorships",
+                        "Paid Ads Management",
+                        "Social Media Marketing",
+                        "Email Marketing & Automation",
+                        "Content Marketing and Blogging",
+                        "Video Marketing",
+                        "CRM Integration & Lead Nurturing"
+                    ],
+                    "Yacht Crew Placement": [
+                        "Captain",
+                        "First Mate",
+                        "Engineer",
+                        "Deckhand",
+                        "Chef or Cook",
+                        "Stew",
+                        "Bosun",
+                        "Purser for Provisioning, Accounting or Logistics",
+                        "Nanny, Masseuse or Personal Trainer",
+                        "Security Officer or Bodyguard"
+                    ],
+                    "Yacht Account Management and Bookkeeping": [
+                        "Operational Expense Tracking",
+                        "Crew Payroll & Expense Reconciliation",
+                        "Budget Planning & Forecasting",
+                        "Charter Income & Expense Reporting",
+                        "Vendor & Invoice Management",
+                        "Tax Compliance & VAT Management",
+                        "Insurance Premium & Policy Accounting",
+                        "Financial Reporting & Owner Statements"
+                    ],
+                    "Boat Salvage": [
+                        "Emergency Water Removal",
+                        "Emergency Boat Recovery",
+                        "Sell Boat for Parts",
+                        "Mold/Water Remediation"
+                    ],
+                    "Maritime Attorney": [
+                        "Maritime Personal Injury Case",
+                        "Marine Insurance Dispute",
+                        "Maritime Commercial and Contract Case",
+                        "Environmental & Regulatory Compliance",
+                        "Vessel Documentation and Transactions",
+                        "Maritime Criminal Defense",
+                        "Other"
+                    ]
+                }
+            },
+            "Buying or Selling a Boat": {
+                subcategories: [
+                    "Buying or Selling a Boat or Yacht",
+                    "Boat Insurance",
+                    "Yacht Insurance",
+                    "Yacht Builder",
+                    "Yacht Broker",
+                    "Boat Broker",
+                    "Boat Builder",
+                    "Boat Financing",
+                    "Boat Surveyors",
+                    "Yacht Dealers",
+                    "Boat Dealers"
+                ],
+                level3Services: {
+                    "Buying or Selling a Boat or Yacht": [
+                        "Buy",
+                        "Sell",
+                        "Trade"
+                    ],
+                    "Boat Insurance": [
+                        "I Just Bought the Vessel",
+                        "New Vessel Policy",
+                        "Looking For Quotes Before Purchasing Vessel"
+                    ],
+                    "Yacht Insurance": [
+                        "I Just Bought the Vessel",
+                        "New Vessel Policy",
+                        "Looking For Quotes Before Purchasing Vessel"
+                    ],
+                    "Yacht Broker": [
+                        "Buy a New Yacht",
+                        "Buy a Pre-Owned Yacht",
+                        "Sell a Pre-Owned Yacht",
+                        "Trade My Yacht",
+                        "Looking to Charter My Yacht",
+                        "Looking for Yacht Management"
+                    ],
+                    "Boat Broker": [
+                        "Buy a New Yacht",
+                        "Buy a Pre-Owned Yacht",
+                        "Sell a Pre-Owned Yacht",
+                        "Trade My Yacht",
+                        "Looking to Charter My Yacht",
+                        "Looking for Yacht Management"
+                    ],
+                    "Boat Financing": [
+                        "New Boat Financing",
+                        "Used Boat Financing",
+                        "Refinancing"
+                    ],
+                    "Boat Surveyors": [
+                        "Hull & Engine(s)",
+                        "Thermal Imaging",
+                        "Insurance/Damage",
+                        "Hull Only",
+                        "Engine(s) Only"
+                    ],
+                    "Yacht Dealers": [
+                        "Buy a New Yacht",
+                        "Buy a Pre-Owned Yacht",
+                        "Sell a Pre-Owned Yacht",
+                        "Trade My Yacht",
+                        "Looking to Charter My Yacht",
+                        "Looking for Yacht Management"
+                    ],
+                    "Boat Dealers": [
+                        "Buy a New Boat",
+                        "Buy a Pre-Owned Boat",
+                        "Sell a Pre-Owned Boat",
+                        "Trade My Boat",
+                        "Looking to Charter My Boat",
+                        "Looking for Boat Management"
+                    ]
+                }
+            },
+            "Dock and Slip Rental": {
+                subcategories: [
+                    "Dock and Slip Rental",
+                    "Rent My Dock"
+                ],
+                level3Services: {
+                    "Dock and Slip Rental": [
+                        "Private Dock",
+                        "Boat Slip",
+                        "Marina",
+                        "Mooring Ball"
+                    ],
+                    "Rent My Dock": [
+                        "Private Dock",
+                        "Boat Slip",
+                        "Marina",
+                        "Mooring Ball"
+                    ]
+                }
+            },
+            "Docks, Seawalls and Lifts": {
+                subcategories: [
+                    "Dock, Boat Lift or Seawall Builders or Repair",
+                    "Boat Lift Installers",
+                    "Floating Dock Sales",
+                    "Seawall Construction",
+                    "Dock, Seawall or Piling Cleaning"
+                ],
+                level3Services: {
+                    "Dock, Boat Lift or Seawall Builders or Repair": [
+                        "Seawall Construction or Repair",
+                        "New Dock",
+                        "Dock Repair",
+                        "Pilings or Structural Support",
+                        "Floating Docks",
+                        "Boat Lift",
+                        "Seawall or Piling Cleaning"
+                    ],
+                    "Boat Lift Installers": [
+                        "New Boat Lift",
+                        "Boat Lift Installation",
+                        "Lift Motor & Gearbox Repair",
+                        "Cable & Pulley Replacement",
+                        "Annual Maintenance & Alignment"
+                    ],
+                    "Floating Dock Sales": [
+                        "New Floating Dock",
+                        "Floating Dock Installation",
+                        "Floating Dock Repair & Float Replacement",
+                        "Custom Modifications & Add-Ons",
+                        "Seasonal Maintenance & Dock Repositioning"
+                    ],
+                    "Seawall Construction": [
+                        "New Seawall Construction",
+                        "Seawall Repair & Reinforcement",
+                        "Cap Replacement & Restoration",
+                        "Erosion Control & Backfill Replacement",
+                        "Seawall Maintenance or Inspection"
+                    ],
+                    "Dock, Seawall or Piling Cleaning": [
+                        "Dock Cleaning",
+                        "Seawall Cleaning",
+                        "Piling Cleaning",
+                        "Commercial or Industrial Requests"
+                    ]
+                }
+            },
+            "Engines and Generators": {
+                subcategories: [
+                    "Engines and Generators Sales/Service",
+                    "Generator Sales or Service",
+                    "Generator Sales",
+                    "Generator Service",
+                    "Engine Service or Sales",
+                    "Engine Service",
+                    "Engine Sales",
+                    "Diesel Engine Sales",
+                    "Outboard Engine Sales",
+                    "Inboard Engine Sales",
+                    "Marine Exhaust Systems and Service"
+                ],
+                level3Services: {
+                    "Engines and Generators Sales/Service": [
+                        "Outboard Engine Service",
+                        "Outboard Engine Sales",
+                        "Inboard Engine Service",
+                        "Inboard Engine Sales",
+                        "Diesel Engine Service",
+                        "Diesel Engine Sales",
+                        "Generator Service",
+                        "Generator Sales",
+                        "Exhaust Systems & Service"
+                    ],
+                    "Generator Sales or Service": [
+                        "Generator Installation",
+                        "Routine Generator Maintenance",
+                        "Electrical System Integration & Transfer Switches",
+                        "Diagnostics & Repairs",
+                        "Sound Shielding & Vibration Control",
+                        "Generator Sales",
+                        "Exhaust Systems & Service"
+                    ],
+                    "Generator Sales": [
+                        "Cummins Onan",
+                        "Kohler",
+                        "Northern Lights",
+                        "Caterpillar",
+                        "Volvo Penta",
+                        "NextGen",
+                        "Phasor",
+                        "Fischer Panda",
+                        "Not Sure/Other"
+                    ],
+                    "Generator Service": [
+                        "Generator Installation",
+                        "Routine Generator Maintenance",
+                        "Electrical System Integration & Transfer Switches",
+                        "Diagnostics & Repairs",
+                        "Sound Shielding & Vibration Control",
+                        "Exhaust Systems & Service"
+                    ],
+                    "Engine Service or Sales": [
+                        "Diesel Engine Sales",
+                        "Inboard Engine Sales",
+                        "Outboard Engine Sales",
+                        "Diesel Engine Maintenance",
+                        "Outboard Engine Maintenance",
+                        "Inboard Engine Maintenance",
+                        "Diesel Engine Repair, Rebuild or Refit",
+                        "Outboard Engine Repair, Rebuild or Refit",
+                        "Inboard Engine Repair, Rebuild or Refit",
+                        "Exhaust Systems & Service"
+                    ],
+                    "Engine Service": [
+                        "Diesel Engine Maintenance",
+                        "Outboard Engine Maintenance",
+                        "Inboard Engine Maintenance",
+                        "Diesel Engine Repair, Rebuild or Refit",
+                        "Outboard Engine Repair, Rebuild or Refit",
+                        "Inboard Engine Repair, Rebuild or Refit",
+                        "Exhaust Systems & Service",
+                        "Sound Shielding & Vibration Control"
+                    ],
+                    "Engine Sales": [
+                        "Diesel Engine Sales",
+                        "Inboard Engine Sales",
+                        "Outboard Engine Sales",
+                        "Electric Engine Sales"
+                    ],
+                    "Diesel Engine Sales": [
+                        "Caterpillar",
+                        "MAN Engines",
+                        "MTU",
+                        "Volvo Penta",
+                        "Cummins Marine",
+                        "Yanmar Marine",
+                        "Perkins Marine",
+                        "John Deer Marine"
+                    ],
+                    "Outboard Engine Sales": [
+                        "Mercury",
+                        "Yamaha",
+                        "Suzuki",
+                        "Honda",
+                        "Seven Marine"
+                    ],
+                    "Inboard Engine Sales": [
+                        "Caterpillar",
+                        "MAN Engines",
+                        "MTU",
+                        "Volvo Penta",
+                        "Cummins Marine",
+                        "Yanmar Marine"
+                    ],
+                    "Marine Exhaust Systems and Service": [
+                        "Marine Exhaust Fabrication",
+                        "Exhaust System Repair & Overhaul",
+                        "Exhaust Insulation & Lagging",
+                        "Exhaust Filtration & Emissions Compliance",
+                        "Exhaust Leak Detection & Corrosion Prevention"
+                    ]
+                }
+            },
+            "Fuel Delivery": {
+                subcategories: [
+                    "Fuel Delivery"
+                ],
+                level3Services: {
+                    "Fuel Delivery": [
+                        "Dyed Diesel Fuel (For Boats)",
+                        "Regular Diesel Fuel (Landside Business)",
+                        "Rec 90 (Ethanol Free Gas)"
+                    ]
+                }
+            },
+            "Marine Systems": {
+                subcategories: [
+                    "Marine Systems Install and Sales",
+                    "Yacht Stabilizers and Seakeepers",
+                    "Instrument Panel and Dashboard",
+                    "Yacht AC Sales",
+                    "Yacht AC Service",
+                    "Boat Electrical Service",
+                    "Boat Sound Systems",
+                    "Yacht Plumbing",
+                    "Boat Lighting",
+                    "Yacht Refrigeration and Watermakers",
+                    "Marine Batteries & Battery Installation",
+                    "Yacht Mechanical Systems"
+                ],
+                level3Services: {
+                    "Marine Systems Install and Sales": [
+                        "Stabilizers or Seakeepers",
+                        "Instrument Panel and Dashboard",
+                        "AC Sales or Service",
+                        "Electrical Service",
+                        "Sound System",
+                        "Plumbing",
+                        "Lighting",
+                        "Refrigeration or Watermakers",
+                        "Marine Batteries & Batteries Installation",
+                        "Yacht Mechanical Systems"
+                    ],
+                    "Yacht Stabilizers and Seakeepers": [
+                        "New Seakeeper Install",
+                        "Other Stabilizer Install",
+                        "Stabilizer Maintenance",
+                        "Stabilizer Retrofit or Upgrades"
+                    ],
+                    "Instrument Panel and Dashboard": [
+                        "Electronic Dashboard Install or Upgrades",
+                        "Instrument Panel Rewiring & Troubleshooting",
+                        "Custom Dashboard Fabrication & Refacing",
+                        "Gauge Replacement & Calibration",
+                        "Backlighting & Switch Panel Modernization"
+                    ],
+                    "Yacht AC Sales": [
+                        "New AC Install or Replacement"
+                    ],
+                    "Yacht AC Service": [
+                        "New AC Install or Replacement",
+                        "AC Maintenance & Servicing",
+                        "Refrigerant Charging & Leak Repair",
+                        "Pump & Water Flow Troubleshooting",
+                        "Thermostat & Control Panel Upgrades"
+                    ],
+                    "Boat Electrical Service": [
+                        "Battery System Install or Maintenance",
+                        "Wiring & Rewiring",
+                        "Shore Power & Inverter Systems",
+                        "Lighting Systems",
+                        "Electrical Panel & Breaker",
+                        "Navigation & Communication",
+                        "Generator Electrical Integration",
+                        "Solar Power & Battery Charging"
+                    ],
+                    "Boat Sound Systems": [
+                        "Marine Audio System Install",
+                        "Speaker & Subwoofer Upgrades",
+                        "Amplifier Setup & Tuning",
+                        "Multi-Zone Audio Configuration",
+                        "Troubleshooting & System Repairs"
+                    ],
+                    "Yacht Plumbing": [
+                        "Freshwater System Install or Repair",
+                        "Marine Head & Toilet Systems",
+                        "Greywater or Blackwater Tank Maintenance",
+                        "Bilge Pump Install or Drainage",
+                        "Watermaker (Desalinator) Service & Install"
+                    ],
+                    "Boat Lighting": [
+                        "Navigation & Anchor Light Install",
+                        "Underwater Lighting",
+                        "Interior Cabin Lighting",
+                        "Deck, Cockpit & Courtesy Lighting",
+                        "Electrical Troubleshooting & Wiring"
+                    ],
+                    "Yacht Refrigeration and Watermakers": [
+                        "Marine Refrigerator & Freezer Install",
+                        "Refrigeration System Repairs & Troubleshooting",
+                        "Watermaker (Desalinator) Install",
+                        "Watermaker Maintenance & Servicing",
+                        "Cold Plate & Evaporator Upgrades"
+                    ],
+                    "Marine Batteries & Battery Installation": [
+                        "Marine Battery Sales",
+                        "Marine Battery Installation",
+                        "Battery Bank Design & Upgrades",
+                        "Charging System Integration",
+                        "Battery Testing & Maintenance"
+                    ],
+                    "Yacht Mechanical Systems": [
+                        "Propulsion Systems",
+                        "Steering & Rudder Systems",
+                        "Hydraulic Systems",
+                        "Fuel Systems",
+                        "Bilge & Waste Systems"
+                    ]
+                }
+            },
+            "Maritime Education and Training": {
+                subcategories: [
+                    "Maritime Education and Training"
+                ],
+                level3Services: {
+                    "Maritime Education and Training": [
+                        "Yacht, Sailboat or Catamaran On Water Training",
+                        "Interested In Buying a Boat or Insurance Sign Off",
+                        "Maritime Academy",
+                        "Sailing Schools",
+                        "Captains License"
+                    ]
+                }
+            },
+            "Waterfront Property": {
+                subcategories: [
+                    "Waterfront Homes For Sale",
+                    "Sell Your Waterfront Home",
+                    "Waterfront New Developments"
+                ],
+                level3Services: {
+                    "Waterfront Homes For Sale": [
+                        "Buy a Waterfront Home or Condo",
+                        "Sell a Waterfront Home or Condo",
+                        "Buy a Waterfront New Development",
+                        "Rent a Waterfront Property"
+                    ],
+                    "Sell Your Waterfront Home": [
+                        "Buy a Waterfront Home or Condo",
+                        "Sell a Waterfront Home or Condo",
+                        "Buy a Waterfront New Development",
+                        "Rent a Waterfront Property"
+                    ],
+                    "Waterfront New Developments": [
+                        "Buy a Waterfront Home or Condo",
+                        "Sell a Waterfront Home or Condo",
+                        "Buy a Waterfront New Development",
+                        "Rent a Waterfront Property"
+                    ]
+                }
+            },
+            "Yacht Management": {
+                subcategories: [
+                    "Yacht Management"
+                ],
+                level3Services: {
+                    "Yacht Management": [
+                        "Full Service Vessel Management",
+                        "Technical Management (Maintenance, Repairs, Upgrades, etc)",
+                        "Crew Management",
+                        "Accounting & Financial Management",
+                        "Insurance & Risk Management",
+                        "Regulatory Compliance",
+                        "Maintenance & Refit Management",
+                        "Logistical Support (Transportation, Provisioning, Fuel or Dockage)",
+                        "Wash Downs and Systems Checks"
+                    ]
+                }
+            },
+            "Wholesale or Dealer Product Pricing": {
+                subcategories: [
+                    "Wholesale or Dealer Product Pricing"
+                ],
+                level3Services: {
+                    "Wholesale or Dealer Product Pricing": [
+                        "Apparel",
+                        "Boat Accessories",
+                        "Boat Maintenance & Cleaning Products",
+                        "Boat Safety Products",
+                        "Diving Equipment",
+                        "Dock Accessories",
+                        "Fishing Gear",
+                        "Personal Watercraft",
+                        "Other"
+                    ]
+                }
+            }
+        };
+
+        // State data
+        const states = [
+            {code: 'AL', name: 'Alabama'}, {code: 'AK', name: 'Alaska'}, 
+            {code: 'AZ', name: 'Arizona'}, {code: 'AR', name: 'Arkansas'},
+            {code: 'CA', name: 'California'}, {code: 'CO', name: 'Colorado'},
+            {code: 'CT', name: 'Connecticut'}, {code: 'DE', name: 'Delaware'},
+            {code: 'FL', name: 'Florida'}, {code: 'GA', name: 'Georgia'},
+            {code: 'HI', name: 'Hawaii'}, {code: 'ID', name: 'Idaho'},
+            {code: 'IL', name: 'Illinois'}, {code: 'IN', name: 'Indiana'},
+            {code: 'IA', name: 'Iowa'}, {code: 'KS', name: 'Kansas'},
+            {code: 'KY', name: 'Kentucky'}, {code: 'LA', name: 'Louisiana'},
+            {code: 'ME', name: 'Maine'}, {code: 'MD', name: 'Maryland'},
+            {code: 'MA', name: 'Massachusetts'}, {code: 'MI', name: 'Michigan'},
+            {code: 'MN', name: 'Minnesota'}, {code: 'MS', name: 'Mississippi'},
+            {code: 'MO', name: 'Missouri'}, {code: 'MT', name: 'Montana'},
+            {code: 'NE', name: 'Nebraska'}, {code: 'NV', name: 'Nevada'},
+            {code: 'NH', name: 'New Hampshire'}, {code: 'NJ', name: 'New Jersey'},
+            {code: 'NM', name: 'New Mexico'}, {code: 'NY', name: 'New York'},
+            {code: 'NC', name: 'North Carolina'}, {code: 'ND', name: 'North Dakota'},
+            {code: 'OH', name: 'Ohio'}, {code: 'OK', name: 'Oklahoma'},
+            {code: 'OR', name: 'Oregon'}, {code: 'PA', name: 'Pennsylvania'},
+            {code: 'RI', name: 'Rhode Island'}, {code: 'SC', name: 'South Carolina'},
+            {code: 'SD', name: 'South Dakota'}, {code: 'TN', name: 'Tennessee'},
+            {code: 'TX', name: 'Texas'}, {code: 'UT', name: 'Utah'},
+            {code: 'VT', name: 'Vermont'}, {code: 'VA', name: 'Virginia'},
+            {code: 'WA', name: 'Washington'}, {code: 'WV', name: 'West Virginia'},
+            {code: 'WI', name: 'Wisconsin'}, {code: 'WY', name: 'Wyoming'}
+        ];
+
+        // Application state
+        let appState = {
+            currentSlide: 1,
+            primaryCategory: '',
+            primaryServices: new Set(),
+            primaryLevel3Services: {},
+            additionalCategories: new Set(),
+            additionalServices: new Set(),
+            additionalLevel3Services: {},
+            currentLevel3Context: null
+        };
+
+        // Initialize the application
+        window.onload = function() {
+            populateStates();
+            populatePrimaryCategories();
+            updateProgress();
+        };
+
+        // Populate state dropdown
+        function populateStates() {
+            const stateSelect = document.getElementById('vendor_state');
+            states.forEach(state => {
+                const option = document.createElement('option');
+                option.value = state.code;
+                option.textContent = state.name;
+                stateSelect.appendChild(option);
+            });
+        }
+
+        // Populate primary categories
+        function populatePrimaryCategories() {
+            const container = document.getElementById('primaryCategoryContainer');
+            container.innerHTML = '';
+            
+            Object.keys(SERVICE_CATEGORIES).forEach(category => {
+                const tag = document.createElement('div');
+                tag.className = 'category-tag';
+                tag.textContent = category;
+                tag.onclick = () => selectPrimaryCategory(category);
+                container.appendChild(tag);
+            });
+        }
+
+        // Select primary category
+        function selectPrimaryCategory(category) {
+            // Clear previous selection
+            document.querySelectorAll('#primaryCategoryContainer .category-tag').forEach(tag => {
+                tag.classList.remove('selected');
+            });
+            
+            // Set new selection
+            event.target.classList.add('selected');
+            appState.primaryCategory = category;
+            
+            // Enable next button
+            document.getElementById('primaryCategoryNext').disabled = false;
+            
+            // Update the services slide
+            document.getElementById('primaryCategoryName').textContent = category;
+            populatePrimaryServices(category);
+        }
+
+        // Populate primary services
+        function populatePrimaryServices(category) {
+            const container = document.getElementById('primaryServicesContainer');
+            container.innerHTML = '';
+            appState.primaryServices.clear();
+            
+            const categoryData = SERVICE_CATEGORIES[category];
+            if (!categoryData) return;
+            
+            categoryData.subcategories.forEach(service => {
+                const tag = document.createElement('div');
+                tag.className = 'service-tag';
+                tag.textContent = service;
+                
+                // Add orange badge if this service has level 3 options
+                if (categoryData.level3Services && categoryData.level3Services[service]) {
+                    const badge = document.createElement('span');
+                    badge.className = 'service-count-badge';
+                    badge.textContent = categoryData.level3Services[service].length;
+                    tag.appendChild(badge);
+                }
+                
+                tag.onclick = () => togglePrimaryService(service, category);
+                container.appendChild(tag);
+            });
+        }
+
+        // Toggle primary service selection
+        function togglePrimaryService(service, category) {
+            const tag = event.target.closest('.service-tag');
+            const categoryData = SERVICE_CATEGORIES[category];
+            
+            if (tag.classList.contains('selected')) {
+                tag.classList.remove('selected');
+                appState.primaryServices.delete(service);
+                delete appState.primaryLevel3Services[service];
+            } else {
+                tag.classList.add('selected');
+                appState.primaryServices.add(service);
+                
+                // Check if this service has level 3 options
+                if (categoryData.level3Services && categoryData.level3Services[service]) {
+                    // Open level 3 selection modal
+                    openLevel3Modal(service, category, 'primary');
+                }
+            }
+        }
+
+        // Open Level 3 services modal
+        function openLevel3Modal(service, category, context) {
+            const modal = document.getElementById('level3Modal');
+            const container = document.getElementById('level3ServicesContainer');
+            container.innerHTML = '';
+            
+            const categoryData = SERVICE_CATEGORIES[category];
+            const level3Services = categoryData.level3Services ? categoryData.level3Services[service] : null;
+            
+            if (!level3Services) return;
+            
+            // Store context for saving
+            appState.currentLevel3Context = {
+                service: service,
+                category: category,
+                context: context
+            };
+            
+            // Set modal title
+            document.getElementById('level3ModalTitle').textContent = `Select Specific Services for ${service}`;
+            
+            // Create checkbox list
+            const list = document.createElement('div');
+            list.className = 'level3-service-list';
+            
+            level3Services.forEach(l3Service => {
+                const item = document.createElement('div');
+                item.className = 'level3-service-item';
+                
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.id = `l3_${l3Service.replace(/\s+/g, '_')}`;
+                checkbox.value = l3Service;
+                checkbox.checked = true; // Default to checked
+                
+                const label = document.createElement('label');
+                label.htmlFor = checkbox.id;
+                label.textContent = l3Service;
+                
+                item.appendChild(checkbox);
+                item.appendChild(label);
+                
+                // Add click handler to entire item
+                item.onclick = (e) => {
+                    if (e.target !== checkbox) {
+                        checkbox.checked = !checkbox.checked;
+                    }
+                };
+                
+                list.appendChild(item);
+            });
+            
+            container.appendChild(list);
+            modal.classList.add('active');
+        }
+
+        // Close Level 3 modal
+        function closeLevel3Modal() {
+            const modal = document.getElementById('level3Modal');
+            modal.classList.remove('active');
+        }
+
+        // Save Level 3 selections
+        function saveLevel3Services() {
+            const context = appState.currentLevel3Context;
+            if (!context) return;
+            
+            const checkboxes = document.querySelectorAll('#level3ServicesContainer input[type="checkbox"]:checked');
+            const selectedServices = Array.from(checkboxes).map(cb => cb.value);
+            
+            // Store the selections
+            if (context.context === 'primary') {
+                appState.primaryLevel3Services[context.service] = selectedServices;
+            } else {
+                appState.additionalLevel3Services[context.service] = selectedServices;
+            }
+            
+            closeLevel3Modal();
+        }
+
+        // Populate additional categories
+        function populateAdditionalCategories() {
+            const container = document.getElementById('additionalCategoryContainer');
+            container.innerHTML = '';
+            appState.additionalCategories.clear();
+            
+            Object.keys(SERVICE_CATEGORIES).forEach(category => {
+                if (category !== appState.primaryCategory) {
+                    const tag = document.createElement('div');
+                    tag.className = 'category-tag';
+                    tag.textContent = category;
+                    tag.onclick = () => toggleAdditionalCategory(category);
+                    container.appendChild(tag);
+                }
+            });
+        }
+
+        // Toggle additional category
+        function toggleAdditionalCategory(category) {
+            const tag = event.target;
+            
+            if (tag.classList.contains('selected')) {
+                tag.classList.remove('selected');
+                appState.additionalCategories.delete(category);
+                
+                // Remove the services section
+                const section = document.getElementById(`additional_${category.replace(/\s+/g, '_')}`);
+                if (section) section.remove();
+                
+                // Remove services from state
+                const categoryData = SERVICE_CATEGORIES[category];
+                categoryData.subcategories.forEach(service => {
+                    appState.additionalServices.delete(service);
+                    delete appState.additionalLevel3Services[service];
+                });
+            } else {
+                tag.classList.add('selected');
+                appState.additionalCategories.add(category);
+                
+                // Add services section
+                addAdditionalServicesSection(category);
+            }
+        }
+
+        // Add additional services section
+        function addAdditionalServicesSection(category) {
+            const container = document.getElementById('additionalServicesContainer');
+            
+            const section = document.createElement('div');
+            section.className = 'additional-category-section';
+            section.id = `additional_${category.replace(/\s+/g, '_')}`;
+            
+            const header = document.createElement('div');
+            header.className = 'additional-category-header';
+            header.textContent = `${category} Services`;
+            section.appendChild(header);
+            
+            const servicesDiv = document.createElement('div');
+            servicesDiv.className = 'services-container';
+            
+            const categoryData = SERVICE_CATEGORIES[category];
+            
+            categoryData.subcategories.forEach(service => {
+                const tag = document.createElement('div');
+                tag.className = 'service-tag';
+                tag.textContent = service;
+                
+                // Add badge if this service has level 3 options
+                if (categoryData.level3Services && categoryData.level3Services[service]) {
+                    const badge = document.createElement('span');
+                    badge.className = 'service-count-badge';
+                    badge.textContent = categoryData.level3Services[service].length;
+                    tag.appendChild(badge);
+                }
+                
+                tag.onclick = () => toggleAdditionalService(service, category);
+                servicesDiv.appendChild(tag);
+            });
+            
+            section.appendChild(servicesDiv);
+            container.appendChild(section);
+        }
+
+        // Toggle additional service
+        function toggleAdditionalService(service, category) {
+            const tag = event.target.closest('.service-tag');
+            const categoryData = SERVICE_CATEGORIES[category];
+            
+            if (tag.classList.contains('selected')) {
+                tag.classList.remove('selected');
+                appState.additionalServices.delete(service);
+                delete appState.additionalLevel3Services[service];
+            } else {
+                tag.classList.add('selected');
+                appState.additionalServices.add(service);
+                
+                // Check if this service has level 3 options
+                if (categoryData.level3Services && categoryData.level3Services[service]) {
+                    // Open level 3 selection modal
+                    openLevel3Modal(service, category, 'additional');
+                }
+            }
+        }
+
+        // Update coverage options
+        function updateCoverageOptions() {
+            const coverageType = document.getElementById('coverage_type').value;
+            const stateSelection = document.getElementById('stateSelection');
+            const countySelection = document.getElementById('countySelection');
+            
+            // Hide all by default
+            stateSelection.style.display = 'none';
+            countySelection.style.display = 'none';
+            
+            // Show relevant options
+            if (coverageType === 'state' || coverageType === 'county') {
+                stateSelection.style.display = 'block';
+            }
+            
+            if (coverageType === 'county') {
+                countySelection.style.display = 'block';
+            }
+        }
+
+        // Load counties for selected state
+        async function loadCounties() {
+            const state = document.getElementById('vendor_state').value;
+            if (!state) return;
+            
+            const container = document.getElementById('countyContainer');
+            container.innerHTML = '<div>Loading counties...</div>';
+            
+            try {
+                const response = await fetch(`/api/v1/location/counties/${state}`);
+                const data = await response.json();
+                
+                container.innerHTML = '';
+                
+                if (data.counties && data.counties.length > 0) {
+                    data.counties.forEach(county => {
+                        const div = document.createElement('div');
+                        div.className = 'county-checkbox';
+                        
+                        const checkbox = document.createElement('input');
+                        checkbox.type = 'checkbox';
+                        checkbox.id = `county_${county.replace(/\s+/g, '_')}`;
+                        checkbox.value = county;
+                        
+                        const label = document.createElement('label');
+                        label.htmlFor = checkbox.id;
+                        label.textContent = county;
+                        
+                        div.appendChild(checkbox);
+                        div.appendChild(label);
+                        container.appendChild(div);
+                    });
+                } else {
+                    container.innerHTML = '<div>No counties found for this state</div>';
+                }
+            } catch (error) {
+                console.error('Error loading counties:', error);
+                container.innerHTML = '<div>Error loading counties</div>';
+            }
+        }
+
+        // Navigation functions
+        function nextSlide() {
+            if (validateCurrentSlide()) {
+                appState.currentSlide++;
+                updateSlideDisplay();
+                updateProgress();
+                
+                // Initialize slide 4 when reaching it
+                if (appState.currentSlide === 4) {
+                    populateAdditionalCategories();
+                }
+            }
+        }
+
+        function previousSlide() {
+            appState.currentSlide--;
+            updateSlideDisplay();
+            updateProgress();
+        }
+
+        function updateSlideDisplay() {
+            document.querySelectorAll('.form-slide').forEach(slide => {
+                slide.classList.remove('active');
+            });
+            
+            document.getElementById(`slide${appState.currentSlide}`).classList.add('active');
+        }
+
+        function updateProgress() {
+            const progress = (appState.currentSlide / 6) * 100;
+            document.getElementById('progressBar').style.width = `${progress}%`;
+            document.getElementById('progressText').textContent = `Step ${appState.currentSlide} of 6`;
+        }
+
+        function validateCurrentSlide() {
+            switch(appState.currentSlide) {
+                case 1:
+                    // Validate company information
+                    const companyName = document.getElementById('company_name').value;
+                    const contactName = document.getElementById('contact_name').value;
+                    const email = document.getElementById('contact_email').value;
+                    const phone = document.getElementById('contact_phone').value;
+                    
+                    if (!companyName || !contactName || !email || !phone) {
+                        alert('Please fill in all required fields');
+                        return false;
+                    }
+                    return true;
+                    
+                case 2:
+                    // Validate primary category selection
+                    if (!appState.primaryCategory) {
+                        alert('Please select a primary service category');
+                        return false;
+                    }
+                    return true;
+                    
+                case 3:
+                    // Validate primary services selection
+                    if (appState.primaryServices.size === 0) {
+                        alert('Please select at least one service');
+                        return false;
+                    }
+                    return true;
+                    
+                case 5:
+                    // Validate coverage area
+                    const coverageType = document.getElementById('coverage_type').value;
+                    if (!coverageType) {
+                        alert('Please select a coverage type');
+                        return false;
+                    }
+                    
+                    if (coverageType === 'state' || coverageType === 'county') {
+                        const state = document.getElementById('vendor_state').value;
+                        if (!state) {
+                            alert('Please select a state');
+                            return false;
+                        }
+                    }
+                    
+                    if (coverageType === 'county') {
+                        const checkedCounties = document.querySelectorAll('#countyContainer input[type="checkbox"]:checked');
+                        if (checkedCounties.length === 0) {
+                            alert('Please select at least one county');
+                            return false;
+                        }
+                    }
+                    return true;
+                    
+                default:
+                    return true;
+            }
+        }
+
+        async function submitForm() {
+            if (!validateCurrentSlide()) return;
+            
+            // Gather all form data
+            const formData = {
+                // Company Information
+                company_name: document.getElementById('company_name').value,
+                contact_name: document.getElementById('contact_name').value,
+                contact_email: document.getElementById('contact_email').value,
+                contact_phone: document.getElementById('contact_phone').value,
+                website: document.getElementById('website').value,
+                
+                // Service Categories
+                primary_category: appState.primaryCategory,
+                primary_services: Array.from(appState.primaryServices),
+                primary_level3_services: appState.primaryLevel3Services,
+                additional_categories: Array.from(appState.additionalCategories),
+                additional_services: Array.from(appState.additionalServices),
+                additional_level3_services: appState.additionalLevel3Services,
+                
+                // Coverage Area
+                coverage_type: document.getElementById('coverage_type').value,
+                
+                // Additional Information
+                years_in_business: document.getElementById('years_in_business').value,
+                certifications: document.getElementById('certifications').value,
+                insurance: document.getElementById('insurance').value,
+                additional_notes: document.getElementById('additional_notes').value
+            };
+            
+            // Add state/county data if applicable
+            if (formData.coverage_type === 'state' || formData.coverage_type === 'county') {
+                formData.state = document.getElementById('vendor_state').value;
+            }
+            
+            if (formData.coverage_type === 'county') {
+                const checkedCounties = document.querySelectorAll('#countyContainer input[type="checkbox"]:checked');
+                formData.counties = Array.from(checkedCounties).map(cb => cb.value);
+            }
+            
+            console.log('Form Data:', formData);
+            
+            // TODO: Submit to API
+            // For now, just show success
+            document.querySelectorAll('.form-slide').forEach(slide => {
+                slide.classList.remove('active');
+            });
+            document.getElementById('successSlide').classList.add('active');
+            document.querySelector('.progress-bar').style.width = '100%';
+            document.getElementById('progressText').textContent = 'Complete!';
+        }
+
+        function closeModal() {
+            // If in iframe, send message to parent
+            if (window.parent !== window) {
+                window.parent.postMessage({ action: 'closeVendorModal' }, '*');
+            }
+        }
+    </script>
+</body>
+</html>

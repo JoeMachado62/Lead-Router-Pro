@@ -31,6 +31,10 @@ from api.routes.security_admin import router as security_admin_router
 from api.routes.auth_routes import router as auth_router
 from api.routes.routing_admin import router as routing_admin_router
 from api.routes.vendor_toggle import router as vendor_toggle_router
+from api.routes.lead_reassignment import router as lead_reassignment_router
+from api.routes.admin_functions import router as admin_functions_router
+from api.routes.vendor_matching_enhanced import router as vendor_matching_router
+from api.routes.service_dictionary_routes import router as service_dictionary_router
 
 # Import security middleware
 from api.security.middleware import IPSecurityMiddleware, SecurityCleanupMiddleware
@@ -113,6 +117,10 @@ app.include_router(security_admin_router)
 app.include_router(auth_router)
 app.include_router(routing_admin_router)
 app.include_router(vendor_toggle_router)
+app.include_router(lead_reassignment_router)
+app.include_router(admin_functions_router)
+app.include_router(vendor_matching_router, prefix="/api/v1/vendor-matching", tags=["vendor-matching"])
+app.include_router(service_dictionary_router)
 
 # Create static and templates directories if they don't exist relative to BASE_DIR
 static_dir = BASE_DIR / "static"
@@ -343,8 +351,14 @@ async def dashboard_content(request: Request):
 @app.get("/vendor-application", response_class=HTMLResponse)
 async def vendor_widget_page():
     """Serve the vendor application widget - no authentication required"""
-    vendor_widget_path = BASE_DIR / "vendor_widget.html"
+    vendor_widget_path = BASE_DIR / "vendor_application_final.html"
     return HTMLResponse(content=read_html_file(vendor_widget_path))
+
+@app.get("/vendor-application-new", response_class=HTMLResponse)
+async def vendor_application_new():
+    """Serve the NEW enhanced vendor application with Level 3 services - for GUI approval"""
+    vendor_app_new_path = BASE_DIR / "vendor_application_new.html"
+    return HTMLResponse(content=read_html_file(vendor_app_new_path))
 
 # Health check endpoint
 @app.get("/health")
@@ -401,4 +415,21 @@ async def not_found_handler(request, exc):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    import signal
+    import sys
+    
+    def signal_handler(signum, frame):
+        logger.info("🛑 DocksidePros Lead Router Pro shutting down...")
+        sys.exit(0)
+    
+    # Register signal handlers for graceful shutdown
+    signal.signal(signal.SIGTERM, signal_handler)
+    signal.signal(signal.SIGINT, signal_handler)
+    
+    try:
+        uvicorn.run(app, host="0.0.0.0", port=8000)
+    except KeyboardInterrupt:
+        logger.info("🛑 DocksidePros Lead Router Pro shutting down...")
+    except Exception as e:
+        logger.error(f"❌ Application crashed: {e}")
+        raise

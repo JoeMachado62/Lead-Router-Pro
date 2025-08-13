@@ -22,11 +22,24 @@
         /* Modal Container */
         #vendor-survey-widget {
             max-width: 600px;
+            width: 100%;
             margin: 0 auto;
             background: white;
             border-radius: 12px;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
             overflow: hidden;
+            /* Ensure proper sizing in iframes */
+            min-height: 500px;
+            position: relative;
+        }
+        
+        /* Ensure body has no margin when in iframe */
+        body {
+            margin: 0;
+            padding: 0;
+            /* Allow scrolling if needed */
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
         }
 
         /* Header */
@@ -593,7 +606,7 @@
                 <img src="https://docksidepros.com/wp-content/uploads/2023/06/dock-side-pro-logo-3.png" alt="DockSide Pro" class="header-logo">
                 <h2>Apply To Be a Featured Dockside Pro</h2>
             </div>
-            <button class="close-button" onclick="closeWidget()">&times;</button>
+            <!-- Close button removed - popup window handles closing -->
             <!-- Rope Separator -->
             <div class="rope-separator"></div>
         </div>
@@ -1045,7 +1058,7 @@
                 "Barnacle Cleaning",
                 "Boat and Yacht Maintenance",
                 "Boat Bilge Cleaning",
-                "Boat Bottom Cleaning",
+                "Bottom Cleaning",
                 "Boat Detailing",
                 "Boat Oil Change",
                 "Boat Wrapping and Marine Protection Film",
@@ -1191,9 +1204,36 @@
         // Close widget function
         window.closeWidget = function() {
             if (confirm('Are you sure you want to close? Your progress will be saved.')) {
-                // In a real implementation, this would close the modal
-                // For now, we'll just hide the widget
-                document.getElementById('vendor-survey-widget').style.display = 'none';
+                // Try to close the parent popup window if we're in one
+                if (window.self !== window.top) {
+                    // We're in an iframe - try to close the parent popup
+                    try {
+                        // Method 1: Send message to parent to close popup
+                        if (window.parent && window.parent.postMessage) {
+                            window.parent.postMessage({
+                                type: 'closePopup',
+                                source: 'vendorWidget'
+                            }, '*');
+                        }
+                        
+                        // Method 2: Try to close parent window directly (may not work due to security)
+                        if (window.parent && window.parent.close) {
+                            window.parent.close();
+                        }
+                        
+                        // Method 3: If parent has a specific close function (depends on popup implementation)
+                        if (window.parent && window.parent.closeModal) {
+                            window.parent.closeModal();
+                        }
+                        
+                    } catch (e) {
+                        // Cross-origin restrictions may prevent this
+                        console.log('Cannot close parent popup due to security restrictions');
+                    }
+                } else {
+                    // We're not in an iframe, just hide the widget
+                    document.getElementById('vendor-survey-widget').style.display = 'none';
+                }
             }
         }
 
@@ -1521,11 +1561,112 @@
         // Initialize Widget
         function initializeWidget() {
             debugLog('Initializing vendor survey widget');
+            
+            // Always reset form to initial state when widget loads
+            resetFormToInitialState();
+            
             setupEventListeners();
             populateStateSelectors();
             updateProgress();
             loadDraft();
+            
+            // Handle iframe sizing for mobile devices
+            if (window.self !== window.top) {
+                // We're in an iframe
+                setupIframeHeightCommunication();
+            }
+            
             debugLog('Widget initialized successfully');
+        }
+        
+        // Reset form to completely fresh state
+        function resetFormToInitialState() {
+            debugLog('Resetting form to initial state');
+            
+            // Reset widget state
+            widgetState.primaryCategory = '';
+            widgetState.primaryServices.clear();
+            widgetState.additionalCategories.clear();
+            widgetState.additionalServices.clear();
+            widgetState.currentSlide = 1;
+            widgetState.formData = {};
+            widgetState.coverageType = '';
+            widgetState.selectedStates.clear();
+            widgetState.selectedCounties.clear();
+            widgetState.selectedZipCodes = '';
+            
+            // Reset all form fields
+            const form = document.getElementById('vendorSurveyForm');
+            if (form) {
+                form.reset();
+            }
+            
+            // Hide all slides except first one
+            const slides = document.querySelectorAll('.form-slide');
+            slides.forEach((slide, index) => {
+                if (index === 0) {
+                    slide.classList.add('active');
+                } else {
+                    slide.classList.remove('active');
+                }
+            });
+            
+            // Reset primary services section
+            const primaryServicesSection = document.getElementById('primary-services-section');
+            if (primaryServicesSection) {
+                primaryServicesSection.style.display = 'none';
+            }
+            
+            const primaryServicesContainer = document.getElementById('primary-services-container');
+            if (primaryServicesContainer) {
+                primaryServicesContainer.innerHTML = '';
+            }
+            
+            // Reset coverage details
+            const coverageDetails = document.getElementById('coverage-details');
+            if (coverageDetails) {
+                coverageDetails.style.display = 'none';
+            }
+            
+            // Clear any error messages
+            clearFieldErrors();
+            clearTemporaryUIState();
+            
+            // Clear any existing messages
+            const existingMessages = document.querySelectorAll('.message');
+            existingMessages.forEach(msg => msg.remove());
+            
+            debugLog('Form reset complete');
+        }
+        
+        // Setup communication with parent frame for proper sizing
+        function setupIframeHeightCommunication() {
+            function sendHeightToParent() {
+                try {
+                    const height = document.body.scrollHeight;
+                    if (window.parent && window.parent.postMessage) {
+                        window.parent.postMessage({
+                            type: 'vendorWidgetResize',
+                            height: Math.max(height, 600) // Minimum height
+                        }, '*');
+                    }
+                } catch (e) {
+                    // Cross-origin restrictions prevent this, which is fine
+                    debugLog('Cannot communicate with parent frame - cross-origin restriction');
+                }
+            }
+            
+            // Send initial height
+            setTimeout(sendHeightToParent, 100);
+            
+            // Send height on window resize
+            window.addEventListener('resize', sendHeightToParent);
+            
+            // Create a ResizeObserver to watch for content changes
+            if (window.ResizeObserver) {
+                const resizeObserver = new ResizeObserver(sendHeightToParent);
+                resizeObserver.observe(document.body);
+            }
         }
 
         // Setup Event Listeners
@@ -1596,9 +1737,17 @@
         // Handle primary category selection
         function handlePrimaryCategorySelection(e) {
             const category = e.target.value;
-            if (!category) return;
+            
+            if (!category) {
+                // If no category selected, hide the services section and clear state
+                document.getElementById('primary-services-section').style.display = 'none';
+                widgetState.primaryCategory = '';
+                widgetState.primaryServices.clear();
+                return;
+            }
             
             widgetState.primaryCategory = category;
+            widgetState.primaryServices.clear(); // Clear previous selections when changing category
             renderPrimaryServices(category);
             document.getElementById('primary-services-section').style.display = 'block';
         }
@@ -2217,6 +2366,19 @@
             window.scrollTo(0, 0);
         }
 
+        // Clear field errors
+        function clearFieldErrors() {
+            // Clear all field error messages
+            document.querySelectorAll('.field-error').forEach(error => {
+                error.textContent = '';
+            });
+            
+            // Remove has-error classes from form groups
+            document.querySelectorAll('.form-group.has-error').forEach(group => {
+                group.classList.remove('has-error');
+            });
+        }
+
         // Clear temporary UI state
         function clearTemporaryUIState() {
             // Clear any error messages
@@ -2224,15 +2386,8 @@
                 msg.classList.remove('show');
             });
             
-            // Clear field errors
-            document.querySelectorAll('.field-error').forEach(error => {
-                error.textContent = '';
-            });
-            
-            // Remove error styling
-            document.querySelectorAll('.form-group.has-error').forEach(group => {
-                group.classList.remove('has-error');
-            });
+            // Use the clearFieldErrors function
+            clearFieldErrors();
         }
         
         // Clear form data from subsequent slides when going back
@@ -2248,6 +2403,11 @@
                     const primaryCategorySelect = document.getElementById('primary_service_category');
                     if (primaryCategorySelect) {
                         primaryCategorySelect.value = '';
+                    }
+                    // Hide the services section
+                    const primaryServicesSection = document.getElementById('primary-services-section');
+                    if (primaryServicesSection) {
+                        primaryServicesSection.style.display = 'none';
                     }
                     // Clear the services container
                     const servicesContainer = document.getElementById('primary-services-container');
@@ -2336,7 +2496,12 @@
             
             switch(slideNum) {
                 case 4: // Primary category slide
+                    const primaryCategorySelect = document.getElementById('primary_service_category');
                     if (widgetState.primaryCategory) {
+                        // Ensure dropdown shows the correct value
+                        if (primaryCategorySelect) {
+                            primaryCategorySelect.value = widgetState.primaryCategory;
+                        }
                         // Re-render primary services to ensure UI matches state
                         renderPrimaryServices(widgetState.primaryCategory);
                         document.getElementById('primary-services-section').style.display = 'block';
@@ -2350,7 +2515,6 @@
                         }, 50);
                     } else {
                         // No primary category selected - ensure UI is reset
-                        const primaryCategorySelect = document.getElementById('primary_service_category');
                         if (primaryCategorySelect) {
                             primaryCategorySelect.value = '';
                         }

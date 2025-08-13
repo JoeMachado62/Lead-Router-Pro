@@ -1,0 +1,147 @@
+<!-- 
+    WordPress Iframe Auto-Resize Handler
+    =====================================
+    Copy and paste this code into your WordPress page where you want to embed the vendor application form.
+    This can be added via:
+    - Elementor: HTML widget
+    - Gutenberg: Custom HTML block
+    - Classic Editor: Text mode
+    - Theme: Page template or custom field
+-->
+
+<!-- The Vendor Application Iframe -->
+<iframe
+  id="vendor-app-frame"
+  src="https://dockside.life/vendor-widget"
+  style="width: 100%; border: 0; display: block; height: 800px; transition: height 0.3s ease;"
+  loading="lazy"
+  referrerpolicy="no-referrer"
+  title="Vendor Application Form"
+></iframe>
+
+<!-- Auto-Resize Script -->
+<script>
+(function () {
+  // Get the iframe element
+  const frame = document.getElementById('vendor-app-frame');
+  if (!frame) {
+    console.warn('Vendor application iframe not found');
+    return;
+  }
+  
+  // Configuration
+  const WIDGET_ID = 'vendor-widget'; // Must match the widget's ID
+  const ALLOWED_ORIGIN = 'https://dockside.life'; // Security: only accept from your domain
+  const HEIGHT_BUFFER = 20; // Add some buffer to prevent accidental scrollbars
+  
+  // Listen for height messages from the iframe
+  window.addEventListener('message', function (e) {
+    // Security checks
+    if (!e || !e.data || typeof e.data !== 'object') return;
+    
+    // Verify the origin for security
+    if (e.origin !== ALLOWED_ORIGIN) {
+      console.warn('Rejected message from untrusted origin:', e.origin);
+      return;
+    }
+    
+    // Check if this is our height message
+    const { type, widgetId, height } = e.data;
+    
+    if (type === 'vendorWidget:height' && widgetId === WIDGET_ID) {
+      const newHeight = Number(height);
+      if (newHeight > 0) {
+        // Update iframe height with buffer
+        const finalHeight = Math.ceil(newHeight) + HEIGHT_BUFFER;
+        frame.style.height = finalHeight + 'px';
+        
+        // Optional: Log for debugging
+        console.log('Vendor widget height updated to:', finalHeight + 'px');
+      }
+    }
+    
+    // Also handle the existing close message if needed
+    if (e.data.action === 'closeVendorModal') {
+      // Handle close action if you have a modal wrapper
+      // For example: close a popup or redirect
+      console.log('Vendor application completed/closed');
+      // window.location.href = '/thank-you'; // Optional redirect
+    }
+  });
+  
+  // Optional: Set initial height based on viewport
+  function setInitialHeight() {
+    const viewportHeight = window.innerHeight;
+    const minHeight = 600;
+    const maxHeight = 1200;
+    
+    // Set a reasonable initial height
+    const initialHeight = Math.min(Math.max(viewportHeight * 0.8, minHeight), maxHeight);
+    frame.style.height = initialHeight + 'px';
+  }
+  
+  // Set initial height
+  setInitialHeight();
+  
+  // Optional: Handle window resize
+  let resizeTimer;
+  window.addEventListener('resize', function() {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(function() {
+      // The iframe will send its new height automatically
+      console.log('Window resized, waiting for iframe height update...');
+    }, 250);
+  });
+  
+  // Optional: Add loading indicator
+  frame.addEventListener('load', function() {
+    console.log('Vendor application form loaded successfully');
+  });
+  
+  // Optional: Handle iframe errors
+  frame.addEventListener('error', function(e) {
+    console.error('Error loading vendor application:', e);
+    // You could show a fallback message or link here
+  });
+  
+})();
+</script>
+
+<!-- 
+    Optional: Loading Spinner
+    Shows while the iframe is loading
+-->
+<style>
+  #vendor-app-frame {
+    min-height: 400px;
+    background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 50 50"><path fill="%234573a8" d="M25 1c-6.52 0-12.47 2.37-17.07 6.29l2.12 2.12C14.17 6.03 19.35 4 25 4c13.25 0 24 10.75 24 24h3C52 13.64 40.36 1 25 1z"><animateTransform attributeType="xml" attributeName="transform" type="rotate" from="0 25 25" to="360 25 25" dur="0.8s" repeatCount="indefinite"/></path></svg>') center center no-repeat;
+    background-size: 50px 50px;
+  }
+  
+  #vendor-app-frame[src] {
+    background: white;
+  }
+</style>
+
+<!-- 
+    Alternative Simplified Version
+    ==============================
+    If you prefer a simpler version without all the security checks and options:
+-->
+
+<!-- Simple Version:
+<iframe
+  id="vendor-widget"
+  src="https://dockside.life/vendor-widget"
+  style="width: 100%; border: none; height: 800px;"
+></iframe>
+
+<script>
+window.addEventListener('message', function(e) {
+  if (e.origin !== 'https://dockside.life') return;
+  if (e.data.type === 'vendorWidget:height') {
+    document.getElementById('vendor-widget').style.height = (e.data.height + 20) + 'px';
+  }
+});
+</script>
+-->

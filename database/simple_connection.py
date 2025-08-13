@@ -468,8 +468,8 @@ class SimpleDatabase:
             cursor.execute('''
                 SELECT id, account_id, name, company_name, email, phone, ghl_contact_id, 
                        ghl_user_id, service_categories, status, taking_new_work
-                FROM vendors WHERE email = ? AND account_id = ?
-            ''', (email.lower().strip(), account_id))
+                FROM vendors WHERE email = ? COLLATE NOCASE AND account_id = ?
+            ''', (email.strip(), account_id))
             
             row = cursor.fetchone()
             if row:
@@ -1161,10 +1161,10 @@ class SimpleDatabase:
             cursor = conn.cursor()
             cursor.execute('''
                 SELECT id, account_id, vendor_id, ghl_contact_id, ghl_opportunity_id, 
-                       service_category, customer_name, customer_email, customer_phone, 
-                       service_details, priority_score, status, 
-                       service_county, service_state, service_zip_code,
-                       created_at, updated_at
+                       primary_service_category, customer_name, customer_email, customer_phone, 
+                       service_details, priority, status, 
+                       service_county, service_state, customer_zip_code,
+                       specific_service_requested, created_at, updated_at
                 FROM leads WHERE ghl_contact_id = ?
             ''', (ghl_contact_id,))
             
@@ -1173,13 +1173,19 @@ class SimpleDatabase:
                 return {
                     "id": row[0], "account_id": row[1], "vendor_id": row[2], 
                     "ghl_contact_id": row[3], "ghl_opportunity_id": row[4],
-                    "service_category": row[5], "customer_name": row[6], 
+                    "primary_service_category": row[5],
+                    "service_category": row[5],  # Alias for backward compatibility
+                    "customer_name": row[6], 
                     "customer_email": row[7], "customer_phone": row[8],
                     "service_details": json.loads(row[9]) if row[9] else {},
-                    "priority_score": row[10], 
+                    "priority": row[10], 
+                    "priority_score": row[10],  # Alias for backward compatibility
                     "status": row[11], "service_county": row[12], 
-                    "service_state": row[13], "customer_zip_code": row[14],
-                    "created_at": row[15], "updated_at": row[16]
+                    "service_state": row[13], 
+                    "customer_zip_code": row[14],
+                    "service_zip_code": row[14],  # Alias for backward compatibility
+                    "specific_service_requested": row[15],
+                    "created_at": row[16], "updated_at": row[17]
                 }
             return None
             
@@ -1305,6 +1311,208 @@ class SimpleDatabase:
         except Exception as e:
             logger.error(f"❌ Error getting vendor by ID: {e}")
             return None
+        finally:
+            if conn:
+                conn.close()
+
+    def get_leads_by_contact_id(self, contact_id: str) -> List[Dict[str, Any]]:
+        """Get all leads for a specific GHL contact ID"""
+        conn = None
+        try:
+            conn = self._get_conn()
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+                SELECT id, account_id, vendor_id, ghl_contact_id, ghl_opportunity_id,
+                       service_category, customer_name, customer_email, customer_phone,
+                       service_details, estimated_value, priority_score, priority,
+                       source, status, created_at, updated_at
+                FROM leads
+                WHERE ghl_contact_id = ?
+                ORDER BY created_at DESC
+            ''', (contact_id,))
+            
+            rows = cursor.fetchall()
+            leads = []
+            for row in rows:
+                lead = {
+                    "id": row[0], "account_id": row[1], "vendor_id": row[2],
+                    "ghl_contact_id": row[3], "ghl_opportunity_id": row[4],
+                    "service_category": row[5], "customer_name": row[6],
+                    "customer_email": row[7], "customer_phone": row[8],
+                    "service_details": json.loads(row[9] or '{}'),
+                    "estimated_value": row[10], "priority_score": row[11],
+                    "priority": row[12], "source": row[13], "status": row[14],
+                    "created_at": row[15], "updated_at": row[16]
+                }
+                # Add reassignment fields if they exist
+                try:
+                    cursor.execute('''
+                        SELECT reassignment_count, vendor_assigned_at, reassignment_reason
+                        FROM leads WHERE id = ?
+                    ''', (row[0],))
+                    extra = cursor.fetchone()
+                    if extra:
+                        lead['reassignment_count'] = extra[0] if len(extra) > 0 else 0
+                        lead['vendor_assigned_at'] = extra[1] if len(extra) > 1 else None
+                        lead['reassignment_reason'] = extra[2] if len(extra) > 2 else None
+                except:
+                    pass
+                
+                leads.append(lead)
+            
+            return leads
+            
+        except Exception as e:
+            logger.error(f"Error getting leads by contact ID: {e}")
+            return []
+        finally:
+            if conn:
+                conn.close()
+
+    def update_lead(self, lead_id: str, update_data: Dict[str, Any]) -> bool:
+        """Update lead with arbitrary fields"""
+        conn = None
+        try:
+            conn = self._get_conn()
+            cursor = conn.cursor()
+            
+            # First, add any missing columns
+            for field in update_data.keys():
+                if field not in ['id', 'created_at', 'updated_at', 'service_details']:
+                    try:
+                        cursor.execute(f"ALTER TABLE leads ADD COLUMN {field} TEXT")
+                        conn.commit()
+                    except:
+                        pass  # Column already exists
+            
+            # Build dynamic update query
+            update_fields = []
+            values = []
+            
+            for field, value in update_data.items():
+                if field in ['service_details']:
+                    values.append(json.dumps(value) if value else '{}')
+                else:
+                    values.append(value)
+                update_fields.append(f"{field} = ?")
+            
+            # Always update the updated_at timestamp
+            update_fields.append("updated_at = CURRENT_TIMESTAMP")
+            
+            query = f'''
+                UPDATE leads
+                SET {', '.join(update_fields)}
+                WHERE id = ?
+            '''
+            
+            values.append(lead_id)
+            cursor.execute(query, values)
+            conn.commit()
+            
+            return cursor.rowcount > 0
+            
+        except Exception as e:
+            logger.error(f"Error updating lead: {e}")
+            if conn:
+                conn.rollback()
+            return False
+        finally:
+            if conn:
+                conn.close()
+
+    def create_lead_event(self, event_data: Dict[str, Any]) -> Optional[str]:
+        """Create a lead event for tracking history"""
+        conn = None
+        try:
+            conn = self._get_conn()
+            cursor = conn.cursor()
+            
+            # Create events table if it doesn't exist
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS lead_events (
+                    id TEXT PRIMARY KEY,
+                    lead_id TEXT,
+                    contact_id TEXT,
+                    event_type TEXT,
+                    event_data TEXT DEFAULT '{}',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (lead_id) REFERENCES leads (id)
+                )
+            ''')
+            
+            event_id = str(uuid.uuid4())
+            cursor.execute('''
+                INSERT INTO lead_events (id, lead_id, contact_id, event_type, event_data)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (
+                event_id,
+                event_data.get('lead_id'),
+                event_data.get('contact_id'),
+                event_data.get('event_type'),
+                json.dumps({k: v for k, v in event_data.items() 
+                           if k not in ['lead_id', 'contact_id', 'event_type']})
+            ))
+            
+            conn.commit()
+            return event_id
+            
+        except Exception as e:
+            logger.error(f"Error creating lead event: {e}")
+            if conn:
+                conn.rollback()
+            return None
+        finally:
+            if conn:
+                conn.close()
+
+    def get_lead_events(self, lead_id: Optional[str] = None, 
+                       contact_id: Optional[str] = None,
+                       event_type: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Get lead events with optional filtering"""
+        conn = None
+        try:
+            conn = self._get_conn()
+            cursor = conn.cursor()
+            
+            query = 'SELECT id, lead_id, contact_id, event_type, event_data, created_at FROM lead_events WHERE 1=1'
+            params = []
+            
+            if lead_id:
+                query += ' AND lead_id = ?'
+                params.append(lead_id)
+            
+            if contact_id:
+                query += ' AND contact_id = ?'
+                params.append(contact_id)
+            
+            if event_type:
+                query += ' AND event_type = ?'
+                params.append(event_type)
+            
+            query += ' ORDER BY created_at DESC'
+            
+            cursor.execute(query, params)
+            rows = cursor.fetchall()
+            
+            events = []
+            for row in rows:
+                event_data = json.loads(row[4] or '{}')
+                event = {
+                    "id": row[0],
+                    "lead_id": row[1],
+                    "contact_id": row[2],
+                    "event_type": row[3],
+                    "timestamp": row[5],
+                    **event_data
+                }
+                events.append(event)
+            
+            return events
+            
+        except Exception as e:
+            logger.error(f"Error getting lead events: {e}")
+            return []
         finally:
             if conn:
                 conn.close()

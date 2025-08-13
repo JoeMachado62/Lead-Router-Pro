@@ -2,41 +2,102 @@
 # Lead Router Pro - Quick Restart Script (Dev Mode) with Dependency Management
 # Automatically stops service, checks dependencies, and restarts in dev mode
 
+set -e  # Exit on error
+
 echo "🔄 Lead Router Pro - Restart Script (Dev Mode)"
-echo "=================================="
+echo "============================================="
+echo "Timestamp: $(date)"
 
-# Stop the service
-echo "⏹️  Stopping any process on port 8000..."
-fuser -k -n tcp 8000 2>/dev/null || echo "   No process found on port 8000"
+# Configuration
+APP_DIR="/root/Lead-Router-Pro"
+LOG_DIR="/var/log/leadrouter"
+LOG_FILE="$LOG_DIR/devmode.log"
+PYTHON_EXEC="/root/Lead-Router-Pro/venv/bin/python"
 
-# Wait a moment for clean shutdown
-echo "⏳ Waiting for clean shutdown..."
-sleep 5
+# Create log directory if it doesn't exist
+mkdir -p "$LOG_DIR"
+
+# Function to log messages
+log_message() {
+    echo "$1"
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [DEV] $1" >> "$LOG_FILE"
+}
+
+# Function to kill process on port
+kill_port_process() {
+    local port=$1
+    log_message "⏹️  Stopping any process on port $port..."
+    
+    # Get PIDs of processes on the port
+    local pids=$(lsof -ti :$port 2>/dev/null || true)
+    
+    if [ -n "$pids" ]; then
+        for pid in $pids; do
+            log_message "   Killing process $pid on port $port"
+            kill -TERM $pid 2>/dev/null || true
+        done
+        sleep 2
+        
+        # Force kill if still running
+        for pid in $pids; do
+            if kill -0 $pid 2>/dev/null; then
+                log_message "   Force killing process $pid"
+                kill -KILL $pid 2>/dev/null || true
+            fi
+        done
+    else
+        log_message "   No process found on port $port"
+    fi
+}
+
+# Stop any existing process
+kill_port_process 8000
+
+# Wait for clean shutdown
+log_message "⏳ Waiting for clean shutdown..."
+sleep 3
 
 # Change to app directory
-echo "📁 Changing to Lead-Router-Pro directory..."
-cd /root/Lead-Router-Pro
+cd "$APP_DIR" || {
+    log_message "❌ Failed to change to application directory: $APP_DIR"
+    exit 1
+}
 
 # Check if virtual environment exists
 if [ ! -d "venv" ]; then
-    echo "❌ Virtual environment not found!"
-    echo "🔧 Creating virtual environment..."
+    log_message "❌ Virtual environment not found!"
+    log_message "🔧 Creating virtual environment..."
     python3 -m venv venv
-    echo "✅ Virtual environment created"
+    source venv/bin/activate
+    pip install --upgrade pip
+    pip install -r requirements.txt
+    log_message "✅ Virtual environment created and dependencies installed"
+else
+    source venv/bin/activate
 fi
 
-# Activate virtual environment
-echo "🐍 Activating virtual environment..."
-source venv/bin/activate
+# Verify Python environment
+log_message "🔍 Python environment check:"
+log_message "   Python: $(which python)"
+log_message "   Pip: $(which pip)"
+log_message "   Uvicorn: $(which uvicorn || echo 'Not found - will install')"
 
-# Check Python path
-echo "🔍 Using Python: $(which python)"
-echo "🔍 Using pip: $(which pip)"
+# Install uvicorn if not present
+if ! command -v uvicorn &> /dev/null; then
+    log_message "📦 Installing uvicorn..."
+    pip install uvicorn[standard]
+fi
 
-# Run dependency check and startup report
-echo ""
-echo "🛡️ CHECKING DEPENDENCIES..."
-echo "============================="
+# Check for .env file
+if [ ! -f ".env" ]; then
+    log_message "⚠️  Warning: .env file not found. Application may not work correctly."
+    log_message "   Please create .env file with required configuration."
+fi
+
+# Run dependency check
+log_message ""
+log_message "🛡️ CHECKING DEPENDENCIES..."
+log_message "============================="
 
 # Run the dependency management system
 python -c "
@@ -111,22 +172,45 @@ except Exception as e:
 "
 
 # Check if dependency check passed
-if [ $? -ne 0 ]; then
-    echo ""
-    echo "❌ Dependency check failed. Cannot start application."
-    echo "   Please resolve dependency issues and try again."
+DEPENDENCY_CHECK=$?
+if [ $DEPENDENCY_CHECK -ne 0 ]; then
+    log_message ""
+    log_message "❌ Dependency check failed. Cannot start application."
+    log_message "   Please resolve dependency issues and try again."
     exit 1
 fi
 
-echo ""
-echo "🚀 Starting Lead Router Pro in Dev Mode..."
-echo "   - Server will be available at http://localhost:8000"
-echo "   - Health check: http://localhost:8000/health"
-echo "   - API docs: http://localhost:8000/docs"
-echo "   - Press Ctrl+C to stop"
-echo "   - Logs will appear below..."
-echo ""
+log_message ""
+log_message "🚀 Starting Lead Router Pro in Development Mode..."
+log_message "   - Server will be available at http://localhost:8000"
+log_message "   - Admin dashboard: http://localhost:8000/dashboard"
+log_message "   - API docs: http://localhost:8000/docs"
+log_message "   - Health check: http://localhost:8000/health"
+log_message "   - Auto-reload is ENABLED (changes will restart server)"
+log_message "   - Press Ctrl+C to stop"
+log_message ""
+
+# Create a wrapper script for better process management
+cat > /tmp/leadrouter_dev_runner.sh << 'EOF'
+#!/bin/bash
+cd /root/Lead-Router-Pro
+source venv/bin/activate
+exec python -m uvicorn main_working_final:app --host 0.0.0.0 --port 8000 --log-level debug --reload
+EOF
+chmod +x /tmp/leadrouter_dev_runner.sh
 
 # Start the application in dev mode with reload
-echo "🔥 Starting with auto-reload (development mode)..."
-python -m uvicorn main_working_final:app --host 0.0.0.0 --port 8000 --log-level trace --reload
+log_message "🔥 Starting with auto-reload (development mode)..."
+log_message "📋 Logs are being written to: $LOG_FILE"
+log_message ""
+
+# Run with explicit error handling
+/tmp/leadrouter_dev_runner.sh 2>&1 | tee -a "$LOG_FILE"
+
+# Clean up
+rm -f /tmp/leadrouter_dev_runner.sh
+
+# If we get here, the server was stopped
+log_message ""
+log_message "🛑 Development server stopped."
+log_message "   To restart, run this script again."

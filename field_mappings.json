@@ -1,8 +1,8 @@
 {
   "default_mappings": {
-    "ServiceNeeded": "specific_service_needed",
-    "serviceNeeded": "specific_service_needed",
-    "service_needed": "specific_service_needed",
+    "ServiceNeeded": "specific_service_requested",
+    "serviceNeeded": "specific_service_requested",
+    "service_needed": "specific_service_requested",
     "zipCode": "zip_code_of_service",
     "zip_code": "zip_code_of_service",
     "serviceZipCode": "zip_code_of_service",

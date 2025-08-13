@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Vendor Widget with Level 3 Services</title>
+    <script>
+        // Extract SERVICE_CATEGORIES from vendor widget for testing
+        function testLevel3Services() {
+            fetch('/vendor-widget')
+                .then(response => response.text())
+                .then(html => {
+                    // Extract the SERVICE_CATEGORIES object
+                    const match = html.match(/const SERVICE_CATEGORIES = ({[\s\S]*?});[\s]*\/\/ Widget State/);
+                    if (match) {
+                        const serviceCategories = eval('(' + match[1] + ')');
+                        
+                        // Check structure
+                        console.log('✅ Service Categories loaded');
+                        console.log('Total categories:', Object.keys(serviceCategories).length);
+                        
+                        // Test Level 3 services for a few categories
+                        const testCases = [
+                            'Boat and Yacht Repair',
+                            'Marine Systems',
+                            'Engines and Generators'
+                        ];
+                        
+                        testCases.forEach(category => {
+                            const catData = serviceCategories[category];
+                            if (catData && catData.level3Services) {
+                                console.log(`\n📁 ${category}:`);
+                                console.log(`  - Subcategories: ${catData.subcategories.length}`);
+                                
+                                // Count Level 3 services
+                                let level3Count = 0;
+                                Object.keys(catData.level3Services).forEach(subcat => {
+                                    const services = catData.level3Services[subcat];
+                                    if (services && services.length > 0) {
+                                        level3Count += services.length;
+                                        console.log(`    • ${subcat}: ${services.length} Level 3 services`);
+                                    }
+                                });
+                                console.log(`  - Total Level 3 services: ${level3Count}`);
+                            }
+                        });
+                        
+                        // Display results
+                        document.getElementById('results').innerHTML = `
+                            <h2>✅ Level 3 Services Successfully Added!</h2>
+                            <p>The vendor widget now includes comprehensive Level 3 services.</p>
+                            <p>Total categories: ${Object.keys(serviceCategories).length}</p>
+                            <ul>
+                                ${Object.keys(serviceCategories).map(cat => {
+                                    const catData = serviceCategories[cat];
+                                    const level3Count = Object.values(catData.level3Services || {})
+                                        .reduce((sum, services) => sum + services.length, 0);
+                                    return `<li><strong>${cat}</strong>: ${catData.subcategories.length} subcategories, ${level3Count} Level 3 services</li>`;
+                                }).join('')}
+                            </ul>
+                        `;
+                    } else {
+                        document.getElementById('results').innerHTML = '<p>❌ Could not extract SERVICE_CATEGORIES</p>';
+                    }
+                })
+                .catch(err => {
+                    document.getElementById('results').innerHTML = `<p>❌ Error: ${err.message}</p>`;
+                });
+        }
+    </script>
+</head>
+<body>
+    <h1>Testing Vendor Widget Level 3 Services</h1>
+    <button onclick="testLevel3Services()">Test Level 3 Services</button>
+    <div id="results"></div>
+</body>
+</html>
