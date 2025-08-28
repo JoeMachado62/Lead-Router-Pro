@@ -2940,6 +2940,37 @@
                 selectedCount: selectedServices.length
             });
             
+            // Update the badge count to reflect actual selected services
+            const serviceElements = document.querySelectorAll(`.service-tag[data-service="${context.service}"]`);
+            debugLog('Found service elements:', serviceElements.length);
+            
+            serviceElements.forEach(element => {
+                const badge = element.querySelector('.service-count-badge');
+                debugLog('Badge found:', badge);
+                
+                if (badge) {
+                    // Update badge with actual selected count
+                    badge.textContent = selectedServices.length;
+                    debugLog('Updated badge text to:', selectedServices.length);
+                    
+                    // Hide badge if no services selected or only 1 (which would be the service itself)
+                    if (selectedServices.length <= 1) {
+                        badge.style.display = 'none';
+                    } else {
+                        badge.style.display = 'inline-block';
+                    }
+                } else {
+                    // If no badge exists but should, create one
+                    if (selectedServices.length > 1) {
+                        const newBadge = document.createElement('span');
+                        newBadge.className = 'service-count-badge';
+                        newBadge.textContent = selectedServices.length;
+                        element.appendChild(newBadge);
+                        debugLog('Created new badge with count:', selectedServices.length);
+                    }
+                }
+            });
+            
             window.closeLevel3Modal();
         }
 

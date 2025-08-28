@@ -32,7 +32,14 @@
     "timeline": "desired_timeline",
     "budgetRange": "budget_range",
     "budget_range": "budget_range",
-    "budget": "budget_range"
+    "budget": "budget_range",
+    "consent": "consent",
+    "preferred_partner": "preferred_partner",
+    "form_submission_date": "form_submission_date",
+    "form_submission_time": "form_submission_time",
+    "source_page_url": "source_page_url",
+    "elementor_form_id": "elementor_form_id",
+    "elementor_form_name": "elementor_form_name"
   },
   "industry_specific": {
     "marine": {

@@ -471,100 +471,260 @@ def get_direct_service_category(form_identifier: str) -> str:
     return default_category
 
 
-# New mapping for form identifiers to Level 2 subcategories (for vendor matching)
+# Comprehensive mapping for WordPress form identifiers to service names
+# Includes both hyphenated (WordPress) and underscore versions for compatibility
 # This ensures we capture the Level 2 subcategory when there's no Level 3 question
 FORM_TO_SPECIFIC_SERVICE = {
-    # Boat Maintenance subcategories
+    # ===== BOAT MAINTENANCE SERVICES =====
+    "barnacle_cleaning": "Barnacle Cleaning",
+    "barnacle-cleaning": "Barnacle Cleaning",
+    "boat_yacht_maintenance": "Boat and Yacht Maintenance",
+    "boat-yacht-maintenance": "Boat and Yacht Maintenance",
+    "bilge_cleaning": "Bilge Cleaning",
+    "bilge-cleaning": "Bilge Cleaning",
+    "boat_bilge_cleaning": "Boat Bilge Cleaning",
     "bottom_cleaning": "Bottom Cleaning",
+    "bottom-cleaning": "Bottom Cleaning",
     "boat_bottom_cleaning": "Bottom Cleaning",
     "boat_detailing": "Boat Detailing",
+    "boat-detailing": "Boat Detailing",
     "boat_oil_change": "Boat Oil Change",
-    "boat_bilge_cleaning": "Boat Bilge Cleaning",
-    "barnacle_cleaning": "Barnacle Cleaning",
-    "ceramic_coating": "Ceramic Coating",
-    "jet_ski_maintenance": "Jet Ski Maintenance",
-    "yacht_armor": "Yacht Armor",
-    "yacht_fire_detection": "Yacht Fire Detection Systems",
+    "boat-oil-change": "Boat Oil Change",
     "boat_wrapping_marine_protection": "Boat Wrapping and Marine Protection Film",
+    "boat_wrapping_marine_protection_film": "Boat Wrapping and Marine Protection Film",
+    "boat-wrapping-marine-protection-film": "Boat Wrapping and Marine Protection Film",
+    "ceramic_coating": "Ceramic Coating",
+    "ceramic-coating": "Ceramic Coating",
+    "jet_ski_maintenance": "Jet Ski Maintenance",
+    "jet-ski-maintenance": "Jet Ski Maintenance",
+    "yacht_fire_detection": "Yacht Fire Detection Systems",
+    "yacht_fire_detection_systems": "Yacht Fire Detection Systems",
+    "yacht-fire-detection-systems": "Yacht Fire Detection Systems",
+    "yacht_armor": "Yacht Armor",
+    "yacht-armor": "Yacht Armor",
     
-    # Boat and Yacht Repair subcategories
-    "fiberglass_repair": "Fiberglass Repair",
-    "welding_metal_fabrication": "Welding & Metal Fabrication",
-    "carpentry_woodwork": "Carpentry & Woodwork",
-    
-    # Marine Systems subcategories
-    "ac_service": "AC Service",
-    "yacht_ac_service": "AC Service",
-    "marine_electronics": "Marine Electronics",
-    
-    # Engines and Generators subcategories
-    "outboard_engine_service": "Outboard Engine Service",
-    "inboard_engine_service": "Inboard Engine Service",
-    "diesel_engine_service": "Diesel Engine Service",
-    "generator_service": "Generator Service",
-    
-    # Fuel Delivery
-    "fuel_delivery": "Fuel Delivery",
-    
-    # Boat Insurance
-    "boat_insurance": "Boat Insurance",
-    
-    # Dock and Slip Rental
-    "dock_slip_rental": "Dock and Slip Rental",
-    "rent_my_dock": "Rent My Dock",
-    
-    # Docks, Seawalls and Lifts subcategories
-    "dock_seawall_builders_repair": "Dock and Seawall Builders or Repair",
-    "dock_builders": "Dock Builders",
-    "seawall_construction": "Seawall Construction",
-    "seawall_repair": "Seawall Repair",
-    "boat_lift_installers": "Boat Lift Installers",
-    "floating_dock_sales": "Floating Dock Sales",
-    "davit_hydraulic_platform": "Davit and Hydraulic Platform",
-    "hull_dock_seawall_piling_cleaning": "Hull Dock Seawall or Piling Cleaning",
-    "piling_cleaning": "Piling Cleaning",
-    
-    # Boat and Yacht Repair subcategories
-    "welding_metal_fabrication": "Welding & Metal Fabrication",
-    "carpentry_woodwork": "Carpentry & Woodwork",
-    "canvas_upholstery": "Canvas & Upholstery",
-    "decking_flooring": "Decking & Flooring",
-    "yacht_restoration": "Yacht Restoration",
-    
-    # Boat Towing subcategories
-    "emergency_tow": "Emergency Towing",
-    "towing_membership": "Towing Membership",
-    "on_water_assistance": "On-Water Assistance",
-    
-    # Boat Hauling and Yacht Delivery subcategories
-    "boat_hauling": "Boat Hauling",
+    # ===== BOAT HAULING AND YACHT DELIVERY =====
     "yacht_delivery": "Yacht Delivery",
+    "yacht-delivery": "Yacht Delivery",
+    "boat_hauling": "Boat Hauling",
+    "boat-hauling": "Boat Hauling",
+    "boat_hauling_transport": "Boat Hauling",
+    "boat-hauling-transport": "Boat Hauling",
     "boat_transport_by_road": "Boat Transport By Road",
     
-    # Buying or Selling a Boat subcategories
-    "boat_brokers": "Boat Brokers",
+    # ===== BOAT AND YACHT REPAIR SERVICES =====
+    "boat_yacht_repair": "Boat and Yacht Repair",
+    "boat-yacht-repair": "Boat and Yacht Repair",
+    "fiberglass_repair": "Fiberglass Repair",
+    "fiberglass-repair": "Fiberglass Repair",
+    "welding_metal_fabrication": "Welding & Metal Fabrication",
+    "welding-metal-fabrication": "Welding & Metal Fabrication",
+    "carpentry_woodwork": "Carpentry & Woodwork",
+    "boat_carpentry_woodwork": "Carpentry & Woodwork",
+    "boat-carpentry-woodwork": "Carpentry & Woodwork",
+    "riggers_masts": "Riggers & Masts",
+    "riggers-masts": "Riggers & Masts",
+    "jet_ski_repair": "Jet Ski Repair",
+    "jet-ski-repair": "Jet Ski Repair",
+    "canvas_upholstery": "Canvas & Upholstery",
+    "boat_canvas_upholstery": "Canvas & Upholstery",
+    "boat-canvas-upholstery": "Canvas & Upholstery",
+    "decking_flooring": "Decking & Flooring",
+    "boat_decking_yacht_flooring": "Decking & Flooring",
+    "boat-decking-yacht-flooring": "Decking & Flooring",
+    "yacht_restoration": "Yacht Restoration",
+    
+    # ===== BUYING OR SELLING A BOAT =====
+    "buy_sell": "Buying or Selling a Boat",
+    "buy-sell": "Buying or Selling a Boat",
+    "boat_dealers": "Boat Dealers",
+    "boat-dealers": "Boat Dealers",
+    "yacht_dealers": "Yacht Dealers",
+    "yacht-dealers": "Yacht Dealers",
     "boat_surveyors": "Boat Surveyors",
+    "boat-surveyors": "Boat Surveyors",
+    "boat_financing": "Boat Financing",
+    "boat-financing": "Boat Financing",
+    "boat_builder": "Boat Builder",
+    "boat-builder": "Boat Builder",
+    "boat_broker": "Boat Brokers",
+    "boat-broker": "Boat Brokers",
+    "boat_brokers": "Boat Brokers",
+    "yacht_broker": "Yacht Brokers",
+    "yacht-broker": "Yacht Brokers",
     "yacht_brokers": "Yacht Brokers",
+    "yacht_builder": "Yacht Builders",
+    "yacht-builder": "Yacht Builders",
     "yacht_builders": "Yacht Builders",
     
-    # Maritime Education and Training subcategories
+    # ===== INSURANCE SERVICES =====
+    "boat_insurance": "Boat Insurance",
+    "boat-insurance": "Boat Insurance",
+    "yacht_insurance": "Yacht Insurance",
+    "yacht-insurance": "Yacht Insurance",
+    
+    # ===== ENGINES AND GENERATORS SERVICES =====
+    "engine_generators_sales_service": "Engines and Generators",
+    "engine-generators-sales-service": "Engines and Generators",
+    "generator_sales_service": "Generator Service",
+    "generator-sales-service": "Generator Service",
+    "generator_sales": "Generator Sales",
+    "generator-sales": "Generator Sales",
+    "generator_service": "Generator Service",
+    "generator-service": "Generator Service",
+    "engine_service_sales": "Engine Service",
+    "engine-service-sales": "Engine Service",
+    "engine_service": "Engine Service",
+    "engine-service": "Engine Service",
+    "engine_sales": "Engine Sales",
+    "engine-sales": "Engine Sales",
+    "diesel_engine_sales": "Diesel Engine Sales",
+    "diesel-engine-sales": "Diesel Engine Sales",
+    "diesel_engine_service": "Diesel Engine Service",
+    "outboard_engine_sales": "Outboard Engine Sales",
+    "outboard-engine-sales": "Outboard Engine Sales",
+    "outboard_engine_service": "Outboard Engine Service",
+    "inboard_engine_sales": "Inboard Engine Sales",
+    "inboard-engine-sales": "Inboard Engine Sales",
+    "inboard_engine_service": "Inboard Engine Service",
+    "marine_exhaust_systems_service": "Marine Exhaust Systems Service",
+    "marine-exhaust-systems-service": "Marine Exhaust Systems Service",
+    "marine-exhause-systems-service": "Marine Exhaust Systems Service",  # Handle typo from WordPress
+    
+    # ===== MARINE SYSTEMS SERVICES =====
+    "marine_systems_install_sales": "Marine Systems Install and Sales",
+    "marine-systems-install-sales": "Marine Systems Install and Sales",
+    "yacht_stabilizers_seakeepers": "Stabilizers or Seakeepers",
+    "yacht-stabilizers-seakeepers": "Stabilizers or Seakeepers",
+    "instrumental_panel_dashboard": "Instrument Panel and Dashboard",
+    "instrumental-panel-dashboard": "Instrument Panel and Dashboard",
+    "yacht_ac_sales": "Yacht AC Sales",
+    "yacht-ac-sales": "Yacht AC Sales",
+    "yacht_ac_service": "AC Service",
+    "yacht-ac-service": "AC Service",
+    "ac_service": "AC Service",
+    "boat_electrical_service": "Electrical Service",
+    "boat-electrical-service": "Electrical Service",
+    "boat_sound_systems": "Sound System",
+    "boat-sound-systems": "Sound System",
+    "yacht_plumbing": "Plumbing",
+    "yacht-plumbing": "Plumbing",
+    "boat_lighting": "Lighting",
+    "boat-lighting": "Lighting",
+    "yacht_refrigeration_watermakers": "Refrigeration or Watermakers",
+    "yacht-refrigeration-watermakers": "Refrigeration or Watermakers",
+    "marine_batteries_installation": "Marine Batteries Installation",
+    "marine-batteries-installation": "Marine Batteries Installation",
+    "yacht_mechanical_systems": "Yacht Mechanical Systems",
+    "yacht-mechanical-systems": "Yacht Mechanical Systems",
+    "marine_electronics": "Marine Electronics",
+    
+    # ===== DOCKS, SEAWALLS AND LIFTS =====
+    "dock_boat_lift_seawall": "Docks, Seawalls and Lifts",
+    "dock-boat-lift-seawall": "Docks, Seawalls and Lifts",
+    "boat_lift": "Boat Lift Installers",
+    "boat-lift": "Boat Lift Installers",
+    "boat_lift_installers": "Boat Lift Installers",
+    "floating_dock_sales": "Floating Dock Sales",
+    "floating-dock-sales": "Floating Dock Sales",
+    "seawall_construction": "Seawall Construction",
+    "seawall-construction": "Seawall Construction",
+    "seawall_repair": "Seawall Repair",
+    "davit_hydraulic_platform": "Davit and Hydraulic Platform",
+    "davit-hydraulic-platform": "Davit and Hydraulic Platform",
+    "dock_seawall_piling_cleaning": "Hull Dock Seawall or Piling Cleaning",
+    "dock-seawall-piling-cleaning": "Hull Dock Seawall or Piling Cleaning",
+    "hull_dock_seawall_piling_cleaning": "Hull Dock Seawall or Piling Cleaning",
+    "piling_cleaning": "Piling Cleaning",
+    "dock_seawall_builders_repair": "Dock and Seawall Builders or Repair",
+    "dock_builders": "Dock Builders",
+    
+    # ===== BOAT TOWING SERVICES =====
+    "emergency_towing": "Emergency Towing",
+    "emergency-towing": "Emergency Towing",
+    "emergency_tow": "Emergency Towing",
+    "towing_membership": "Towing Membership",
+    "towing-membership": "Towing Membership",
+    "on_water_assistance": "On-Water Assistance",
+    
+    # ===== BOAT CHARTERS AND RENTALS =====
+    "boat_charters_rentals": "Boat Charters and Rentals",
+    "boat-charters-rentals": "Boat Charters and Rentals",
+    "boat_clubs": "Boat Club",
+    "boat-clubs": "Boat Club",
+    "yacht_catamaran_charters": "Yacht and Catamaran Charters",
+    "yacht-catamaran-charters": "Yacht and Catamaran Charters",
+    "dive_equipment_services": "Dive Equipment and Services",
+    "dive-equipment-services": "Dive Equipment and Services",
+    "efoil_kiteboarding_wing_surfing": "eFoil, Kiteboarding or Wing Surfing Lessons",
+    "efoil-kiteboarding-wing-surfing": "eFoil, Kiteboarding or Wing Surfing Lessons",
+    "fishing_charters": "Fishing Charter",
+    "fishing-charters": "Fishing Charter",
+    "sailboat_charters": "Sailboat Charter",
+    "sailboat-charters": "Sailboat Charter",
+    "jetski_rental": "Jet Ski Rental",
+    "jetski-rental": "Jet Ski Rental",
+    "kayak_rental": "Kayak Rental",
+    "kayak-rental": "Kayak Rental",
+    "paddleboard_rental": "Paddleboard Rental",
+    "paddleboard-rental": "Paddleboard Rental",
+    "party_boat_charters": "Party Boat Charter",
+    "party-boat-charters": "Party Boat Charter",
+    "pontoon_boat_charter_rentals": "Pontoon Charter",
+    "pontoon-boat-charter-rentals": "Pontoon Charter",
+    "private_yacht_charters": "Daily Yacht or Catamaran Charter",
+    "private-yacht-charters": "Daily Yacht or Catamaran Charter",
+    
+    # ===== BOATER RESOURCES =====
+    "boat_resources": "Boater Resources",
+    "boat-resources": "Boater Resources",
+    "yacht_wifi": "Vessel WiFi or Communications",
+    "yacht-wifi": "Vessel WiFi or Communications",
+    "provisioning": "Provisioning",
+    "boat_yacht_parts": "Boat or Yacht Parts",
+    "boat-yacht-parts": "Boat or Yacht Parts",
+    "boat_salvage": "Boat Salvage",
+    "boat-salvage": "Boat Salvage",
+    "yacht_photography": "Photography or Videography",
+    "yacht-photography": "Photography or Videography",
+    "yacht_videography": "Photography or Videography",
+    "yacht-videography": "Photography or Videography",
+    "yacht_crew_placement": "Crew Management",
+    "yacht-crew-placement": "Crew Management",
+    "yacht_management_bookkeeping": "Account Management and Bookkeeping",
+    "yacht-management-bookkeeping": "Account Management and Bookkeeping",
+    "advertising_pr_webdesign": "Marketing or Web Design",
+    "advertising-pr-webdesign": "Marketing or Web Design",
+    "maritime_attorney": "Maritime Attorney",
+    "maritime-attorney": "Maritime Attorney",
+    
+    # ===== OTHER SERVICES =====
+    "fuel_delivery": "Fuel Delivery",
+    "fuel-delivery": "Fuel Delivery",
+    "waterfront_homes_for_sale": "Waterfront Homes for Sale",
+    "waterfront-homes-for-sale": "Waterfront Homes for Sale",
+    "waterfront_homes_sale": "Waterfront Homes for Sale",
+    "sell_waterfront_home": "Sell My Waterfront Home",
+    "sell-waterfront-home": "Sell My Waterfront Home",
+    "waterfront_new_developments": "New Waterfront Developments",
+    "waterfront-new-developments": "New Waterfront Developments",
+    "new_waterfront_developments": "New Waterfront Developments",
+    "maritime_education_training": "Maritime Education and Training",
+    "maritime-education-training": "Maritime Education and Training",
     "maritime_certification": "Maritime Certification",
     "maritime_academy": "Maritime Academy",
     "sailing_schools": "Sailing Schools",
     "yacht_training": "Yacht Training",
-    
-    # Waterfront Property subcategories
-    "waterfront_homes_sale": "Waterfront Homes for Sale",
-    "sell_waterfront_home": "Sell My Waterfront Home",
-    "new_waterfront_developments": "New Waterfront Developments",
-    
-    # Yacht Management
+    "dock_slip_rental": "Dock and Slip Rental",
+    "dock-slip-rental": "Dock and Slip Rental",
+    "rent_my_dock": "Rent My Dock",
+    "rent-my-dock": "Rent My Dock",
     "yacht_management": "Yacht Management",
+    "yacht-management": "Yacht Management",
+    "wholesale_dealer_product_pricing": "Wholesale or Dealer Product Pricing",
+    "wholesale-dealer-product-pricing": "Wholesale or Dealer Product Pricing",
     
-    # Wholesale or Dealer Product Pricing
-    "wholesale_dealer_pricing": "Wholesale or Dealer Product Pricing"
-    
-    # NOTE: This dictionary is now COMPLETE with all known subcategories
+    # NOTE: This dictionary now includes ALL WordPress form identifiers with both hyphenated and underscore versions
 }
 
 def get_specific_service_from_form(form_identifier: str) -> str:
@@ -731,11 +891,11 @@ def normalize_field_names(payload: Dict[str, Any]) -> Dict[str, Any]:
         "Manufacturer": "vessel_make",
         
         "Your Vessel Model": "vessel_model",
-        "Vessel Model": "vessel_model", 
+        "Vessel Model": "vessel_model",
+        "Your Vessel Model or Length of Vessel in Feet?": "vessel_model",  # CRITICAL FIX
         "Your Vessel Length": "vessel_length_ft",
         "Vessel Length (ft)": "vessel_length_ft",
         "Length of Vessel in Feet": "vessel_length_ft",
-        "Vessel Model": "vessel_model",
         "Boat Model": "vessel_model",
         "Model": "vessel_model",
         
@@ -769,14 +929,30 @@ def normalize_field_names(payload: Dict[str, Any]) -> Dict[str, Any]:
         "Service Areas": "service_zip_codes",
         "Years in Business": "years_in_business",
         
+        # Vendor contact preference
+        "How Should We Contact You (Vendor)?": "vendor_preferred_contact_method",
+        "Vendor Contact Preference": "vendor_preferred_contact_method",
+        "Vendor Preferred Contact Method": "vendor_preferred_contact_method",
+        "vendor_preferred_contact_method": "vendor_preferred_contact_method",  # Pass through
+        
         # Vendor category and service fields
         "service_categories_selected": "service_categories_selected",  # No change needed
         "service_categorires_selected": "service_categories_selected",  # Fix typo if it exists
         
         # Contact preference
-        "How Should We Contact You Back? ": "preferred_contact_method",
+        "How Should We Contact You Back?": "preferred_contact_method",  # FIXED: Removed trailing space
+        "How Should We Contact You Back? ": "preferred_contact_method",  # Keep for backward compatibility
         "Contact Preference": "preferred_contact_method",
-        "Preferred Contact": "preferred_contact_method"
+        "Preferred Contact": "preferred_contact_method",
+        
+        # Form metadata fields (CRITICAL ADDITIONS)
+        "Consent": "consent",
+        "Preferred Partner": "vendor_preferred_partner",  # Maps to GHL field {{ contact.vendor_preferred_partner }}
+        "Date": "form_submission_date",
+        "Time": "form_submission_time",
+        "Page URL": "source_page_url",
+        "form_id": "elementor_form_id",
+        "form_name": "elementor_form_name"
     }
     
     normalized_payload = {}
@@ -1065,6 +1241,12 @@ def process_payload_to_ghl_format(elementor_payload: Dict[str, Any], form_config
         primary_level3_services = elementor_payload.get('primary_level3_services', {})
         additional_level3_services = elementor_payload.get('additional_level3_services', {})
         
+        # DEBUG: Log exactly what we received for Level 3 services
+        logger.info(f"🔍 DEBUG - Raw primary_level3_services type: {type(primary_level3_services)}")
+        logger.info(f"🔍 DEBUG - Raw primary_level3_services content: {primary_level3_services}")
+        logger.info(f"🔍 DEBUG - Raw additional_level3_services type: {type(additional_level3_services)}")
+        logger.info(f"🔍 DEBUG - Raw additional_level3_services content: {additional_level3_services}")
+        
         # Combine all Level 3 services if they exist
         all_level3_services = []
         
@@ -1087,6 +1269,11 @@ def process_payload_to_ghl_format(elementor_payload: Dict[str, Any], form_config
             # Use Level 3 services as the specific services offered
             all_services = all_level3_services
             logger.info(f"✅ Using Level 3 services: {all_services}")
+            
+            # CRITICAL: Override the incoming services_provided field with Level 3 services
+            # The form sends Level 2 in services_provided, but we want Level 3 when available
+            elementor_payload['services_provided'] = ', '.join(all_level3_services)
+            logger.info(f"📝 Overriding services_provided with Level 3 services")
         else:
             # Fall back to Level 2 services (subcategories) when no Level 3 exists
             all_services = []
@@ -1113,14 +1300,15 @@ def process_payload_to_ghl_format(elementor_payload: Dict[str, Any], form_config
         if all_services:
             services_provided_field = field_mapper.get_ghl_field_details("services_provided")
             if services_provided_field and services_provided_field.get("id"):
-                field_exists = any(cf["id"] == services_provided_field["id"] for cf in custom_fields_array)
-                if not field_exists:
-                    combined_services_str = ', '.join(all_services)
-                    custom_fields_array.append({
-                        "id": services_provided_field["id"],
-                        "value": combined_services_str
-                    })
-                    logger.info(f"✅ Added Combined Services Provided field: {combined_services_str}")
+                # Remove any existing services_provided field to replace with correct data
+                custom_fields_array = [cf for cf in custom_fields_array if cf.get("id") != services_provided_field["id"]]
+                
+                combined_services_str = ', '.join(all_services)
+                custom_fields_array.append({
+                    "id": services_provided_field["id"],
+                    "value": combined_services_str
+                })
+                logger.info(f"✅ Added Combined Services Provided field with Level 3: {combined_services_str}")
         
         # Also check for legacy services_provided field for backward compatibility
         legacy_services = elementor_payload.get('services_provided', '')
@@ -1369,6 +1557,19 @@ async def handle_clean_elementor_webhook(
         logger.info(f"   - service_categories_selected: '{elementor_payload.get('service_categories_selected')}'")
         logger.info(f"   - services_provided: '{elementor_payload.get('services_provided')}'")
         logger.info(f"   - service_zip_codes: '{elementor_payload.get('service_zip_codes')}'")
+        
+        # SPECIAL DEBUG for Level 3 services investigation
+        if "vendor" in form_identifier.lower():
+            logger.info(f"🔍 VENDOR APPLICATION - Level 3 Services Debug:")
+            logger.info(f"   - primary_level3_services present: {'primary_level3_services' in elementor_payload}")
+            logger.info(f"   - additional_level3_services present: {'additional_level3_services' in elementor_payload}")
+            logger.info(f"   - all_level3_services present: {'all_level3_services' in elementor_payload}")
+            if 'primary_level3_services' in elementor_payload:
+                logger.info(f"   - primary_level3_services type: {type(elementor_payload.get('primary_level3_services'))}")
+                logger.info(f"   - primary_level3_services content: {elementor_payload.get('primary_level3_services')}")
+            if 'additional_level3_services' in elementor_payload:
+                logger.info(f"   - additional_level3_services type: {type(elementor_payload.get('additional_level3_services'))}")
+                logger.info(f"   - additional_level3_services content: {elementor_payload.get('additional_level3_services')}")
 
         # Get direct form configuration - NO AI
         form_config = get_form_configuration(form_identifier)
@@ -1581,6 +1782,17 @@ async def handle_clean_elementor_webhook(
                 success=True
             )
             
+            # Initialize account_id for all form types (not just vendor applications)
+            account_record = simple_db_instance.get_account_by_ghl_location_id(AppConfig.GHL_LOCATION_ID)
+            if not account_record:
+                account_id = simple_db_instance.create_account(
+                    ghl_location_id=AppConfig.GHL_LOCATION_ID,
+                    company_name="DocksidePros",
+                    industry="Marine Services"
+                )
+            else:
+                account_id = account_record["id"]
+            
             # Create vendor record in database
             if form_config.get("form_type") == "vendor_application" and final_ghl_contact_id:
                 try:
@@ -1619,8 +1831,44 @@ async def handle_clean_elementor_webhook(
                     
                     # CRITICAL FIX: Extract specific services offered using Level 3 when available
                     # First, check for Level 3 services (most specific)
-                    primary_level3_services = elementor_payload.get('primary_level3_services', {})
-                    additional_level3_services = elementor_payload.get('additional_level3_services', {})
+                    primary_level3_services_raw = elementor_payload.get('primary_level3_services', {})
+                    additional_level3_services_raw = elementor_payload.get('additional_level3_services', {})
+                    
+                    # Parse Level 3 services - handle both JSON strings and dict/list formats
+                    primary_level3_services = {}
+                    additional_level3_services = {}
+                    
+                    # Parse primary Level 3 services
+                    if primary_level3_services_raw:
+                        if isinstance(primary_level3_services_raw, str):
+                            try:
+                                primary_level3_services = json.loads(primary_level3_services_raw)
+                                logger.info(f"📋 Parsed primary Level 3 services from JSON string")
+                            except json.JSONDecodeError:
+                                logger.warning(f"⚠️ Failed to parse primary Level 3 services JSON: {primary_level3_services_raw}")
+                                # Try to treat as comma-separated list
+                                primary_level3_services = {"services": [s.strip() for s in primary_level3_services_raw.split(',') if s.strip()]}
+                        elif isinstance(primary_level3_services_raw, dict):
+                            primary_level3_services = primary_level3_services_raw
+                        elif isinstance(primary_level3_services_raw, list):
+                            # If it's a flat list, convert to dict format
+                            primary_level3_services = {"services": primary_level3_services_raw}
+                    
+                    # Parse additional Level 3 services
+                    if additional_level3_services_raw:
+                        if isinstance(additional_level3_services_raw, str):
+                            try:
+                                additional_level3_services = json.loads(additional_level3_services_raw)
+                                logger.info(f"📋 Parsed additional Level 3 services from JSON string")
+                            except json.JSONDecodeError:
+                                logger.warning(f"⚠️ Failed to parse additional Level 3 services JSON: {additional_level3_services_raw}")
+                                # Try to treat as comma-separated list
+                                additional_level3_services = {"services": [s.strip() for s in additional_level3_services_raw.split(',') if s.strip()]}
+                        elif isinstance(additional_level3_services_raw, dict):
+                            additional_level3_services = additional_level3_services_raw
+                        elif isinstance(additional_level3_services_raw, list):
+                            # If it's a flat list, convert to dict format
+                            additional_level3_services = {"services": additional_level3_services_raw}
                     
                     services_list = []
                     
@@ -1630,12 +1878,20 @@ async def handle_clean_elementor_webhook(
                             if isinstance(level3_list, list):
                                 services_list.extend(level3_list)
                                 logger.info(f"📋 Level 3 services for {subcategory}: {level3_list}")
+                            elif isinstance(level3_list, str):
+                                # Handle case where value is a string instead of list
+                                services_list.extend([s.strip() for s in level3_list.split(',') if s.strip()])
+                                logger.info(f"📋 Level 3 services for {subcategory} (from string): {level3_list}")
                     
                     if additional_level3_services and isinstance(additional_level3_services, dict):
                         for subcategory, level3_list in additional_level3_services.items():
                             if isinstance(level3_list, list):
                                 services_list.extend(level3_list)
                                 logger.info(f"📋 Additional Level 3 services for {subcategory}: {level3_list}")
+                            elif isinstance(level3_list, str):
+                                # Handle case where value is a string instead of list
+                                services_list.extend([s.strip() for s in level3_list.split(',') if s.strip()])
+                                logger.info(f"📋 Additional Level 3 services for {subcategory} (from string): {level3_list}")
                     
                     # If no Level 3 services, fall back to services_provided field (Level 2 or combined)
                     if not services_list:
@@ -1736,16 +1992,7 @@ async def handle_clean_elementor_webhook(
                     logger.info(f"   Service Categories: {service_categories_json}")
                     logger.info(f"   Services Offered: {services_offered_json}")
                     
-                    # Get account
-                    account_record = simple_db_instance.get_account_by_ghl_location_id(AppConfig.GHL_LOCATION_ID)
-                    if not account_record:
-                        account_id = simple_db_instance.create_account(
-                            ghl_location_id=AppConfig.GHL_LOCATION_ID,
-                            company_name="DocksidePros",
-                            industry="Marine Services"
-                        )
-                    else:
-                        account_id = account_record["id"]
+                    # Note: account_id is already initialized above for all form types
                     
                     # Check if vendor already exists
                     existing_vendor = simple_db_instance.get_vendor_by_email_and_account(vendor_email, account_id)
@@ -1860,14 +2107,15 @@ async def handle_clean_elementor_webhook(
                 
                 # Pass vendor selection to background task
                 background_tasks.add_task(
-                    trigger_clean_lead_routing_workflow, 
-                    ghl_contact_id=final_ghl_contact_id,
-                    form_identifier=form_identifier,
-                    form_config=form_config,
-                    form_data=elementor_payload,
-                    selected_vendor_id=selected_vendor_id,        # Pass vendor ID
-                    selected_vendor_ghl_user=selected_vendor_ghl_user  # Pass GHL user ID
-                )
+                trigger_clean_lead_routing_workflow, 
+                ghl_contact_id=final_ghl_contact_id,
+                form_identifier=form_identifier,
+                form_config=form_config,
+                form_data=elementor_payload,
+                selected_vendor_id=selected_vendor_id if 'selected_vendor_id' in locals() else None,
+                selected_vendor_ghl_user=selected_vendor_ghl_user if 'selected_vendor_ghl_user' in locals() else None
+            )
+
             
             # NOTE: Opportunity creation now handled in background task for client leads
             logger.info("ℹ️ Opportunity creation will be handled by background task if needed")
@@ -1950,6 +2198,13 @@ async def trigger_clean_lead_routing_workflow(
     Direct vendor matching using existing lead_routing_service
     """
     logger.info(f"🚀 CLEAN BACKGROUND TASK: Processing lead for contact {ghl_contact_id} from form '{form_identifier}'")
+    # Initialize vendor variables if not passed
+    if selected_vendor_id is None:
+        selected_vendor_id = None
+        selected_vendor_ghl_user = None
+        logger.info(f"ℹ️ No pre-selected vendor passed to background task")
+    else:
+        logger.info(f"✅ Pre-selected vendor passed: ID={selected_vendor_id}, GHL User={selected_vendor_ghl_user}")
     
     try:
         # Get account information
