@@ -12,7 +12,7 @@ import json
 from database.simple_connection import db
 from config import AppConfig
 from api.services.lead_routing_service import LeadRoutingService
-from comprehensive_service_mappings import (
+from test_scripts.comprehensive_service_mappings import (
     DOCKSIDE_PROS_SERVICE_CATEGORIES,
     SPECIFIC_SERVICES_BY_CATEGORY
 )

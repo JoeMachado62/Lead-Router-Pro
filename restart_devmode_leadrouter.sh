@@ -17,6 +17,27 @@ PYTHON_EXEC="/root/Lead-Router-Pro/venv/bin/python"
 # Create log directory if it doesn't exist
 mkdir -p "$LOG_DIR"
 
+# DISABLE AUTOMATED MONITORING FOR DEV MODE
+echo "🔧 Disabling automated monitoring for development mode..."
+
+# Stop the systemd service if it's running
+if systemctl is-active --quiet leadrouter; then
+    echo "   Stopping leadrouter systemd service..."
+    systemctl stop leadrouter || true
+    systemctl disable leadrouter || true
+    echo "   ✅ Systemd service disabled"
+fi
+
+# Temporarily disable the cron monitor
+if crontab -l 2>/dev/null | grep -q "monitor_leadrouter.sh"; then
+    echo "   Disabling cron monitor..."
+    # Save current crontab and comment out the monitor line
+    crontab -l | sed 's|^\(.*monitor_leadrouter.sh.*\)|#DEVMODE_DISABLED: \1|' | crontab -
+    echo "   ✅ Cron monitor disabled for dev mode"
+fi
+
+echo ""
+
 # Function to log messages
 log_message() {
     echo "$1"

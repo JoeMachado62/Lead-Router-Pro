@@ -81,7 +81,7 @@ def create_vendor_from_payload(contact_id: str, elementor_payload: dict,
             phone=vendor_data['phone'],
             ghl_contact_id=vendor_data['ghl_contact_id'],
             status=vendor_data['status'],
-            services_provided=vendor_data['service_categories'],
+            services_provided=vendor_data['services_offered'],
             service_areas=json.dumps(zip_list) if service_zip_codes else '[]'
         )
         

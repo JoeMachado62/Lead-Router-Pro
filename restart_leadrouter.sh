@@ -19,6 +19,26 @@ UVICORN_EXEC="/root/Lead-Router-Pro/venv/bin/uvicorn"
 # Create log directory if it doesn't exist
 mkdir -p "$LOG_DIR"
 
+# RE-ENABLE AUTOMATED MONITORING FOR PRODUCTION
+echo "🔧 Re-enabling automated monitoring for production mode..."
+
+# Re-enable the systemd service
+if ! systemctl is-enabled --quiet leadrouter 2>/dev/null; then
+    echo "   Enabling leadrouter systemd service..."
+    systemctl enable leadrouter || true
+    echo "   ✅ Systemd service enabled"
+fi
+
+# Re-enable the cron monitor if it was disabled
+if crontab -l 2>/dev/null | grep -q "#DEVMODE_DISABLED:.*monitor_leadrouter.sh"; then
+    echo "   Re-enabling cron monitor..."
+    # Uncomment the monitor line
+    crontab -l | sed 's|^#DEVMODE_DISABLED: \(.*monitor_leadrouter.sh.*\)|\1|' | crontab -
+    echo "   ✅ Cron monitor re-enabled for production"
+fi
+
+echo ""
+
 # Function to log messages
 log_message() {
     echo "$1"

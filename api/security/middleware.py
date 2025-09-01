@@ -137,9 +137,9 @@ class IPSecurityMiddleware(BaseHTTPMiddleware):
         if security_manager.is_whitelisted(client_ip) and path in ["/health", "/api/v1/webhooks/health"]:
             return True
         
-        # Skip IP security for GHL webhook endpoint - relies on X-Webhook-API-Key header validation instead
+        # Skip IP security for GHL webhook endpoints - relies on X-Webhook-API-Key header validation instead
         # This allows GoHighLevel webhooks from any AWS IP to reach the endpoint's own authorization validation
-        if path == "/api/v1/webhooks/ghl/vendor-user-creation":
+        if path in ["/api/v1/webhooks/ghl/vendor-user-creation", "/api/v1/webhooks/ghl/process-new-contact"]:
             return True
         
         return False

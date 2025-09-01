@@ -1,0 +1,1245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lead Router Pro - Admin User Guide</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            line-height: 1.6;
+            color: #333;
+        }
+        
+        .guide-container {
+            max-height: 80vh;
+            overflow-y: auto;
+            padding: 20px;
+        }
+        
+        .guide-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }
+        
+        .guide-header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+        
+        .guide-header p {
+            font-size: 1.1rem;
+            opacity: 0.95;
+        }
+        
+        .nav-toggle {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            transition: all 0.3s;
+        }
+        
+        .nav-toggle:hover {
+            background: #5a67d8;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+        
+        .nav-sidebar {
+            position: fixed;
+            top: 70px;
+            left: 20px;
+            width: 280px;
+            max-height: calc(100vh - 100px);
+            overflow-y: auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            z-index: 999;
+            transform: translateX(0);
+            transition: transform 0.3s ease;
+        }
+        
+        .nav-sidebar.collapsed {
+            transform: translateX(-320px);
+        }
+        
+        .nav-sidebar h3 {
+            font-size: 1.2rem;
+            margin-bottom: 15px;
+            color: #4a5568;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e5e7eb;
+        }
+        
+        .nav-sidebar ul {
+            list-style: none;
+        }
+        
+        .nav-sidebar li {
+            margin-bottom: 8px;
+        }
+        
+        .nav-sidebar a {
+            color: #6b7280;
+            text-decoration: none;
+            display: block;
+            padding: 10px 12px;
+            border-radius: 6px;
+            transition: all 0.3s;
+            font-size: 14px;
+        }
+        
+        .nav-sidebar a:hover {
+            background: #f3f4f6;
+            color: #667eea;
+            transform: translateX(4px);
+        }
+        
+        .nav-sidebar a.active {
+            background: #667eea;
+            color: white;
+            font-weight: 500;
+        }
+        
+        .guide-container {
+            transition: margin-left 0.3s ease;
+        }
+        
+        .guide-container.nav-open {
+            margin-left: 320px;
+        }
+        
+        @media (max-width: 768px) {
+            .nav-sidebar {
+                width: 90%;
+                left: 5%;
+            }
+            
+            .guide-container.nav-open {
+                margin-left: 0;
+            }
+        }
+        
+        .content-section {
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        
+        .content-section h2 {
+            color: #1f2937;
+            font-size: 2rem;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e5e7eb;
+        }
+        
+        .content-section h3 {
+            color: #4b5563;
+            font-size: 1.5rem;
+            margin: 25px 0 15px;
+        }
+        
+        .content-section h4 {
+            color: #6b7280;
+            font-size: 1.2rem;
+            margin: 20px 0 10px;
+        }
+        
+        .feature-card {
+            background: #f9fafb;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 6px;
+        }
+        
+        .feature-card h4 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+        
+        .step-list {
+            counter-reset: step-counter;
+            margin: 20px 0;
+        }
+        
+        .step-list li {
+            counter-increment: step-counter;
+            margin-bottom: 15px;
+            padding-left: 40px;
+            position: relative;
+            list-style: none;
+        }
+        
+        .step-list li::before {
+            content: counter(step-counter);
+            position: absolute;
+            left: 0;
+            top: 0;
+            background: #667eea;
+            color: white;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.9rem;
+        }
+        
+        .alert-box {
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        
+        .alert-info {
+            background: #dbeafe;
+            border-left: 4px solid #3b82f6;
+            color: #1e40af;
+        }
+        
+        .alert-warning {
+            background: #fed7aa;
+            border-left: 4px solid #f97316;
+            color: #9a3412;
+        }
+        
+        .alert-success {
+            background: #bbf7d0;
+            border-left: 4px solid #22c55e;
+            color: #14532d;
+        }
+        
+        .code-block {
+            background: #1f2937;
+            color: #e5e7eb;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            margin: 15px 0;
+            overflow-x: auto;
+        }
+        
+        .table-responsive {
+            overflow-x: auto;
+            margin: 20px 0;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        th {
+            background: #f3f4f6;
+            font-weight: 600;
+            color: #374151;
+        }
+        
+        .search-box {
+            position: sticky;
+            top: 0;
+            background: white;
+            padding: 15px 15px 15px 60px;
+            border-bottom: 2px solid #e5e7eb;
+            z-index: 100;
+            margin-left: 0;
+            transition: margin-left 0.3s ease;
+        }
+        
+        .search-box.nav-open {
+            margin-left: 320px;
+        }
+        
+        .search-input {
+            width: 100%;
+            padding: 10px 15px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
+        
+        .search-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .highlight {
+            background: #fef3c7;
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+        
+        .quick-action {
+            display: inline-block;
+            padding: 8px 16px;
+            background: #667eea;
+            color: white;
+            border-radius: 6px;
+            text-decoration: none;
+            margin: 5px;
+            transition: all 0.3s;
+        }
+        
+        .quick-action:hover {
+            background: #5a67d8;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <button class="nav-toggle" onclick="toggleNavigation()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 12h18M3 6h18M3 18h18"></path>
+        </svg>
+        <span id="navToggleText">Navigation</span>
+    </button>
+    
+    <div class="nav-sidebar" id="navSidebar">
+        <h3>Quick Navigation</h3>
+        <ul>
+            <li><a href="#overview" onclick="navigateToSection('overview')">System Overview</a></li>
+            <li><a href="#dashboard" onclick="navigateToSection('dashboard')">Dashboard Features</a></li>
+            <li><a href="#webhook" onclick="navigateToSection('webhook')">Webhook Management</a></li>
+            <li><a href="#field-management" onclick="navigateToSection('field-management')">Field Management</a></li>
+            <li><a href="#vendor-routing" onclick="navigateToSection('vendor-routing')">Vendor Routing</a></li>
+            <li><a href="#ghl-integration" onclick="navigateToSection('ghl-integration')">GoHighLevel Integration</a></li>
+            <li><a href="#security" onclick="navigateToSection('security')">Security Settings</a></li>
+            <li><a href="#troubleshooting" onclick="navigateToSection('troubleshooting')">Troubleshooting</a></li>
+        </ul>
+    </div>
+    
+    <div class="search-box nav-open" id="searchBox">
+        <input type="text" class="search-input" id="guideSearch" placeholder="Search the user guide..." onkeyup="searchGuide()">
+    </div>
+    
+    <div class="guide-container nav-open" id="guideContainer">
+        <div class="guide-header">
+            <h1>Lead Router Pro Admin User Guide</h1>
+            <p>Complete documentation for administrators managing the Lead Router Pro system</p>
+            <p style="margin-top: 10px; font-size: 0.95rem;">Version 2.0 | Last Updated: December 2024</p>
+        </div>
+        
+        <!-- System Overview Section -->
+        <div class="content-section" id="overview">
+            <h2>System Overview</h2>
+            <p>Lead Router Pro is an advanced AI-powered lead routing system designed specifically for marine services businesses. It automatically processes form submissions, classifies services into 60+ marine categories, and intelligently routes leads to the appropriate vendors based on service type, location, and priority.</p>
+            
+            <div class="feature-card">
+                <h4>Key Capabilities</h4>
+                <ul>
+                    <li>Automatic lead processing from Elementor forms</li>
+                    <li>AI-powered service classification (60+ marine service categories)</li>
+                    <li>Intelligent vendor routing based on location and service type</li>
+                    <li>Real-time GoHighLevel CRM integration</li>
+                    <li>Multi-tenant architecture with role-based access</li>
+                    <li>Comprehensive audit logging and analytics</li>
+                </ul>
+            </div>
+            
+            <h3>System Architecture</h3>
+            <div class="alert-box alert-info">
+                <strong>Data Flow:</strong> WordPress Form → Webhook → Lead Router Pro → Service Classification → GoHighLevel → Vendor Assignment
+            </div>
+        </div>
+        
+        <!-- Dashboard Features Section -->
+        <div class="content-section" id="dashboard">
+            <h2>Dashboard Features</h2>
+            
+            <h3>System Health Monitor</h3>
+            <p>The system health monitor provides real-time status of all critical components:</p>
+            
+            <div class="feature-card">
+                <h4>Health Indicators</h4>
+                <ul>
+                    <li><strong>Green (Healthy):</strong> All systems operational</li>
+                    <li><strong>Yellow (Warning):</strong> Minor issues detected, system functional</li>
+                    <li><strong>Red (Error):</strong> Critical issues requiring immediate attention</li>
+                </ul>
+            </div>
+            
+            <ol class="step-list">
+                <li>Navigate to the main dashboard</li>
+                <li>Check the "System Health" card in the top row</li>
+                <li>Click "View Details" for comprehensive diagnostics</li>
+                <li>Review individual component statuses</li>
+                <li>Address any warnings or errors indicated</li>
+            </ol>
+            
+            <h3>Real-Time Analytics</h3>
+            <p>Monitor lead processing performance with live metrics:</p>
+            
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Metric</th>
+                            <th>Description</th>
+                            <th>Refresh Rate</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Total Leads Today</td>
+                            <td>Number of leads processed in the last 24 hours</td>
+                            <td>30 seconds</td>
+                        </tr>
+                        <tr>
+                            <td>Active Vendors</td>
+                            <td>Vendors currently available for routing</td>
+                            <td>1 minute</td>
+                        </tr>
+                        <tr>
+                            <td>Processing Rate</td>
+                            <td>Average leads processed per hour</td>
+                            <td>5 minutes</td>
+                        </tr>
+                        <tr>
+                            <td>Routing Success</td>
+                            <td>Percentage of successfully routed leads</td>
+                            <td>30 seconds</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <h3>Quick Actions</h3>
+            <div class="feature-card">
+                <h4>Available Quick Actions</h4>
+                <p>Access frequently used functions directly from the dashboard:</p>
+                <div style="margin-top: 15px;">
+                    <span class="quick-action">Test Form</span>
+                    <span class="quick-action">Generate Field Reference</span>
+                    <span class="quick-action">Sync GHL Fields</span>
+                    <span class="quick-action">Export Logs</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Webhook Management Section -->
+        <div class="content-section" id="webhook">
+            <h2>Webhook Management</h2>
+            
+            <h3>Setting Up Elementor Form Webhooks</h3>
+            <ol class="step-list">
+                <li>In Elementor, edit your form widget</li>
+                <li>Navigate to Actions After Submit</li>
+                <li>Add "Webhook" action</li>
+                <li>Enter webhook URL: <code class="code-block">https://yourdomain.com/api/v1/webhooks/elementor/{form_identifier}</code></li>
+                <li>Replace {form_identifier} with a unique name for your form</li>
+                <li>Save and test the form submission</li>
+            </ol>
+            
+            <div class="alert-box alert-warning">
+                <strong>Important:</strong> Each form must have a unique identifier to ensure proper routing and tracking.
+            </div>
+            
+            <h3>Webhook Testing</h3>
+            <p>Use the built-in testing interface to validate webhook configuration:</p>
+            
+            <div class="feature-card">
+                <h4>Test Procedure</h4>
+                <ol class="step-list">
+                    <li>Navigate to "Test Form Submission" section</li>
+                    <li>Select or enter your form identifier</li>
+                    <li>Fill in test data for all required fields</li>
+                    <li>Click "Send Test Submission"</li>
+                    <li>Review the response and processing logs</li>
+                </ol>
+            </div>
+            
+            <h3>Webhook Security</h3>
+            <p>Ensure webhook endpoints are properly secured:</p>
+            <ul>
+                <li>IP whitelisting for known sources</li>
+                <li>Request signature validation</li>
+                <li>Rate limiting (100 requests per minute default)</li>
+                <li>SSL/TLS encryption required</li>
+            </ul>
+        </div>
+        
+        <!-- Field Management Section -->
+        <div class="content-section" id="field-management">
+            <h2>Field Management</h2>
+            
+            <h3>Understanding Field Mapping</h3>
+            <p>Field mapping ensures data from your forms correctly populates GoHighLevel custom fields:</p>
+            
+            <div class="feature-card">
+                <h4>Standard Field Mappings</h4>
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Form Field</th>
+                                <th>GHL Field</th>
+                                <th>Type</th>
+                                <th>Required</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>name / full_name</td>
+                                <td>contact.name</td>
+                                <td>Text</td>
+                                <td>Yes</td>
+                            </tr>
+                            <tr>
+                                <td>email</td>
+                                <td>contact.email</td>
+                                <td>Email</td>
+                                <td>Yes</td>
+                            </tr>
+                            <tr>
+                                <td>phone</td>
+                                <td>contact.phone</td>
+                                <td>Phone</td>
+                                <td>Yes</td>
+                            </tr>
+                            <tr>
+                                <td>service_type</td>
+                                <td>customField.service_category</td>
+                                <td>Dropdown</td>
+                                <td>Yes</td>
+                            </tr>
+                            <tr>
+                                <td>boat_details</td>
+                                <td>customField.boat_information</td>
+                                <td>Text Area</td>
+                                <td>No</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <h3>Generating Field References</h3>
+            <ol class="step-list">
+                <li>Click "Generate Field Reference" in the Field Management section</li>
+                <li>System will connect to your GHL account</li>
+                <li>All custom fields will be retrieved and cataloged</li>
+                <li>Reference file is saved as field_reference.json</li>
+                <li>View the generated reference in the dashboard</li>
+            </ol>
+            
+            <h3>Creating Custom Fields from CSV</h3>
+            <p>Bulk create custom fields in GoHighLevel:</p>
+            
+            <div class="feature-card">
+                <h4>CSV Format Requirements</h4>
+                <code class="code-block">
+field_name,field_type,options
+service_type,DROPDOWN,"Boat Detailing|Engine Repair|Canvas Work"
+priority_level,DROPDOWN,"High|Medium|Low"
+boat_length,NUMBER,
+special_requests,TEXTAREA,
+                </code>
+            </div>
+            
+            <ol class="step-list">
+                <li>Prepare your CSV file with the required format</li>
+                <li>Navigate to "Create Fields from CSV"</li>
+                <li>Upload your CSV file</li>
+                <li>Review the field preview</li>
+                <li>Click "Create Fields" to process</li>
+                <li>Verify fields in GoHighLevel</li>
+            </ol>
+        </div>
+        
+        <!-- Vendor Routing Section -->
+        <div class="content-section" id="vendor-routing">
+            <h2>Smart Vendor Routing</h2>
+            
+            <h3>Vendor Configuration</h3>
+            <p>Set up vendors to receive leads based on their service capabilities and coverage areas:</p>
+            
+            <div class="feature-card">
+                <h4>Vendor Setup Process</h4>
+                <ol class="step-list">
+                    <li>Navigate to "Vendor Management"</li>
+                    <li>Click "Add New Vendor"</li>
+                    <li>Enter vendor details:
+                        <ul style="margin-top: 10px; margin-left: 20px;">
+                            <li>Business Name</li>
+                            <li>Contact Information</li>
+                            <li>Service Categories (select multiple)</li>
+                            <li>Coverage Areas (ZIP codes or regions)</li>
+                            <li>Priority Level (1-10)</li>
+                            <li>Lead Capacity (max leads per day)</li>
+                        </ul>
+                    </li>
+                    <li>Configure routing preferences</li>
+                    <li>Set notification methods (email, SMS, webhook)</li>
+                    <li>Save and activate vendor</li>
+                </ol>
+            </div>
+            
+            <h3>Routing Rules Configuration</h3>
+            <p>Define how leads are distributed among vendors:</p>
+            
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Rule Type</th>
+                            <th>Description</th>
+                            <th>Configuration</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Round Robin</td>
+                            <td>Distribute leads evenly among vendors</td>
+                            <td>Enable/Disable per service category</td>
+                        </tr>
+                        <tr>
+                            <td>Priority-Based</td>
+                            <td>Route to highest priority vendor first</td>
+                            <td>Set vendor priority levels (1-10)</td>
+                        </tr>
+                        <tr>
+                            <td>Geographic</td>
+                            <td>Route based on location proximity</td>
+                            <td>Define coverage zones and boundaries</td>
+                        </tr>
+                        <tr>
+                            <td>Capacity-Based</td>
+                            <td>Consider vendor's current workload</td>
+                            <td>Set daily/weekly lead limits</td>
+                        </tr>
+                        <tr>
+                            <td>Service-Specific</td>
+                            <td>Match vendor expertise to service type</td>
+                            <td>Map services to vendor specializations</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <h3>Advanced Routing Features</h3>
+            
+            <div class="feature-card">
+                <h4>Lead Scoring</h4>
+                <p>Automatically score leads based on:</p>
+                <ul>
+                    <li>Service value (high-value services get higher scores)</li>
+                    <li>Customer information completeness</li>
+                    <li>Urgency indicators</li>
+                    <li>Historical customer value</li>
+                </ul>
+            </div>
+            
+            <div class="feature-card">
+                <h4>Routing Conditions</h4>
+                <p>Set conditional routing based on:</p>
+                <ul>
+                    <li>Time of day (business hours routing)</li>
+                    <li>Day of week (weekend specialists)</li>
+                    <li>Lead score thresholds</li>
+                    <li>Service complexity levels</li>
+                </ul>
+            </div>
+        </div>
+        
+        <!-- GoHighLevel Integration Section -->
+        <div class="content-section" id="ghl-integration">
+            <h2>GoHighLevel Integration Features</h2>
+            
+            <h3>Operating Lead Router Pro from GoHighLevel</h3>
+            <p>Manage leads and routing directly from the GoHighLevel interface using custom fields and workflows:</p>
+            
+            <h4>Manual Vendor Approval Process</h4>
+            <div class="feature-card">
+                <h4>Setting Up Manual Approval</h4>
+                <ol class="step-list">
+                    <li>In GoHighLevel, create a custom field called "vendor_approval_status"</li>
+                    <li>Set field type to Dropdown with options: "Pending", "Approved", "Rejected"</li>
+                    <li>Create a workflow trigger for when this field changes to "Approved"</li>
+                    <li>Configure webhook action to notify Lead Router Pro:
+                        <code class="code-block">
+POST: https://yourdomain.com/api/v1/routing/vendor-approval
+Body: {
+    "contact_id": "{{contact.id}}",
+    "vendor_id": "{{custom_values.assigned_vendor_id}}",
+    "approval_status": "approved"
+}
+                        </code>
+                    </li>
+                    <li>Lead Router Pro will complete the vendor assignment upon approval</li>
+                </ol>
+            </div>
+            
+            <h4>Manual Lead Reassignment</h4>
+            <div class="feature-card">
+                <h4>Reassigning Leads to Different Vendors</h4>
+                <ol class="step-list">
+                    <li>In GoHighLevel, locate the contact/lead</li>
+                    <li>Update the custom field "reassign_vendor" with the new vendor ID</li>
+                    <li>Optionally add a "reassignment_reason" in the notes</li>
+                    <li>The workflow will trigger and call Lead Router Pro:
+                        <code class="code-block">
+POST: https://yourdomain.com/api/v1/routing/reassign
+Body: {
+    "contact_id": "{{contact.id}}",
+    "current_vendor_id": "{{custom_values.assigned_vendor_id}}",
+    "new_vendor_id": "{{custom_values.reassign_vendor}}",
+    "reason": "{{custom_values.reassignment_reason}}"
+}
+                        </code>
+                    </li>
+                    <li>Lead Router Pro updates the assignment and notifies both vendors</li>
+                </ol>
+            </div>
+            
+            <h4>Lead Status Updates</h4>
+            <p>Track lead progress through GoHighLevel pipelines:</p>
+            
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Pipeline Stage</th>
+                            <th>Trigger Action</th>
+                            <th>Lead Router Pro Response</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>New Lead</td>
+                            <td>Contact created</td>
+                            <td>Initiate routing process</td>
+                        </tr>
+                        <tr>
+                            <td>Qualified</td>
+                            <td>Move to Qualified stage</td>
+                            <td>Update lead score, notify vendor</td>
+                        </tr>
+                        <tr>
+                            <td>Contacted</td>
+                            <td>First activity logged</td>
+                            <td>Start response time tracking</td>
+                        </tr>
+                        <tr>
+                            <td>Proposal Sent</td>
+                            <td>Move to Proposal stage</td>
+                            <td>Update vendor performance metrics</td>
+                        </tr>
+                        <tr>
+                            <td>Won/Lost</td>
+                            <td>Deal closed</td>
+                            <td>Update success rates, generate reports</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <h4>Custom Workflow Triggers</h4>
+            <div class="feature-card">
+                <h4>Available Webhook Triggers from GHL</h4>
+                <ul>
+                    <li><strong>Priority Override:</strong> Mark lead as high priority for immediate routing</li>
+                    <li><strong>Service Reclassification:</strong> Request AI to reclassify service type</li>
+                    <li><strong>Vendor Blacklist:</strong> Exclude specific vendors for a lead</li>
+                    <li><strong>Geographic Override:</strong> Expand search radius for vendor matching</li>
+                    <li><strong>Bundle Services:</strong> Group multiple service requests together</li>
+                </ul>
+            </div>
+            
+            <h3>GHL Custom Fields Reference</h3>
+            <p>Key custom fields created by Lead Router Pro:</p>
+            
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Field Name</th>
+                            <th>Purpose</th>
+                            <th>Type</th>
+                            <th>Values/Format</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>lead_router_id</td>
+                            <td>Unique identifier in Lead Router Pro</td>
+                            <td>Text</td>
+                            <td>UUID format</td>
+                        </tr>
+                        <tr>
+                            <td>service_category</td>
+                            <td>AI-classified service type</td>
+                            <td>Dropdown</td>
+                            <td>60+ marine service options</td>
+                        </tr>
+                        <tr>
+                            <td>assigned_vendor_id</td>
+                            <td>Current vendor assignment</td>
+                            <td>Text</td>
+                            <td>Vendor ID from system</td>
+                        </tr>
+                        <tr>
+                            <td>lead_score</td>
+                            <td>Calculated lead quality score</td>
+                            <td>Number</td>
+                            <td>0-100</td>
+                        </tr>
+                        <tr>
+                            <td>routing_status</td>
+                            <td>Current routing state</td>
+                            <td>Dropdown</td>
+                            <td>Pending|Routed|Failed|Manual</td>
+                        </tr>
+                        <tr>
+                            <td>vendor_response_time</td>
+                            <td>Time vendor took to respond</td>
+                            <td>Text</td>
+                            <td>Duration in hours</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <h3>Automation Recipes</h3>
+            <div class="feature-card">
+                <h4>Pre-built Workflow Templates</h4>
+                <ul>
+                    <li><strong>Auto-Escalation:</strong> Reassign if vendor doesn't respond in 2 hours</li>
+                    <li><strong>VIP Processing:</strong> Route high-value leads to premium vendors</li>
+                    <li><strong>After-Hours Routing:</strong> Queue leads for next business day</li>
+                    <li><strong>Service Bundling:</strong> Combine related services for single vendor</li>
+                    <li><strong>Geographic Expansion:</strong> Gradually expand search radius if no vendors found</li>
+                </ul>
+            </div>
+        </div>
+        
+        <!-- Security Settings Section -->
+        <div class="content-section" id="security">
+            <h2>Security Settings</h2>
+            
+            <h3>IP Whitelist Management</h3>
+            <p>Control access to the system by managing allowed IP addresses:</p>
+            
+            <ol class="step-list">
+                <li>Navigate to Security Settings</li>
+                <li>Click "Manage IP Whitelist"</li>
+                <li>Add trusted IP addresses:
+                    <ul style="margin-top: 10px; margin-left: 20px;">
+                        <li>Your office IP addresses</li>
+                        <li>WordPress server IP</li>
+                        <li>GoHighLevel webhook IPs</li>
+                        <li>Developer/admin IPs</li>
+                    </ul>
+                </li>
+                <li>Set IP expiration dates if needed</li>
+                <li>Enable/disable IP checking per environment</li>
+            </ol>
+            
+            <div class="alert-box alert-warning">
+                <strong>Caution:</strong> Always maintain at least one admin IP in the whitelist to prevent lockout.
+            </div>
+            
+            <h3>Two-Factor Authentication (2FA)</h3>
+            <div class="feature-card">
+                <h4>Enabling 2FA</h4>
+                <ol class="step-list">
+                    <li>Go to User Profile settings</li>
+                    <li>Click "Enable 2FA"</li>
+                    <li>Verify your email address</li>
+                    <li>Enter the verification code sent to your email</li>
+                    <li>2FA is now active for your account</li>
+                </ol>
+            </div>
+            
+            <h3>API Key Management</h3>
+            <p>Securely manage API keys for external integrations:</p>
+            
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Key Type</th>
+                            <th>Usage</th>
+                            <th>Rotation Schedule</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>GHL Private Token</td>
+                            <td>GoHighLevel API access</td>
+                            <td>Every 90 days</td>
+                        </tr>
+                        <tr>
+                            <td>Webhook Secret</td>
+                            <td>Webhook signature validation</td>
+                            <td>Every 60 days</td>
+                        </tr>
+                        <tr>
+                            <td>Admin API Key</td>
+                            <td>Dashboard access</td>
+                            <td>Every 30 days</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <h3>Audit Logging</h3>
+            <p>All system actions are logged for security and compliance:</p>
+            
+            <div class="feature-card">
+                <h4>Logged Events</h4>
+                <ul>
+                    <li>User login/logout attempts</li>
+                    <li>Configuration changes</li>
+                    <li>Vendor modifications</li>
+                    <li>Lead routing decisions</li>
+                    <li>API key usage</li>
+                    <li>Failed authentication attempts</li>
+                </ul>
+            </div>
+        </div>
+        
+        <!-- Troubleshooting Section -->
+        <div class="content-section" id="troubleshooting">
+            <h2>Troubleshooting Guide</h2>
+            
+            <h3>Common Issues and Solutions</h3>
+            
+            <div class="feature-card">
+                <h4>Webhook Not Receiving Data</h4>
+                <p><strong>Symptoms:</strong> Forms submitted but no leads appear in system</p>
+                <p><strong>Solutions:</strong></p>
+                <ul>
+                    <li>Verify webhook URL is correct in Elementor form</li>
+                    <li>Check IP whitelist includes WordPress server</li>
+                    <li>Test with the built-in form tester</li>
+                    <li>Review webhook logs for errors</li>
+                    <li>Ensure SSL certificate is valid</li>
+                </ul>
+            </div>
+            
+            <div class="feature-card">
+                <h4>GoHighLevel Connection Failed</h4>
+                <p><strong>Symptoms:</strong> Cannot sync fields or create contacts</p>
+                <p><strong>Solutions:</strong></p>
+                <ul>
+                    <li>Verify GHL API credentials in environment settings</li>
+                    <li>Check location ID is correct</li>
+                    <li>Ensure API key has necessary permissions</li>
+                    <li>Test connection using "Test GHL Connection" button</li>
+                    <li>Review GHL API rate limits</li>
+                </ul>
+            </div>
+            
+            <div class="feature-card">
+                <h4>Leads Not Being Routed</h4>
+                <p><strong>Symptoms:</strong> Leads created but not assigned to vendors</p>
+                <p><strong>Solutions:</strong></p>
+                <ul>
+                    <li>Check if routing is enabled in settings</li>
+                    <li>Verify vendors are active and have capacity</li>
+                    <li>Review service category mappings</li>
+                    <li>Check vendor coverage areas match lead location</li>
+                    <li>Examine routing rules for conflicts</li>
+                </ul>
+            </div>
+            
+            <div class="feature-card">
+                <h4>Dashboard Not Loading</h4>
+                <p><strong>Symptoms:</strong> Blank page or loading errors</p>
+                <p><strong>Solutions:</strong></p>
+                <ul>
+                    <li>Clear browser cache and cookies</li>
+                    <li>Check if your IP is whitelisted</li>
+                    <li>Verify authentication token is valid</li>
+                    <li>Try incognito/private browsing mode</li>
+                    <li>Check browser console for JavaScript errors</li>
+                </ul>
+            </div>
+            
+            <h3>Error Codes Reference</h3>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Error Code</th>
+                            <th>Description</th>
+                            <th>Resolution</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>ERR_401</td>
+                            <td>Authentication failed</td>
+                            <td>Check credentials, renew token</td>
+                        </tr>
+                        <tr>
+                            <td>ERR_403</td>
+                            <td>IP not whitelisted</td>
+                            <td>Add IP to security whitelist</td>
+                        </tr>
+                        <tr>
+                            <td>ERR_422</td>
+                            <td>Invalid form data</td>
+                            <td>Verify required fields are present</td>
+                        </tr>
+                        <tr>
+                            <td>ERR_429</td>
+                            <td>Rate limit exceeded</td>
+                            <td>Wait before retrying, check limits</td>
+                        </tr>
+                        <tr>
+                            <td>ERR_500</td>
+                            <td>Internal server error</td>
+                            <td>Check logs, contact support</td>
+                        </tr>
+                        <tr>
+                            <td>ERR_503</td>
+                            <td>Service unavailable</td>
+                            <td>System maintenance, try later</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <h3>Getting Support</h3>
+            <div class="alert-box alert-info">
+                <h4>Support Channels</h4>
+                <ul>
+                    <li><strong>Documentation:</strong> Check CLAUDE.md and README files</li>
+                    <li><strong>System Logs:</strong> Review detailed logs in /logs directory</li>
+                    <li><strong>Debug Mode:</strong> Enable debug logging for verbose output</li>
+                    <li><strong>Health Check:</strong> Run system diagnostics from dashboard</li>
+                </ul>
+            </div>
+            
+            <h3>Performance Optimization</h3>
+            <div class="feature-card">
+                <h4>Best Practices</h4>
+                <ul>
+                    <li>Regularly clean up old webhook logs (30+ days)</li>
+                    <li>Archive processed leads monthly</li>
+                    <li>Optimize database indexes quarterly</li>
+                    <li>Monitor API rate limits and adjust throttling</li>
+                    <li>Use caching for frequently accessed data</li>
+                    <li>Implement pagination for large data sets</li>
+                </ul>
+            </div>
+        </div>
+        
+        <!-- Quick Reference Section -->
+        <div class="content-section" id="quick-reference">
+            <h2>Quick Reference</h2>
+            
+            <h3>Keyboard Shortcuts</h3>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Shortcut</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Ctrl + S</td>
+                            <td>Save current configuration</td>
+                        </tr>
+                        <tr>
+                            <td>Ctrl + /</td>
+                            <td>Open search</td>
+                        </tr>
+                        <tr>
+                            <td>Ctrl + R</td>
+                            <td>Refresh dashboard data</td>
+                        </tr>
+                        <tr>
+                            <td>Ctrl + L</td>
+                            <td>View logs</td>
+                        </tr>
+                        <tr>
+                            <td>Esc</td>
+                            <td>Close modal/dialog</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <h3>System Requirements</h3>
+            <div class="feature-card">
+                <h4>Minimum Requirements</h4>
+                <ul>
+                    <li>Python 3.8 or higher</li>
+                    <li>2GB RAM minimum (4GB recommended)</li>
+                    <li>10GB disk space</li>
+                    <li>SSL certificate for production</li>
+                    <li>Modern browser (Chrome, Firefox, Safari, Edge)</li>
+                </ul>
+            </div>
+            
+            <h3>Important URLs</h3>
+            <div class="code-block">
+Dashboard: https://yourdomain.com/dashboard
+API Docs: https://yourdomain.com/docs
+Health Check: https://yourdomain.com/api/v1/health
+Webhook Base: https://yourdomain.com/api/v1/webhooks/
+Admin API: https://yourdomain.com/api/v1/admin/
+            </div>
+        </div>
+        
+        <!-- Footer -->
+        <div style="text-align: center; padding: 30px; color: #6b7280; border-top: 2px solid #e5e7eb;">
+            <p>Lead Router Pro Admin Guide v2.0</p>
+            <p>© 2024 DocksidePros - All Rights Reserved</p>
+        </div>
+    </div>
+    
+    <script>
+        // Search functionality
+        function searchGuide() {
+            const searchTerm = document.getElementById('guideSearch').value.toLowerCase();
+            const sections = document.querySelectorAll('.content-section');
+            
+            sections.forEach(section => {
+                const text = section.textContent.toLowerCase();
+                if (text.includes(searchTerm)) {
+                    section.style.display = 'block';
+                    // Highlight matching text
+                    if (searchTerm) {
+                        highlightText(section, searchTerm);
+                    }
+                } else if (searchTerm) {
+                    section.style.display = 'none';
+                }
+            });
+            
+            // Clear highlights if search is empty
+            if (!searchTerm) {
+                clearHighlights();
+            }
+        }
+        
+        function highlightText(element, searchTerm) {
+            // Implementation for text highlighting
+            // This is a simplified version - you might want to use a library for better highlighting
+        }
+        
+        function clearHighlights() {
+            document.querySelectorAll('.highlight').forEach(el => {
+                el.classList.remove('highlight');
+            });
+        }
+        
+        // Toggle navigation sidebar
+        function toggleNavigation() {
+            const sidebar = document.getElementById('navSidebar');
+            const container = document.getElementById('guideContainer');
+            const searchBox = document.getElementById('searchBox');
+            const toggleText = document.getElementById('navToggleText');
+            
+            sidebar.classList.toggle('collapsed');
+            container.classList.toggle('nav-open');
+            searchBox.classList.toggle('nav-open');
+            
+            if (sidebar.classList.contains('collapsed')) {
+                toggleText.textContent = 'Show Menu';
+            } else {
+                toggleText.textContent = 'Hide Menu';
+            }
+        }
+        
+        // Navigate to section and auto-close sidebar
+        function navigateToSection(sectionId) {
+            const section = document.getElementById(sectionId);
+            const sidebar = document.getElementById('navSidebar');
+            const container = document.getElementById('guideContainer');
+            const searchBox = document.getElementById('searchBox');
+            const toggleText = document.getElementById('navToggleText');
+            
+            if (section) {
+                // Smooth scroll to section
+                section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                
+                // Update active nav link
+                document.querySelectorAll('.nav-sidebar a').forEach(link => {
+                    link.classList.remove('active');
+                    if (link.getAttribute('href') === '#' + sectionId) {
+                        link.classList.add('active');
+                    }
+                });
+                
+                // Auto-close the sidebar after navigation
+                setTimeout(() => {
+                    sidebar.classList.add('collapsed');
+                    container.classList.remove('nav-open');
+                    searchBox.classList.remove('nav-open');
+                    toggleText.textContent = 'Show Menu';
+                }, 300);
+            }
+        }
+        
+        // Legacy function for compatibility
+        function scrollToSection(sectionId) {
+            navigateToSection(sectionId);
+        }
+        
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            // Ctrl + / for search focus
+            if (e.ctrlKey && e.key === '/') {
+                e.preventDefault();
+                document.getElementById('guideSearch').focus();
+            }
+            
+            // Escape to clear search
+            if (e.key === 'Escape') {
+                document.getElementById('guideSearch').value = '';
+                searchGuide();
+            }
+        });
+        
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', function() {
+            // Set first nav item as active
+            document.querySelector('.nav-sidebar a').classList.add('active');
+        });
+    </script>
+</body>
+</html>

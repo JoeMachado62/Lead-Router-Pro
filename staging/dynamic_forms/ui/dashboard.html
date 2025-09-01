@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic Forms Management - Staging Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f5f7fa;
+            color: #333;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+        
+        .header .subtitle {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+        
+        .staging-banner {
+            background: #fbbf24;
+            color: #78350f;
+            padding: 10px;
+            text-align: center;
+            font-weight: bold;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #e5e7eb;
+        }
+        
+        .tab {
+            padding: 12px 24px;
+            background: white;
+            border: none;
+            border-radius: 8px 8px 0 0;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            color: #6b7280;
+            transition: all 0.3s;
+        }
+        
+        .tab:hover {
+            background: #f9fafb;
+        }
+        
+        .tab.active {
+            background: white;
+            color: #667eea;
+            border-bottom: 2px solid #667eea;
+            margin-bottom: -2px;
+        }
+        
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.3s;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .card-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1f2937;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5a67d8;
+        }
+        
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+        
+        .btn-secondary {
+            background: #6b7280;
+            color: white;
+        }
+        
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #374151;
+        }
+        
+        .form-control {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        
+        .form-control:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .category-tree {
+            background: #f9fafb;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .category-item {
+            padding: 10px;
+            margin: 5px 0;
+            background: white;
+            border-radius: 6px;
+            border: 1px solid #e5e7eb;
+        }
+        
+        .subcategory-item {
+            margin-left: 30px;
+            padding: 8px;
+            background: #f3f4f6;
+            border-left: 3px solid #667eea;
+            margin-top: 5px;
+        }
+        
+        .level3-item {
+            margin-left: 60px;
+            padding: 6px;
+            background: #fef3c7;
+            border-left: 3px solid #fbbf24;
+            margin-top: 3px;
+            font-size: 13px;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .badge-primary {
+            background: #ddd6fe;
+            color: #5b21b6;
+        }
+        
+        .badge-success {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        
+        .badge-warning {
+            background: #fed7aa;
+            color: #92400e;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+        }
+        
+        .modal.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        
+        .modal-header {
+            padding: 20px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .modal-body {
+            padding: 20px;
+        }
+        
+        .modal-footer {
+            padding: 20px;
+            border-top: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+        
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .table th {
+            text-align: left;
+            padding: 12px;
+            background: #f9fafb;
+            font-weight: 500;
+            color: #6b7280;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .table td {
+            padding: 12px;
+            border-bottom: 1px solid #f3f4f6;
+        }
+        
+        .table tr:hover {
+            background: #f9fafb;
+        }
+        
+        .alert {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .alert-info {
+            background: #dbeafe;
+            color: #1e40af;
+            border-left: 4px solid #3b82f6;
+        }
+        
+        .alert-success {
+            background: #d1fae5;
+            color: #065f46;
+            border-left: 4px solid #10b981;
+        }
+        
+        .alert-warning {
+            background: #fed7aa;
+            color: #92400e;
+            border-left: 4px solid #f59e0b;
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f4f6;
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Dynamic Forms & Service Management</h1>
+        <div class="subtitle">Configure forms, service categories, and vendor applications dynamically</div>
+    </div>
+    
+    <div class="staging-banner">
+        ⚠️ STAGING ENVIRONMENT - Safe for testing. Changes do not affect production.
+    </div>
+    
+    <div class="container">
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('categories')">Service Categories</button>
+            <button class="tab" onclick="switchTab('forms')">Form Configurations</button>
+            <button class="tab" onclick="switchTab('unregistered')">Auto-Discovery</button>
+            <button class="tab" onclick="switchTab('vendor-form')">Vendor Form Builder</button>
+            <button class="tab" onclick="switchTab('testing')">Test Forms</button>
+        </div>
+        
+        <!-- Service Categories Tab -->
+        <div id="categories-tab" class="tab-content active">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Service Category Hierarchy</h2>
+                    <button class="btn btn-primary" onclick="openAddCategoryModal()">+ Add Category</button>
+                </div>
+                
+                <div id="categories-list">
+                    <!-- Categories will be loaded here -->
+                    <div class="loading"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Form Configurations Tab -->
+        <div id="forms-tab" class="tab-content">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Registered Forms</h2>
+                    <button class="btn btn-primary" onclick="openAddFormModal()">+ Register Form</button>
+                </div>
+                
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Form Identifier</th>
+                            <th>Form Name</th>
+                            <th>Type</th>
+                            <th>Category</th>
+                            <th>Submissions</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="forms-list">
+                        <!-- Forms will be loaded here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Auto-Discovery Tab -->
+        <div id="unregistered-tab" class="tab-content">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Unregistered Forms (Auto-Discovery)</h2>
+                </div>
+                
+                <div class="alert alert-info">
+                    Forms submitted without registration appear here. Review and auto-register them with one click.
+                </div>
+                
+                <div id="unregistered-list">
+                    <!-- Unregistered forms will be loaded here -->
+                </div>
+            </div>
+        </div>
+        
+        <!-- Vendor Form Builder Tab -->
+        <div id="vendor-form-tab" class="tab-content">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Vendor Application Form Generator</h2>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Select Categories to Include</label>
+                    <div id="vendor-categories-selector">
+                        <!-- Category checkboxes will be loaded here -->
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Preview</label>
+                    <div id="vendor-form-preview" style="border: 1px solid #e5e7eb; padding: 20px; border-radius: 8px;">
+                        <!-- Preview will be shown here -->
+                    </div>
+                </div>
+                
+                <button class="btn btn-success" onclick="generateVendorForm()">Generate Vendor Form HTML</button>
+            </div>
+        </div>
+        
+        <!-- Testing Tab -->
+        <div id="testing-tab" class="tab-content">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Test Form Submission</h2>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Form Identifier</label>
+                    <input type="text" id="test-form-id" class="form-control" placeholder="e.g., luxury-rental-inquiry">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Test Payload (JSON)</label>
+                    <textarea id="test-payload" class="form-control" rows="10" placeholder='{"firstName": "John", "lastName": "Doe", "email": "john@example.com"}'></textarea>
+                </div>
+                
+                <button class="btn btn-primary" onclick="testFormSubmission()">Test Submission</button>
+                
+                <div id="test-results" style="margin-top: 20px;">
+                    <!-- Test results will be shown here -->
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Add Category Modal -->
+    <div id="add-category-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add Service Category</h3>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Category Name</label>
+                    <input type="text" id="category-name" class="form-control" placeholder="e.g., Waterfront Vacation Rentals">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Display Name</label>
+                    <input type="text" id="category-display" class="form-control">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Description</label>
+                    <textarea id="category-description" class="form-control" rows="3"></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Subcategories (comma-separated)</label>
+                    <input type="text" id="category-subcategories" class="form-control" placeholder="Daily, Weekly, Monthly">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('add-category-modal')">Cancel</button>
+                <button class="btn btn-primary" onclick="addCategory()">Add Category</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Add Form Modal -->
+    <div id="add-form-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Register New Form</h3>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Form Identifier</label>
+                    <input type="text" id="form-identifier" class="form-control" placeholder="unique-form-id">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Form Name</label>
+                    <input type="text" id="form-name" class="form-control">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Form Type</label>
+                    <select id="form-type" class="form-control">
+                        <option value="client_lead">Client Lead</option>
+                        <option value="vendor_application">Vendor Application</option>
+                        <option value="emergency_service">Emergency Service</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Service Category</label>
+                    <select id="form-category" class="form-control">
+                        <option value="">Select Category...</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Required Fields (comma-separated)</label>
+                    <input type="text" id="form-required-fields" class="form-control" placeholder="firstName, lastName, email">
+                </div>
+                
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="form-auto-route"> Auto-route to vendors
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('add-form-modal')">Cancel</button>
+                <button class="btn btn-primary" onclick="registerForm()">Register Form</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const API_BASE = '/api/staging/dynamic-forms';
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            loadCategories();
+            loadForms();
+            loadUnregisteredForms();
+        });
+        
+        // Tab switching
+        function switchTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Remove active from all tab buttons
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Show selected tab
+            document.getElementById(`${tabName}-tab`).classList.add('active');
+            
+            // Set active tab button
+            event.target.classList.add('active');
+            
+            // Load data for tab if needed
+            if (tabName === 'categories') loadCategories();
+            if (tabName === 'forms') loadForms();
+            if (tabName === 'unregistered') loadUnregisteredForms();
+            if (tabName === 'vendor-form') loadVendorFormBuilder();
+        }
+        
+        // Load categories
+        async function loadCategories() {
+            try {
+                const response = await fetch(`${API_BASE}/categories`);
+                const data = await response.json();
+                
+                const container = document.getElementById('categories-list');
+                
+                if (data.categories.length === 0) {
+                    container.innerHTML = '<div class="alert alert-info">No categories yet. Click "Add Category" to create your first one.</div>';
+                    return;
+                }
+                
+                let html = '';
+                data.categories.forEach(category => {
+                    html += `
+                        <div class="category-tree">
+                            <div class="category-item">
+                                <strong>${category.display_name}</strong>
+                                <span class="badge badge-primary">${category.subcategories ? category.subcategories.length : 0} subcategories</span>
+                            </div>
+                            ${renderSubcategories(category.subcategories)}
+                        </div>
+                    `;
+                });
+                
+                container.innerHTML = html;
+            } catch (error) {
+                console.error('Error loading categories:', error);
+            }
+        }
+        
+        function renderSubcategories(subcategories) {
+            if (!subcategories || subcategories.length === 0) return '';
+            
+            let html = '';
+            subcategories.forEach(sub => {
+                html += `
+                    <div class="subcategory-item">
+                        ${sub.display_name}
+                        ${sub.has_level3_services ? `<span class="badge badge-warning">Has Level 3</span>` : ''}
+                    </div>
+                `;
+                
+                if (sub.level3_services) {
+                    sub.level3_services.forEach(service => {
+                        html += `
+                            <div class="level3-item">
+                                ${service.display_name}
+                                ${service.is_premium ? '<span class="badge badge-success">Premium</span>' : ''}
+                            </div>
+                        `;
+                    });
+                }
+            });
+            
+            return html;
+        }
+        
+        // Load forms
+        async function loadForms() {
+            try {
+                const response = await fetch(`${API_BASE}/forms`);
+                const data = await response.json();
+                
+                const tbody = document.getElementById('forms-list');
+                
+                if (data.forms.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="7">No forms registered yet.</td></tr>';
+                    return;
+                }
+                
+                let html = '';
+                data.forms.forEach(form => {
+                    html += `
+                        <tr>
+                            <td><code>${form.form_identifier}</code></td>
+                            <td>${form.form_name}</td>
+                            <td><span class="badge badge-primary">${form.form_type}</span></td>
+                            <td>${form.category || '-'}</td>
+                            <td>${form.submission_count || 0}</td>
+                            <td>${form.is_active ? '<span class="badge badge-success">Active</span>' : '<span class="badge badge-warning">Inactive</span>'}</td>
+                            <td>
+                                <button class="btn btn-sm" onclick="testForm('${form.form_identifier}')">Test</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+                
+                tbody.innerHTML = html;
+            } catch (error) {
+                console.error('Error loading forms:', error);
+            }
+        }
+        
+        // Load unregistered forms
+        async function loadUnregisteredForms() {
+            try {
+                const response = await fetch(`${API_BASE}/forms/unregistered`);
+                const data = await response.json();
+                
+                const container = document.getElementById('unregistered-list');
+                
+                if (data.unregistered_forms.length === 0) {
+                    container.innerHTML = '<div class="alert alert-success">No unregistered forms. All forms are properly configured!</div>';
+                    return;
+                }
+                
+                let html = '';
+                data.unregistered_forms.forEach(form => {
+                    html += `
+                        <div class="card" style="margin-bottom: 15px;">
+                            <h4>${form.form_identifier}</h4>
+                            <p>Submissions: ${form.submission_count} | First seen: ${form.first_seen}</p>
+                            <p>Suggested type: <span class="badge badge-primary">${form.suggested_form_type}</span></p>
+                            <p>Detected fields: ${form.detected_fields.length}</p>
+                            <button class="btn btn-success" onclick="autoRegisterForm('${form.id}')">Auto-Register</button>
+                        </div>
+                    `;
+                });
+                
+                container.innerHTML = html;
+            } catch (error) {
+                console.error('Error loading unregistered forms:', error);
+            }
+        }
+        
+        // Add category
+        async function addCategory() {
+            const name = document.getElementById('category-name').value;
+            const display = document.getElementById('category-display').value || name;
+            const description = document.getElementById('category-description').value;
+            const subcategoriesInput = document.getElementById('category-subcategories').value;
+            
+            const subcategories = subcategoriesInput.split(',').map(s => ({
+                name: s.trim(),
+                display_name: s.trim()
+            }));
+            
+            const payload = {
+                category: {
+                    name: name,
+                    display_name: display,
+                    description: description
+                },
+                subcategories: subcategories
+            };
+            
+            try {
+                const response = await fetch(`${API_BASE}/categories/create`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(payload)
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('Category created successfully!');
+                    closeModal('add-category-modal');
+                    loadCategories();
+                } else {
+                    alert('Error: ' + (data.detail || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error adding category:', error);
+                alert('Error adding category');
+            }
+        }
+        
+        // Register form
+        async function registerForm() {
+            const payload = {
+                form_identifier: document.getElementById('form-identifier').value,
+                form_name: document.getElementById('form-name').value,
+                form_type: document.getElementById('form-type').value,
+                category_name: document.getElementById('form-category').value,
+                required_fields: document.getElementById('form-required-fields').value.split(',').map(s => s.trim()),
+                auto_route_to_vendor: document.getElementById('form-auto-route').checked
+            };
+            
+            try {
+                const response = await fetch(`${API_BASE}/forms/register`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(payload)
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('Form registered successfully!');
+                    closeModal('add-form-modal');
+                    loadForms();
+                } else {
+                    alert('Error: ' + (data.detail || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error registering form:', error);
+                alert('Error registering form');
+            }
+        }
+        
+        // Test form submission
+        async function testFormSubmission() {
+            const formId = document.getElementById('test-form-id').value;
+            const payloadStr = document.getElementById('test-payload').value;
+            
+            try {
+                const payload = JSON.parse(payloadStr);
+                
+                const response = await fetch(`${API_BASE}/webhook/simulate/${formId}`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(payload)
+                });
+                
+                const data = await response.json();
+                
+                document.getElementById('test-results').innerHTML = `
+                    <div class="alert ${data.success ? 'alert-success' : 'alert-warning'}">
+                        <h4>Test Results</h4>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Error testing form:', error);
+                document.getElementById('test-results').innerHTML = `
+                    <div class="alert alert-warning">
+                        Error: ${error.message}
+                    </div>
+                `;
+            }
+        }
+        
+        // Modal functions
+        function openAddCategoryModal() {
+            document.getElementById('add-category-modal').classList.add('active');
+        }
+        
+        function openAddFormModal() {
+            document.getElementById('add-form-modal').classList.add('active');
+            // Load categories for dropdown
+            loadCategoriesForDropdown();
+        }
+        
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('active');
+        }
+        
+        async function loadCategoriesForDropdown() {
+            try {
+                const response = await fetch(`${API_BASE}/categories`);
+                const data = await response.json();
+                
+                const select = document.getElementById('form-category');
+                select.innerHTML = '<option value="">Select Category...</option>';
+                
+                data.categories.forEach(cat => {
+                    select.innerHTML += `<option value="${cat.category_name}">${cat.display_name}</option>`;
+                });
+            } catch (error) {
+                console.error('Error loading categories:', error);
+            }
+        }
+        
+        // Auto-register form
+        async function autoRegisterForm(formId) {
+            try {
+                const response = await fetch(`${API_BASE}/forms/unregistered/${formId}/auto-register`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({})
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('Form auto-registered successfully!');
+                    loadUnregisteredForms();
+                    loadForms();
+                } else {
+                    alert('Error: ' + (data.detail || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error auto-registering form:', error);
+                alert('Error auto-registering form');
+            }
+        }
+    </script>
+</body>
+</html>

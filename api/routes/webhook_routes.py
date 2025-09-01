@@ -14,6 +14,7 @@ from fastapi import APIRouter, Request, HTTPException, BackgroundTasks
 from config import AppConfig
 from database.simple_connection import db as simple_db_instance
 from api.services.ghl_api import GoHighLevelAPI
+from api.services.ghl_api_v2_optimized import OptimizedGoHighLevelAPI
 from api.services.field_mapper import field_mapper
 from api.services.lead_routing_service import lead_routing_service
 from api.services.location_service import location_service
@@ -168,9 +169,11 @@ async def create_lead_from_ghl_contact(
         # Step 6: Create opportunity if needed (check for existing first)
         opportunity_id = None
         if AppConfig.PIPELINE_ID and AppConfig.NEW_LEAD_STAGE_ID:
-            ghl_api_client = GoHighLevelAPI(
+            # Use optimized v2 API for better performance
+            ghl_api_client = OptimizedGoHighLevelAPI(
                 private_token=AppConfig.GHL_PRIVATE_TOKEN,
-                location_id=AppConfig.GHL_LOCATION_ID
+                location_id=AppConfig.GHL_LOCATION_ID,
+                agency_api_key=AppConfig.GHL_AGENCY_API_KEY
             )
             
             # First check if an opportunity already exists for this contact
@@ -875,12 +878,38 @@ def normalize_field_names(payload: Dict[str, Any]) -> Dict[str, Any]:
         "What Zip Code Are You Requesting a Charter In?": "zip_code_of_service",
         "What Zip Code Are You Requesting a Fishing Charter In?": "zip_code_of_service",
         "What Zip Code Are You Requesting a Generator Service In?": "zip_code_of_service",
+        "What Zip Code Are You Requesting Service In?": "zip_code_of_service",
+        "What Zip Code Are You Requesting a Charter In?": "zip_code_of_service",
+        "What Zip Code Are You Requesting a Fishing Charter In?": "zip_code_of_service",
+        "What Zip Code Are You Requesting a Generator Service In?": "zip_code_of_service",
+        "What Zip code are you looking for management services In?": "zip_code_of_service",
+        "What Zip code are you looking to buy or sell a property In?": "zip_code_of_service",
+        "What Zip code are you looking to buy or sell In?": "zip_code_of_service",
+        "What Zip code are you looking to rent a dock or slip In?": "zip_code_of_service",
+        "What Zip code are you looking to rent your dock or slip In?": "zip_code_of_service",
+        "What Zip code are you requesting a boat club In?": "zip_code_of_service",
+        "What Zip code are you requesting a charter or rental In?": "zip_code_of_service",
+        "What Zip code are you requesting a lesson or equipment In?": "zip_code_of_service",
+        "What Zip code are you requesting a party boat charter In?": "zip_code_of_service",
+        "What Zip code are you requesting a pontoon rental or charter In?": "zip_code_of_service",
+        "What Zip code are you requesting a private yacht charter In?": "zip_code_of_service",
+        "What Zip code are you requesting dive services or equipment In?": "zip_code_of_service",
+        "What Zip code are you requesting education or training In?": "zip_code_of_service",
+        "What Zip code are you requesting financing In?": "zip_code_of_service",
+        "What Zip code are you requesting insurance In?": "zip_code_of_service",
+        "What Zip code are you requesting jet ski rental or tours In?": "zip_code_of_service",
+        "What Zip code are you requesting kayak rental or tours In?": "zip_code_of_service",
+        "What Zip code are you requesting paddleboard rental or tours In?": "zip_code_of_service",
+        "What Zip code are you requesting parts In?": "zip_code_of_service",
+        "What Zip code are you requesting products In?": "zip_code_of_service",
+        "What Zip code are you requesting surveying In?": "zip_code_of_service",
         "Zip Code": "zip_code_of_service",
         "Service Zip Code": "zip_code_of_service",
         "Location": "zip_code_of_service",
         
         "What Specific Service(s) Do You Request?": "specific_service_needed",
         "What Specific Charter Do You Request?": "specific_service_needed",
+        "What Specific service do you request?": "specific_service_needed",
         "Service Needed": "specific_service_needed",
         "Service Request": "specific_service_needed",
         "Services": "specific_service_needed",
@@ -952,7 +981,156 @@ def normalize_field_names(payload: Dict[str, Any]) -> Dict[str, Any]:
         "Time": "form_submission_time",
         "Page URL": "source_page_url",
         "form_id": "elementor_form_id",
-        "form_name": "elementor_form_name"
+        "form_name": "elementor_form_name",
+        # A Fields
+        "any other requests or information?": "any_other_requests_or_information",
+        "any special requests or information?": "any_special_requests_or_information",
+        "are you a us citizen?": "are_you_a_us_citizen",
+        "are you currently involved in a dispute with the person or company you're asking about?": "are_you_currently_involved_in_a_dispute_with_the_person_or_company_you're_asking_about",
+        "are you currently working with a broker or dealer?": "are_you_currently_working_with_a_broker_or_dealer",
+        "are you currently working with a realtor or broker?": "are_you_currently_working_with_a_realtor_or_broker",
+        "are you looking for a custom or semi custom build?": "are_you_looking_for_a_custom_or_semi_custom_build",
+        "are you looking for a jet ski rental or tour?": "are_you_looking_for_a_jet_ski_rental_or_tour",
+        "are you looking for a kayak rental or tour?": "are_you_looking_for_a_kayak_rental_or_tour",
+        "are you looking for a paddleboard rental or tour?": "are_you_looking_for_a_paddleboard_rental_or_tour",
+        "are you looking for a pontoon rental or charter?": "are_you_looking_for_a_pontoon_rental_or_charter",
+        "are you looking for any specific accreditations or compliance?": "are_you_looking_for_any_specific_accreditations_or_compliance",
+        "are you looking to buy or sell a vessel?": "are_you_looking_to_buy_or_sell_a_vessel",
+        "are you looking to buy or sell?": "are_you_looking_to_buy_or_sell",
+        "are you requesting crew or looking for a job?": "are_you_requesting_crew_or_looking_for_a_job",
+        "are you the owner of the property?": "are_you_the_owner_of_the_property",
+        "are you the vessel owner?": "are_you_the_vessel_owner",
+        
+        # B Fields
+        "brand/model of vessel looking to buy or sell?": "brand/model_of_vessel_looking_to_buy_or_sell",
+        
+        # C Fields
+        "can you briefly describe the reason for your inquiry?": "can_you_briefly_describe_the_reason_for_your_inquiry",
+        "current address of vessel?": "current_address_of_vessel",
+        
+        # D Fields
+        "desired country manufacturer?": "desired_country_manufacturer",
+        "desired delivery timeframe?": "desired_delivery_timeframe",
+        "desired policy start date?": "desired_policy_start_date",
+        "desired rental rate?": "desired_rental_rate",
+        "desired survey date?": "desired_survey_date",
+        "desired timeline of course or training?": "desired_timeline_of_course_or_training",
+        "desired vessel length in feet?": "desired_vessel_length_in_feet",
+        "destination address of vessel?": "destination_address_of_vessel",
+        "did you purchase vessel yet?": "did_you_purchase_vessel_yet",
+        "do you currently have boat insurance?": "do_you_currently_have_boat_insurance",
+        "do you have a budget in mind?": "do_you_have_a_budget_in_mind",
+        "do you have a budget in mind for this charter?": "do_you_have_a_budget_in_mind_for_this_charter",
+        "do you have a desired manufacturer?": "do_you_have_a_desired_manufacturer",
+        "do you have a trade-in?": "do_you_have_a_trade-in",
+        "do you have capacity to take on more work?": "do_you_have_capacity_to_take_on_more_work",
+        "do you own a vessel?": "do_you_own_a_vessel",
+        "do you own the vessel?": "do_you_own_the_vessel",
+        "do you own the vessel or what is your relationship?": "do_you_own_the_vessel_or_what_is_your_relationship",
+        "do you require an emergency tow or towing membership?": "do_you_require_an_emergency_tow_or_towing_membership",
+        
+        # E Fields
+        "estimated length of vessel looking to buy or sell?": "estimated_length_of_vessel_looking_to_buy_or_sell",
+        
+        # F Fields
+        "finance amount requested?": "finance_amount_requested",
+        "for how many people?": "for_how_many_people",
+        "fuel delivery address?": "fuel_delivery_address",
+        
+        # H Fields
+        "have you been a member of a boat club before?": "have_you_been_a_member_of_a_boat_club_before",
+        "how long do you request dockage??": "how_long_do_you_request_dockage",
+        "how long is your space available to rent?": "how_long_is_your_space_available_to_rent",
+        "how many fuel tanks?": "how_many_fuel_tanks",
+        "how many gallons of fuel needed roughly?": "how_many_gallons_of_fuel_needed_roughly",
+        "how many jet skis are you interested in renting?": "how_many_jet_skis_are_you_interested_in_renting",
+        "how many kayaks are you interested in renting?": "how_many_kayaks_are_you_interested_in_renting",
+        "how many paddleboards are you interested in renting?": "how_many_paddleboards_are_you_interested_in_renting",
+        "how many people in your party?": "how_many_people_in_your_party",
+        "how many people roughly on the party boat charter?": "how_many_people_roughly_on_the_party_boat_charter",
+        "how many people roughly on the pontoon rental or charter?": "how_many_people_roughly_on_the_pontoon_rental_or_charter",
+        "how many people roughly on the private yacht charter?": "how_many_people_roughly_on_the_private_yacht_charter",
+        "how often do you plan to use a boat each month?": "how_often_do_you_plan_to_use_a_boat_each_month",
+        "how soon are you looking to buy or sell?": "how_soon_are_you_looking_to_buy_or_sell",
+        "how will boat be used?": "how_will_boat_be_used",
+        
+        # I Fields
+        "if looking for crew, how many positions?": "if_looking_for_crew,_how_many_positions",
+        "is the vessel on a dock, at a marina, or on a trailer?": "is_the_vessel_on_a_dock,_at_a_marina,_or_on_a_trailer",
+        "is this a one-time request or ongoing service?": "is_this_a_one-time_request_or_ongoing_service",
+        
+        # L Fields
+        "length of desired dockage in feet?": "length_of_desired_dockage_in_feet",
+        "length of dock or seawall in feet?": "length_of_dock_or_seawall_in_feet",
+        "longest desired rental?": "longest_desired_rental",
+        
+        # M Fields
+        "manufactuer of vessel?": "manufactuer_of_vessel",
+        
+        # N Fields
+        "number of engines?": "number_of_engines",
+        "number of rooms or desired rooms?": "number_of_rooms_or_desired_rooms",
+        "number of years boating experience?": "number_of_years_boating_experience",
+        
+        # S Fields
+        "send a link to some of your reviews?": "send_a_link_to_some_of_your_reviews",
+        "shortest desired rental?": "shortest_desired_rental",
+        "square feet of home or desired square feet?": "square_feet_of_home_or_desired_square_feet",
+        
+        # T Fields
+        "tell us more about your company?": "tell_us_more_about_your_company",
+        "type of dockage available?": "type_of_dockage_available",
+        "type of dockage requested?": "type_of_dockage_requested",
+        "type of financing requested?": "type_of_financing_requested",
+        
+        # W Fields
+        "what accomodations are included?": "what_accomodations_are_included",
+        "what dates specifically is the dock or slip available?": "what_dates_specifically_is_the_dock_or_slip_available",
+        "what education or training do you request? ": "what_education_or_training_do_you_request",
+        "what is the duration of your request?": "what_is_the_duration_of_your_request",
+        "what is the vessel manufacturer?": "what_is_the_vessel_manufacturer",
+        "what is the vessel model or length of vessel in feet?": "what_is_the_vessel_model_or_length_of_vessel_in_feet",
+        "what is your boating experience?": "what_is_your_boating_experience",
+        "what is your ideal budget?": "what_is_your_ideal_budget",
+        "what management services do you request?": "what_management_services_do_you_request",
+        "what product category are you interested in?": "what_product_category_are_you_interested_in",
+        "what product specifically are you interested in?": "what_product_specifically_are_you_interested_in",
+        "what specific attorney service do you request?": "what_specific_attorney_service_do_you_request",
+        "what specific charter do you request?": "what_specific_charter_do_you_request",
+        "what specific dates do you require dockage?": "what_specific_dates_do_you_require_dockage",
+        "what specific parts do you request?": "what_specific_parts_do_you_request",
+        "what specific sailboat charter do you request?": "what_specific_sailboat_charter_do_you_request",
+        "what specific service do you request?": "what_specific_service_do_you_request",
+        "what to survey?": "what_to_survey",
+        "what type of boat club are you interested in??": "what_type_of_boat_club_are_you_interested_in",
+        "what type of crew?": "what_type_of_crew",
+        "what type of fuel do you need?": "what_type_of_fuel_do_you_need",
+        "what type of party boat are you interested in?": "what_type_of_party_boat_are_you_interested_in",
+        "what type of private yacht charter are you interested in?": "what_type_of_private_yacht_charter_are_you_interested_in",
+        "what type of salvage do you request?": "what_type_of_salvage_do_you_request",
+        "what type of trip do you request provisioning for?": "what_type_of_trip_do_you_request_provisioning_for",
+        "what type of vessel are you looking to buy or sell?": "what_type_of_vessel_are_you_looking_to_buy_or_sell",
+        "what type of vessel are you looking to insure?": "what_type_of_vessel_are_you_looking_to_insure",
+        "what type of vessel are you looking to survey?": "what_type_of_vessel_are_you_looking_to_survey",
+        "what types of boats are you most comfortable or interested in?": "what_types_of_boats_are_you_most_comfortable_or_interested_in",
+        "what zip code is your vessel in most frequently?": "what_zip_code_is_your_vessel_in_most_frequently",
+        "what's your current company address?": "what's_your_current_company_address",
+        "when do you prefer buying or selling?": "when_do_you_prefer_buying_or_selling",
+        "when do you prefer your charter?": "when_do_you_prefer_your_charter",
+        "when do you prefer your charter or rental?": "when_do_you_prefer_your_charter_or_rental",
+        "when do you prefer your dive charter, lessons or equipment rental?": "when_do_you_prefer_your_dive_charter,_lessons_or_equipment_rental",
+        "when do you prefer your fishing charter?": "when_do_you_prefer_your_fishing_charter",
+        "when do you prefer your lessons or equipment rental?": "when_do_you_prefer_your_lessons_or_equipment_rental",
+        "when do you prefer your rental or charter?": "when_do_you_prefer_your_rental_or_charter",
+        "when do you prefer your rental or tour?": "when_do_you_prefer_your_rental_or_tour",
+        "where is the vessel located?": "where_is_the_vessel_located",
+        "where is the vessel now?": "where_is_the_vessel_now",
+        "who are you?": "who_are_you",
+        
+        # Y Fields
+        "your engine manufacturer or preferred engine manufacturer?": "your_engine_manufacturer_or_preferred_engine_manufacturer",
+        "your generator manufacturer or preferred generator manufacturer?": "your_generator_manufacturer_or_preferred_generator_manufacturer",
+        "your primary zip code?": "your_primary_zip_code"
     }
     
     normalized_payload = {}
@@ -1596,12 +1774,12 @@ async def handle_clean_elementor_webhook(
             logger.warning(f"⚠️ Form validation warnings for '{form_identifier}': {validation_result['warnings']}")
 
         # Initialize GHL API client
-        ghl_api_client = GoHighLevelAPI(
-            location_api_key=AppConfig.GHL_LOCATION_API,
+        # Use optimized v2 API for better performance
+        ghl_api_client = OptimizedGoHighLevelAPI(
             private_token=AppConfig.GHL_PRIVATE_TOKEN, 
             location_id=AppConfig.GHL_LOCATION_ID,
             agency_api_key=AppConfig.GHL_AGENCY_API_KEY,
-            company_id=AppConfig.GHL_COMPANY_ID
+            location_api_key=AppConfig.GHL_LOCATION_API  # Keep for fallback
         )
         logger.info(f"🔑 GHL API client initialized")
 
@@ -1748,8 +1926,13 @@ async def handle_clean_elementor_webhook(
             created_contact_response = ghl_api_client.create_contact(final_ghl_payload)
             
             if created_contact_response and isinstance(created_contact_response, dict):
-                if not created_contact_response.get("error") and created_contact_response.get("id"):
-                    final_ghl_contact_id = created_contact_response["id"]
+                # Handle both v1 and v2 API response formats
+                # v2 API returns {'contact': {'id': '...'}} while v1 returns {'id': '...'}
+                contact_data = created_contact_response.get("contact", created_contact_response)
+                contact_id = contact_data.get("id")
+                
+                if not created_contact_response.get("error") and contact_id:
+                    final_ghl_contact_id = contact_id
                     operation_successful = True
                     logger.info(f"✅ Successfully created new GHL contact {final_ghl_contact_id}")
                 else:
@@ -2365,9 +2548,11 @@ async def trigger_clean_lead_routing_workflow(
                 logger.info(f"📈 Creating opportunity for {service_category} lead")
                 
                 # Initialize GHL API client for opportunity creation
-                ghl_api_client = GoHighLevelAPI(
+                # Use optimized v2 API for better performance
+                ghl_api_client = OptimizedGoHighLevelAPI(
                     private_token=AppConfig.GHL_PRIVATE_TOKEN,
-                    location_id=AppConfig.GHL_LOCATION_ID
+                    location_id=AppConfig.GHL_LOCATION_ID,
+                    agency_api_key=AppConfig.GHL_AGENCY_API_KEY
                 )
                 
                 customer_name = customer_data["name"]
@@ -2439,9 +2624,11 @@ async def trigger_clean_lead_routing_workflow(
                         
                         # Self-contained opportunity assignment (no routing_admin dependency)
                         try:
-                            ghl_api_client = GoHighLevelAPI(
+                            # Use optimized v2 API for better performance
+                            ghl_api_client = OptimizedGoHighLevelAPI(
                                 private_token=AppConfig.GHL_PRIVATE_TOKEN,
-                                location_id=AppConfig.GHL_LOCATION_ID
+                                location_id=AppConfig.GHL_LOCATION_ID,
+                                agency_api_key=AppConfig.GHL_AGENCY_API_KEY
                             )
                             
                             # Update opportunity with vendor assignment
@@ -2518,7 +2705,12 @@ async def notify_admin_of_unmatched_lead(lead_data: Dict[str, Any], ghl_contact_
     Direct notification - NO AI processing
     """
     try:
-        ghl_api_client = GoHighLevelAPI(private_token=AppConfig.GHL_PRIVATE_TOKEN, location_id=AppConfig.GHL_LOCATION_ID)
+        # Use optimized v2 API for better performance
+        ghl_api_client = OptimizedGoHighLevelAPI(
+            private_token=AppConfig.GHL_PRIVATE_TOKEN, 
+            location_id=AppConfig.GHL_LOCATION_ID,
+            agency_api_key=AppConfig.GHL_AGENCY_API_KEY
+        )
         
         # Use existing admin contact ID
         admin_contact_id = "b69NCeI1P32jooC7ySfw"  # Jeremy's contact ID
@@ -2616,7 +2808,8 @@ async def handle_vendor_user_creation_webhook(request: Request):
         logger.info(f"   📱 Phone: {vendor_phone}")
         logger.info(f"   🏢 Company: {vendor_company_name}")
         
-        # Initialize GHL API client
+        # Use v1 API for vendor user creation (required for GHL user management)
+        # This is the ONLY place where v1 API is still required
         ghl_api_client = GoHighLevelAPI(
             private_token=AppConfig.GHL_PRIVATE_TOKEN, 
             location_id=AppConfig.GHL_LOCATION_ID,
@@ -2629,6 +2822,7 @@ async def handle_vendor_user_creation_webhook(request: Request):
             raise HTTPException(status_code=400, detail="Vendor email is required for user creation")
         
         # Check if user already exists
+        # Note: get_user_by_email and create_user use v1 API which is required for vendor user creation
         existing_user = ghl_api_client.get_user_by_email(vendor_email)
         if existing_user:
             logger.info(f"✅ User already exists for {vendor_email}: {existing_user.get('id')}")
@@ -2703,6 +2897,7 @@ async def handle_vendor_user_creation_webhook(request: Request):
         
         # Create user in GHL
         logger.info(f"🔐 Creating GHL user for vendor: {vendor_email}")
+        # Note: create_user uses v1 API endpoint which is required for GHL user creation
         created_user = ghl_api_client.create_user(user_data)
         
         if not created_user:
@@ -3017,12 +3212,11 @@ async def handle_lead_reassignment_webhook(request: Request):
         else:
             logger.info(f"📋 No opportunity ID provided - will create if needed")
         
-        # Initialize GHL API client
-        ghl_api_client = GoHighLevelAPI(
+        # Use optimized v2 API for better performance
+        ghl_api_client = OptimizedGoHighLevelAPI(
             private_token=AppConfig.GHL_PRIVATE_TOKEN,
             location_id=AppConfig.GHL_LOCATION_ID,
-            agency_api_key=AppConfig.GHL_AGENCY_API_KEY,
-            company_id=AppConfig.GHL_COMPANY_ID
+            agency_api_key=AppConfig.GHL_AGENCY_API_KEY
         )
         
         # Get contact details from GHL
@@ -3450,3 +3644,406 @@ async def _remove_reassignment_tag(ghl_api_client: GoHighLevelAPI, contact_id: s
         
     except Exception as e:
         logger.error(f"Error removing reassignment tag from contact {contact_id}: {e}")
+
+
+@router.post("/ghl/process-new-contact")
+async def handle_ghl_new_contact_trigger(request: Request):
+    """
+    GHL webhook endpoint triggered when a contact is created with "New Lead" tag.
+    Bypasses WordPress form handling and picks up lead processing at the point where
+    a lead needs to be created in the Lead Router database, followed by opportunity
+    creation and vendor assignment.
+    
+    Flow:
+    1. Parse GHL webhook payload and extract contact ID
+    2. Fetch complete contact details from GHL
+    3. Extract required fields from contact data
+    4. Check for duplicate leads (idempotent)
+    5. Create lead record in database
+    6. Create opportunity in GHL
+    7. Perform vendor matching and assignment
+    8. Return success response
+    """
+    start_time = time.time()
+    
+    try:
+        # Step 1: Parse incoming webhook payload
+        ghl_payload = await request.json()
+        logger.info(f"📥 GHL New Contact Webhook received: {json.dumps(ghl_payload, indent=2)}")
+        
+        # Check if this is a custom workflow webhook with customData
+        custom_data = ghl_payload.get("customData", {})
+        
+        # Extract contact ID from webhook - check multiple possible locations including customData
+        contact_id = (
+            ghl_payload.get("contactId") or 
+            ghl_payload.get("contact_id") or 
+            ghl_payload.get("id") or 
+            ghl_payload.get("contact", {}).get("id") or
+            ghl_payload.get("Contact ID") or
+            ghl_payload.get("contact", {}).get("Contact ID") or
+            custom_data.get("contact_id")
+        )
+        
+        if not contact_id:
+            logger.error(f"❌ No contact ID found in webhook payload. Keys received: {list(ghl_payload.keys())}, customData keys: {list(custom_data.keys())}")
+            raise HTTPException(status_code=400, detail="Contact ID is required")
+        
+        logger.info(f"🎯 Processing new contact: {contact_id}")
+        
+        # Log webhook for debugging
+        simple_db_instance.log_activity(
+            event_type="ghl_new_contact_webhook",
+            event_data={
+                "contact_id": contact_id,
+                "webhook_type": ghl_payload.get("type", "unknown"),
+                "payload_keys": list(ghl_payload.keys())
+            },
+            lead_id=contact_id,
+            success=True
+        )
+        
+        # Step 2: Initialize GHL API and fetch complete contact details
+        ghl_api = OptimizedGoHighLevelAPI(
+            private_token=AppConfig.GHL_PRIVATE_TOKEN,
+            location_id=AppConfig.GHL_LOCATION_ID,
+            agency_api_key=AppConfig.GHL_AGENCY_API_KEY
+        )
+        
+        logger.info(f"📋 Fetching complete contact details for {contact_id}")
+        contact_details = ghl_api.get_contact_by_id(contact_id)
+        
+        if not contact_details:
+            logger.error(f"❌ Could not fetch contact details for {contact_id}")
+            raise HTTPException(status_code=404, detail="Contact not found in GHL")
+        
+        logger.info(f"✅ Retrieved contact: {contact_details.get('firstName')} {contact_details.get('lastName')}")
+        
+        # Step 3: Extract required fields from contact data
+        customer_name = f"{contact_details.get('firstName', '')} {contact_details.get('lastName', '')}".strip()
+        customer_email = contact_details.get('email', '')
+        customer_phone = contact_details.get('phone', '')
+        
+        # Apply field mapping to extract service information
+        mapped_payload = field_mapper.map_payload(contact_details, industry="marine")
+        logger.info(f"🔄 Field mapping complete. Mapped keys: {list(mapped_payload.keys())}")
+        
+        # Extract service category - check customData first, then custom fields
+        service_category = None
+        
+        # First check if we have specific_service_requested in customData
+        specific_service = custom_data.get('specific_service_requested', '')
+        if specific_service:
+            # Map specific service to category using the existing mapping
+            service_category = get_direct_service_category(specific_service.lower().replace(' ', '_'))
+            logger.info(f"📌 Mapped specific service '{specific_service}' to category '{service_category}'")
+        
+        # If not found in customData, check custom fields
+        if not service_category:
+            custom_fields = contact_details.get('customFields', [])
+            
+            # Look for service category in various possible field names
+            service_field_names = ['service_type', 'service_requested', 'service_category', 
+                                  'primary_service_category', 'service', 'category']
+            
+            for field in custom_fields:
+                field_name = field.get('name', '').lower().replace(' ', '_')
+                field_value = field.get('value', '')
+                
+                if any(name in field_name for name in service_field_names) and field_value:
+                    service_category = field_value
+                    logger.info(f"📌 Found service category '{service_category}' in field '{field.get('name')}'")
+                    break
+        
+        # If no service category found, check mapped payload
+        if not service_category:
+            service_category = mapped_payload.get('primary_service_category') or \
+                             mapped_payload.get('service_category') or \
+                             mapped_payload.get('service_type') or \
+                             "Boater Resources"  # Default fallback
+            logger.info(f"📌 Using service category from mapping: {service_category}")
+        
+        # Extract ZIP code - check customData first, then mapped payload and contact details
+        zip_code = custom_data.get("customer_zip_code") or \
+                  custom_data.get("zip_code") or \
+                  mapped_payload.get("zip_code_of_service") or \
+                  mapped_payload.get("customer_zip_code") or \
+                  contact_details.get("postalCode") or ""
+        
+        service_county = ""
+        service_state = ""
+        
+        if zip_code and len(str(zip_code)) == 5 and str(zip_code).isdigit():
+            logger.info(f"🗺️ Converting ZIP {zip_code} to county")
+            location_data = location_service.zip_to_location(str(zip_code))
+            
+            if not location_data.get('error'):
+                county = location_data.get('county', '')
+                state = location_data.get('state', '')
+                if county and state:
+                    service_county = f"{county}, {state}"
+                    service_state = state
+                    logger.info(f"✅ ZIP {zip_code} → {service_county}")
+                else:
+                    logger.warning(f"⚠️ ZIP {zip_code} conversion incomplete")
+            else:
+                logger.warning(f"⚠️ Could not convert ZIP {zip_code}: {location_data['error']}")
+        
+        # Get account information
+        account_record = simple_db_instance.get_account_by_ghl_location_id(AppConfig.GHL_LOCATION_ID)
+        if not account_record:
+            logger.error("❌ No account found for GHL location")
+            raise HTTPException(status_code=500, detail="Account configuration error")
+        
+        account_id = account_record['id']
+        
+        # Step 4: Check for duplicate leads (idempotent behavior)
+        existing_lead = simple_db_instance.get_lead_by_ghl_contact_id(contact_id)
+        
+        if existing_lead:
+            logger.info(f"📋 Lead already exists for contact {contact_id}: {existing_lead['id']}")
+            return {
+                "status": "success",
+                "message": "Lead already processed",
+                "lead_id": existing_lead['id'],
+                "ghl_contact_id": contact_id,
+                "duplicate": True,
+                "processing_time": round(time.time() - start_time, 3)
+            }
+        
+        # Step 5: Create lead record in database
+        lead_id = str(uuid.uuid4())
+        
+        # Build service details from all mapped fields
+        service_details = {
+            "source": "ghl_automation",
+            "trigger": "new_lead_tag",
+            "processed_via": "ghl_contact_trigger",
+            "service_category": service_category,
+            "zip_code": zip_code
+        }
+        
+        # Add any additional custom fields to service_details
+        for field_key, field_value in mapped_payload.items():
+            if field_value and field_key not in ["firstName", "lastName", "email", "phone"]:
+                service_details[field_key] = field_value
+        
+        logger.info(f"💾 Creating lead record in database")
+        
+        conn = None
+        try:
+            conn = simple_db_instance._get_conn()
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+                INSERT INTO leads (
+                    id, account_id, ghl_contact_id, ghl_opportunity_id, customer_name,
+                    customer_email, customer_phone, primary_service_category, specific_service_requested,
+                    service_zip_code, service_county, service_state, vendor_id, 
+                    status, priority, source, service_details, 
+                    created_at, updated_at, service_city, 
+                    service_complexity, estimated_duration, requires_emergency_response, 
+                    classification_confidence, classification_reasoning
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?, ?)
+            ''', (
+                lead_id,                                                    # id
+                account_id,                                                 # account_id
+                contact_id,                                                 # ghl_contact_id
+                None,                                                       # ghl_opportunity_id (will be updated)
+                customer_name,                                              # customer_name
+                customer_email.lower().strip() if customer_email else None, # customer_email
+                customer_phone,                                             # customer_phone
+                service_category,                                           # primary_service_category
+                mapped_payload.get("specific_service_requested", ""),       # specific_service_requested
+                zip_code,                                                   # service_zip_code
+                service_county,                                             # service_county
+                service_state,                                              # service_state
+                None,                                                       # vendor_id (unassigned)
+                "new",                                                      # status
+                "normal",                                                   # priority
+                "ghl_automation",                                           # source
+                json.dumps(service_details),                                # service_details
+                "",                                                         # service_city
+                "simple",                                                   # service_complexity
+                "medium",                                                   # estimated_duration
+                False,                                                      # requires_emergency_response
+                1.0,                                                        # classification_confidence
+                "Created via GHL new contact trigger"                       # classification_reasoning
+            ))
+            
+            conn.commit()
+            logger.info(f"✅ Created lead: {lead_id}")
+            
+        except Exception as e:
+            logger.error(f"❌ Lead creation error: {e}")
+            if conn:
+                conn.rollback()
+            raise
+        finally:
+            if conn:
+                conn.close()
+        
+        # Step 6: Create opportunity in GHL
+        opportunity_id = None
+        
+        if AppConfig.PIPELINE_ID and AppConfig.NEW_LEAD_STAGE_ID:
+            # Check for existing opportunity first
+            existing_opportunities = ghl_api.get_opportunities_by_contact(contact_id)
+            
+            if existing_opportunities and len(existing_opportunities) > 0:
+                opportunity_id = existing_opportunities[0].get('id')
+                logger.info(f"📋 Using existing opportunity: {opportunity_id}")
+            else:
+                # Create new opportunity
+                logger.info(f"📈 Creating opportunity for {service_category} lead")
+                
+                opportunity_data = {
+                    "contactId": contact_id,
+                    "name": f"{service_category} - {customer_name}",
+                    "pipelineId": AppConfig.PIPELINE_ID,
+                    "pipelineStageId": AppConfig.NEW_LEAD_STAGE_ID,
+                    "status": "open",
+                    "monetaryValue": 0,
+                    "source": "GHL Automation (New Lead Tag)",
+                    "locationId": AppConfig.GHL_LOCATION_ID
+                }
+                
+                opportunity_response = ghl_api.create_opportunity(opportunity_data)
+                
+                # Check for opportunity in the response (v2 API returns it nested)
+                if opportunity_response:
+                    if opportunity_response.get('opportunity', {}).get('id'):
+                        opportunity_id = opportunity_response['opportunity']['id']
+                        logger.info(f"✅ Created opportunity: {opportunity_id}")
+                    elif opportunity_response.get('id'):
+                        opportunity_id = opportunity_response['id']
+                        logger.info(f"✅ Created opportunity: {opportunity_id}")
+                    else:
+                        logger.error(f"❌ Failed to create opportunity: {opportunity_response}")
+            
+            # Update lead with opportunity ID
+            if opportunity_id:
+                try:
+                    simple_db_instance.update_lead_opportunity_id(lead_id, opportunity_id)
+                    logger.info(f"✅ Linked opportunity {opportunity_id} to lead {lead_id}")
+                except Exception as e:
+                    logger.warning(f"⚠️ Could not link opportunity ID: {e}")
+        else:
+            logger.warning("⚠️ Pipeline not configured - skipping opportunity creation")
+        
+        # Step 7: Perform vendor matching and assignment
+        vendor_assigned = False
+        selected_vendor = None
+        
+        # Get specific service if available - check customData first
+        specific_service = custom_data.get("specific_service_requested") or \
+                          mapped_payload.get("specific_service_requested", "")
+        
+        logger.info(f"🔍 Finding matching vendors for {service_category} in {zip_code}")
+        
+        available_vendors = lead_routing_service.find_matching_vendors(
+            account_id=account_id,
+            service_category=service_category,
+            zip_code=zip_code,
+            priority="normal",
+            specific_service=specific_service
+        )
+        
+        if available_vendors:
+            logger.info(f"✅ Found {len(available_vendors)} matching vendors")
+            
+            # Select vendor from pool
+            selected_vendor = lead_routing_service.select_vendor_from_pool(available_vendors, account_id)
+            
+            if selected_vendor and selected_vendor.get('ghl_user_id'):
+                logger.info(f"🎯 Selected vendor: {selected_vendor['name']}")
+                
+                # Assign lead to vendor in database
+                assignment_success = simple_db_instance.assign_lead_to_vendor(lead_id, selected_vendor['id'])
+                
+                if assignment_success:
+                    logger.info(f"✅ Assigned lead to vendor in database")
+                    vendor_assigned = True
+                    
+                    # Update opportunity with vendor assignment
+                    if opportunity_id:
+                        try:
+                            update_data = {
+                                'assignedTo': selected_vendor['ghl_user_id'],
+                                'pipelineId': AppConfig.PIPELINE_ID,
+                                'pipelineStageId': AppConfig.NEW_LEAD_STAGE_ID
+                            }
+                            
+                            ghl_assignment_success = ghl_api.update_opportunity(opportunity_id, update_data)
+                            
+                            if ghl_assignment_success:
+                                logger.info(f"✅ Assigned opportunity to vendor in GHL")
+                            else:
+                                logger.warning(f"⚠️ Failed to assign opportunity in GHL")
+                        except Exception as e:
+                            logger.error(f"❌ Error assigning opportunity: {e}")
+                else:
+                    logger.error(f"❌ Failed to assign lead to vendor in database")
+            else:
+                logger.warning(f"⚠️ Selected vendor has no GHL User ID")
+        else:
+            logger.warning(f"⚠️ No matching vendors found for {service_category} in {zip_code}")
+        
+        # Log activity
+        processing_time = round(time.time() - start_time, 3)
+        simple_db_instance.log_activity(
+            event_type="ghl_contact_processed",
+            event_data={
+                "contact_id": contact_id,
+                "lead_id": lead_id,
+                "opportunity_id": opportunity_id,
+                "service_category": service_category,
+                "zip_code": zip_code,
+                "vendor_assigned": vendor_assigned,
+                "vendor_id": selected_vendor['id'] if selected_vendor else None,
+                "processing_time": processing_time
+            },
+            lead_id=lead_id,
+            success=True
+        )
+        
+        # Step 8: Return success response
+        response_data = {
+            "status": "success",
+            "message": "Contact processed successfully",
+            "lead_id": lead_id,
+            "ghl_contact_id": contact_id,
+            "opportunity_id": opportunity_id,
+            "service_category": service_category,
+            "location": f"{zip_code} ({service_county})" if service_county else zip_code,
+            "vendor_assigned": vendor_assigned,
+            "processing_time": processing_time
+        }
+        
+        if selected_vendor:
+            response_data["vendor"] = {
+                "id": selected_vendor['id'],
+                "name": selected_vendor['name'],
+                "email": selected_vendor.get('email')
+            }
+        
+        logger.info(f"✅ GHL contact processing complete in {processing_time}s")
+        return response_data
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Error processing GHL contact: {e}", exc_info=True)
+        
+        # Log error
+        simple_db_instance.log_activity(
+            event_type="ghl_contact_processing_error",
+            event_data={
+                "error": str(e),
+                "contact_id": contact_id if 'contact_id' in locals() else None
+            },
+            success=False,
+            error_message=str(e)
+        )
+        
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")

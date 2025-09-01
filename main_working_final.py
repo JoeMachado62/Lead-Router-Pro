@@ -346,6 +346,14 @@ async def dashboard_content(request: Request):
     """Serve main dashboard content - protected route"""
     return HTMLResponse(content=read_html_file(BASE_DIR / "lead_router_pro_dashboard.html"))
 
+# Admin User Guide Route - Public Access (read-only documentation)
+@app.get("/admin_user_guide.html", response_class=HTMLResponse)
+@app.get("/user-guide", response_class=HTMLResponse)
+async def admin_user_guide():
+    """Serve the admin user guide - no authentication required for documentation"""
+    user_guide_path = BASE_DIR / "admin_user_guide.html"
+    return HTMLResponse(content=read_html_file(user_guide_path))
+
 # Vendor Widget Route - Public Access
 @app.get("/vendor-widget", response_class=HTMLResponse)
 @app.get("/vendor-application", response_class=HTMLResponse)

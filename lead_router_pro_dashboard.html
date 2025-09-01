@@ -71,9 +71,93 @@
         .notification.success { background: #10b981; }
         .notification.error { background: #ef4444; }
         .notification.info { background: #3b82f6; }
+        
+        /* User Guide Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-overlay.active {
+            display: flex;
+        }
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 1200px;
+            height: 85vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            animation: modalSlideIn 0.3s ease;
+        }
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-50px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .modal-header {
+            padding: 20px 30px;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 12px 12px 0 0;
+        }
+        .modal-body {
+            flex: 1;
+            overflow: hidden;
+            position: relative;
+        }
+        .modal-body iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+        .modal-close {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+        .modal-close:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
+    <!-- User Guide Modal -->
+    <div id="userGuideModal" class="modal-overlay" onclick="closeUserGuideModal(event)">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h2 class="text-xl font-bold">Lead Router Pro - Admin User Guide</h2>
+                <button class="modal-close" onclick="closeUserGuide()">✕</button>
+            </div>
+            <div class="modal-body">
+                <iframe id="userGuideFrame" src="admin_user_guide.html"></iframe>
+            </div>
+        </div>
+    </div>
+    
     <!-- Header -->
     <header class="gradient-bg text-white shadow-lg">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -94,6 +178,11 @@
                         <span class="loading inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-2"></span>
                         Checking Status...
                     </div>
+                    <button onclick="openUserGuide()" class="bg-white/20 hover:bg-white/30 p-2 rounded-lg transition-colors" title="User Guide">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </button>
                     <button onclick="refreshDashboard()" class="bg-white/20 hover:bg-white/30 p-2 rounded-lg transition-colors" title="Refresh">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
@@ -398,7 +487,7 @@
                             <div class="space-y-2">
                                 <input type="file" id="csvFile" accept=".csv" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-green-50 file:text-green-700 hover:file:bg-green-100">
                                 <button onclick="createFieldsFromCSV()" class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors">
-                                    Create Fields from CSV
+Create Fields from CSV
                                 </button>
                             </div>
                         </div>
@@ -457,7 +546,7 @@
                         <h3 class="text-lg font-semibold text-gray-900">Database Synchronization</h3>
                     </div>
                     <div class="space-y-4">
-                        <div class="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                        <div class="p-4 bg-yellow-50 border borde                                    r-yellow-200 rounded-lg">
                             <h4 class="font-medium text-yellow-900 mb-2">⚠️ Important Notice</h4>
                             <p class="text-sm text-yellow-800 mb-3">
                                 This will validate all database records against GoHighLevel (GHL) as the single source of truth.
@@ -1557,6 +1646,42 @@ ${data.data.leads.map((lead, index) =>
                 window.location.href = '/login';
             }
         }
+        
+        // User Guide Modal Functions
+        function openUserGuide() {
+            const modal = document.getElementById('userGuideModal');
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden'; // Prevent background scrolling
+        }
+        
+        function closeUserGuide() {
+            const modal = document.getElementById('userGuideModal');
+            modal.classList.remove('active');
+            document.body.style.overflow = 'auto'; // Restore scrolling
+        }
+        
+        function closeUserGuideModal(event) {
+            // Close modal when clicking on overlay (not the content)
+            if (event.target === event.currentTarget) {
+                closeUserGuide();
+            }
+        }
+        
+        // Keyboard shortcut for User Guide (? key)
+        document.addEventListener('keydown', function(e) {
+            // Check if ? key is pressed (Shift + /)
+            if (e.shiftKey && e.key === '?') {
+                e.preventDefault();
+                openUserGuide();
+            }
+            // Close modal with Escape key
+            if (e.key === 'Escape') {
+                const modal = document.getElementById('userGuideModal');
+                if (modal.classList.contains('active')) {
+                    closeUserGuide();
+                }
+            }
+        });
     </script>
 </body>
 </html>
