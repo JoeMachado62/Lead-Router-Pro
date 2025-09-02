@@ -6,12 +6,9 @@ from typing import Dict, List, Any, Optional
 import time
 import uuid
 import re
-import asyncio
-import threading
 from urllib.parse import parse_qs
 
 from fastapi import APIRouter, Request, HTTPException, BackgroundTasks
-from fastapi.responses import JSONResponse
 
 # --- Core Service Imports - Direct Processing Only ---
 from config import AppConfig
@@ -235,9 +232,550 @@ async def create_lead_from_ghl_contact(
         logger.error(f"❌ Shared pipeline error for contact {ghl_contact_data.get('id', 'unknown')}: {e}")
         raise
 
-
 # Service mappings have been moved to api.services.service_mapper
-# Duplicate definitions removed for better modularity
+# The duplicate inline definitions have been removed for better modularity
+
+async def parse_webhook_payload(request: Request) -> Dict[str, Any]:
+    "Boat and Yacht Repair",
+    "Boat Charters and Rentals", 
+    "Boat Hauling and Yacht Delivery",
+    "Boat Maintenance",
+    "Boat Towing",
+    "Boater Resources",
+    "Buying or Selling a Boat",
+    "Docks, Seawalls and Lifts",
+    "Dock and Slip Rental",
+    "Engines and Generators",
+    "Fuel Delivery",
+    "Marine Systems",
+    "Maritime Education and Training",
+    "Waterfront Property",
+    "Wholesale or Dealer Product Pricing",
+    "Yacht Management"
+]
+
+DOCKSIDE_PROS_SERVICES = {
+    # CATEGORY-LEVEL FORM IDENTIFIERS (ADDED - FIXES engines_generators ISSUE)
+    "engines_generators": "Engines and Generators",
+    "boat_and_yacht_repair": "Boat and Yacht Repair",
+    "boat_charters_and_rentals": "Boat Charters and Rentals",
+    "boat_hauling_and_yacht_delivery": "Boat Hauling and Yacht Delivery",
+    "boat_maintenance": "Boat Maintenance",
+    "boat_towing": "Boat Towing",
+    "boater_resources": "Boater Resources",
+    "buying_or_selling_a_boat": "Buying or Selling a Boat",
+    "docks_seawalls_and_lifts": "Docks, Seawalls and Lifts",
+    "dock_and_slip_rental": "Dock and Slip Rental",
+    "fuel_delivery": "Fuel Delivery",
+    "marine_systems": "Marine Systems",
+    "maritime_education_and_training": "Maritime Education and Training",
+    "waterfront_property": "Waterfront Property",
+    "wholesale_or_dealer_product_pricing": "Wholesale or Dealer Product Pricing",
+    "yacht_management": "Yacht Management",
+    
+    # Boat and Yacht Repair (9 services)
+    "boat_yacht_repair": "Boat and Yacht Repair",
+    "fiberglass_repair": "Boat and Yacht Repair",
+    "welding_metal_fabrication": "Boat and Yacht Repair",
+    "welding_fabrication": "Boat and Yacht Repair",
+    "carpentry_woodwork": "Boat and Yacht Repair",
+    "riggers_masts": "Boat and Yacht Repair",
+    "jet_ski_repair": "Boat and Yacht Repair",
+    "boat_canvas_upholstery": "Boat and Yacht Repair",
+    "boat_decking_yacht_flooring": "Boat and Yacht Repair",
+    
+    # Boat Charters and Rentals (8 services)
+    "boat_charters_rentals": "Boat Charters and Rentals",
+    "boat_clubs": "Boat Charters and Rentals",
+    "fishing_charters": "Boat Charters and Rentals",
+    "yacht_charters": "Boat Charters and Rentals",
+    "yacht_catamaran_charters": "Boat Charters and Rentals",
+    "sailboat_charters": "Boat Charters and Rentals",
+    "efoil_kiteboarding_wing_surfing": "Boat Charters and Rentals",
+    "dive_equipment_services": "Boat Charters and Rentals",
+    
+    # Boat Hauling and Yacht Delivery (2 services)
+    "yacht_delivery": "Boat Hauling and Yacht Delivery",
+    "boat_hauling_transport": "Boat Hauling and Yacht Delivery",
+    
+    # Boat Maintenance (11 services)
+    "barnacle_cleaning": "Boat Maintenance",
+    "boat_yacht_maintenance": "Boat Maintenance",
+    "boat_bilge_cleaning": "Boat Maintenance",
+    "boat_bottom_cleaning": "Boat Maintenance",
+    "boat_detailing": "Boat Maintenance",
+    "boat_oil_change": "Boat Maintenance",
+    "boat_wrapping_marine_protection": "Boat Maintenance",
+    "ceramic_coating": "Boat Maintenance",
+    "jet_ski_maintenance": "Boat Maintenance",
+    "yacht_armor": "Boat Maintenance",
+    "yacht_fire_detection": "Boat Maintenance",
+    
+    # Boat Towing (2 services)
+    "get_emergency_tow": "Boat Towing",
+    "get_towing_membership": "Boat Towing",
+    
+    # Boater Resources (8 services)
+    "yacht_wifi": "Boater Resources",
+    "provisioning": "Boater Resources",
+    "boat_yacht_parts": "Boater Resources",
+    "boat_salvage": "Boater Resources",
+    "yacht_photography": "Boater Resources",
+    "yacht_videography": "Boater Resources",
+    "yacht_crew_placement": "Boater Resources",
+    "yacht_account_management": "Boater Resources",
+    
+    # Buying or Selling a Boat (10 services)
+    "boat_dealers": "Buying or Selling a Boat",
+    "yacht_dealers": "Buying or Selling a Boat",
+    "boat_surveyors": "Buying or Selling a Boat",
+    "boat_financing": "Buying or Selling a Boat",
+    "boat_builders": "Buying or Selling a Boat",
+    "boat_brokers": "Buying or Selling a Boat",
+    "yacht_brokers": "Buying or Selling a Boat",
+    "yacht_builders": "Buying or Selling a Boat",
+    "boat_insurance": "Buying or Selling a Boat",
+    "yacht_insurance": "Buying or Selling a Boat",
+    
+    # Docks, Seawalls and Lifts (ALL 6 SUBCATEGORIES - COMPLETE)
+    "dock_seawall_builders_repair": "Docks, Seawalls and Lifts",
+    "dock_builders": "Docks, Seawalls and Lifts",
+    "seawall_construction": "Docks, Seawalls and Lifts",
+    "seawall_repair": "Docks, Seawalls and Lifts",
+    "boat_lift_installers": "Docks, Seawalls and Lifts",
+    "floating_dock_sales": "Docks, Seawalls and Lifts",
+    "davit_hydraulic_platform": "Docks, Seawalls and Lifts",
+    "hull_dock_seawall_piling_cleaning": "Docks, Seawalls and Lifts",
+    "piling_cleaning": "Docks, Seawalls and Lifts",
+    
+    # Dock and Slip Rental (2 services)
+    "dock_slip_rental": "Dock and Slip Rental",
+    "rent_my_dock": "Dock and Slip Rental",
+    
+    # Engines and Generators (9 services)
+    "outboard_engine_service": "Engines and Generators",
+    "outboard_engine_sales": "Engines and Generators",
+    "inboard_engine_service": "Engines and Generators",
+    "inboard_engine_sales": "Engines and Generators",
+    "diesel_engine_service": "Engines and Generators",
+    "diesel_engine_sales": "Engines and Generators",
+    "generator_service": "Engines and Generators",
+    "generator_service_repair": "Engines and Generators",
+    "generator_sales": "Engines and Generators",
+    
+    # Fuel Delivery (1 service)
+    "fuel_delivery": "Fuel Delivery",
+    
+    # Marine Systems (8 services)
+    "yacht_ac_sales": "Marine Systems",
+    "yacht_ac_service": "Marine Systems",
+    "boat_electrical_service": "Marine Systems",
+    "yacht_plumbing": "Marine Systems",
+    "boat_sound_systems": "Marine Systems",
+    "boat_lighting": "Marine Systems",
+    "yacht_stabilizers_seakeepers": "Marine Systems",
+    "yacht_refrigeration_watermakers": "Marine Systems",
+    
+    # Maritime Education and Training (4 services)
+    "maritime_certification": "Maritime Education and Training",
+    "maritime_academy": "Maritime Education and Training",
+    "sailing_schools": "Maritime Education and Training",
+    "yacht_training": "Maritime Education and Training",
+    
+    # Waterfront Property (3 services)
+    "waterfront_homes_sale": "Waterfront Property",
+    "sell_waterfront_home": "Waterfront Property",
+    "new_waterfront_developments": "Waterfront Property",
+    
+    # Wholesale or Dealer Product Pricing (1 service)
+    "wholesale_dealer_pricing": "Wholesale or Dealer Product Pricing",
+    
+    # Yacht Management (1 service)
+    "yacht_management": "Yacht Management",
+    
+    # Vendor Applications (form type detection)
+    "vendor_application": "Vendor Application",
+    "network_application": "Vendor Application",
+    "join_network": "Vendor Application",
+    "provider_signup": "Vendor Application",
+    
+    # General fallback
+    "general_inquiry": "Boater Resources",
+    "contact": "Boater Resources",
+    "quote_request": "Boater Resources",
+    
+    # Additional endpoint mappings to ensure proper categorization
+    # Boat Charters and Rentals - Additional mappings
+    "dive_equipment": "Boat Charters and Rentals",
+    "efoil_kiteboarding": "Boat Charters and Rentals",
+
+    # Boat Maintenance - Additional mappings
+    "bilge_cleaning": "Boat Maintenance",
+    # REMOVED: "boat_maintenance": "Boat Maintenance", - This was Level 1 to Level 1!
+    "bottom_cleaning": "Boat Maintenance",
+    "oil_change": "Boat Maintenance",
+
+    # Boat Towing - Additional mappings
+    "emergency_tow": "Boat Towing",
+    "towing_membership": "Boat Towing",
+
+    # Boat and Yacht Repair - Additional mappings
+    "canvas_upholstery": "Boat and Yacht Repair",
+    "decking_flooring": "Boat and Yacht Repair",
+
+    # Boater Resources - Additional mappings
+    "email_subscribe": "Boater Resources",
+    "maritime_advertising": "Boater Resources",
+    "yacht_accounting": "Boater Resources",
+    "yacht_crew": "Boater Resources",
+    "yacht_parts": "Boater Resources",
+
+    # Buying or Selling a Boat - Additional mappings
+    "boat_broker": "Buying or Selling a Boat",
+    "buying_selling_boats": "Buying or Selling a Boat",
+
+    # Docks, Seawalls and Lifts - Additional mappings
+    "davit_hydraulic": "Docks, Seawalls and Lifts",
+    "dock_seawall_builders": "Docks, Seawalls and Lifts",
+    "hull_dock_cleaning": "Docks, Seawalls and Lifts",
+
+    # Engines and Generators - Additional mappings
+    "engine_sales": "Engines and Generators",
+    "engine_service": "Engines and Generators",
+    # REMOVED DUPLICATE: "engines_generators" already defined at line 247
+
+    # Marine Systems - Additional mappings
+    "ac_sales": "Marine Systems",
+    "ac_service": "Marine Systems",
+    "electrical_service": "Marine Systems",
+    # REMOVED DUPLICATE: "marine_systems" already defined at line 258
+    "plumbing": "Marine Systems",
+
+    # Maritime Education and Training - Additional mappings
+    "maritime_education": "Maritime Education and Training",
+
+    # Waterfront Property - Additional mappings
+    "waterfront_developments": "Waterfront Property"
+}
+
+def get_direct_service_category(form_identifier: str) -> str:
+    """
+    Direct service category mapping - NO AI processing
+    Uses dictionary lookup with keyword matching based on actual CSV data
+    """
+    form_lower = form_identifier.lower()
+    
+    # Direct exact matches first
+    if form_lower in DOCKSIDE_PROS_SERVICES:
+        category = DOCKSIDE_PROS_SERVICES[form_lower]
+        logger.info(f"🎯 Direct service mapping: {form_identifier} → {category}")
+        return category
+    
+    # Keyword matching for partial matches
+    for service_key, category in DOCKSIDE_PROS_SERVICES.items():
+        if service_key.replace("_", "") in form_lower.replace("_", ""):
+            logger.info(f"🎯 Keyword service mapping: {form_identifier} → {category} (matched: {service_key})")
+            return category
+    
+    # Default fallback
+    default_category = "Boater Resources"
+    logger.info(f"🎯 Default service mapping: {form_identifier} → {default_category}")
+    return default_category
+
+
+# Comprehensive mapping for WordPress form identifiers to service names
+# Includes both hyphenated (WordPress) and underscore versions for compatibility
+# This ensures we capture the Level 2 subcategory when there's no Level 3 question
+FORM_TO_SPECIFIC_SERVICE = {
+    # ===== BOAT MAINTENANCE SERVICES =====
+    "barnacle_cleaning": "Barnacle Cleaning",
+    "barnacle-cleaning": "Barnacle Cleaning",
+    "boat_yacht_maintenance": "Boat and Yacht Maintenance",
+    "boat-yacht-maintenance": "Boat and Yacht Maintenance",
+    "bilge_cleaning": "Bilge Cleaning",
+    "bilge-cleaning": "Bilge Cleaning",
+    "boat_bilge_cleaning": "Boat Bilge Cleaning",
+    "bottom_cleaning": "Bottom Cleaning",
+    "bottom-cleaning": "Bottom Cleaning",
+    "boat_bottom_cleaning": "Bottom Cleaning",
+    "boat_detailing": "Boat Detailing",
+    "boat-detailing": "Boat Detailing",
+    "boat_oil_change": "Boat Oil Change",
+    "boat-oil-change": "Boat Oil Change",
+    "boat_wrapping_marine_protection": "Boat Wrapping and Marine Protection Film",
+    "boat_wrapping_marine_protection_film": "Boat Wrapping and Marine Protection Film",
+    "boat-wrapping-marine-protection-film": "Boat Wrapping and Marine Protection Film",
+    "ceramic_coating": "Ceramic Coating",
+    "ceramic-coating": "Ceramic Coating",
+    "jet_ski_maintenance": "Jet Ski Maintenance",
+    "jet-ski-maintenance": "Jet Ski Maintenance",
+    "yacht_fire_detection": "Yacht Fire Detection Systems",
+    "yacht_fire_detection_systems": "Yacht Fire Detection Systems",
+    "yacht-fire-detection-systems": "Yacht Fire Detection Systems",
+    "yacht_armor": "Yacht Armor",
+    "yacht-armor": "Yacht Armor",
+    
+    # ===== BOAT HAULING AND YACHT DELIVERY =====
+    "yacht_delivery": "Yacht Delivery",
+    "yacht-delivery": "Yacht Delivery",
+    "boat_hauling": "Boat Hauling",
+    "boat-hauling": "Boat Hauling",
+    "boat_hauling_transport": "Boat Hauling",
+    "boat-hauling-transport": "Boat Hauling",
+    "boat_transport_by_road": "Boat Transport By Road",
+    
+    # ===== BOAT AND YACHT REPAIR SERVICES =====
+    "boat_yacht_repair": "Boat and Yacht Repair",
+    "boat-yacht-repair": "Boat and Yacht Repair",
+    "fiberglass_repair": "Fiberglass Repair",
+    "fiberglass-repair": "Fiberglass Repair",
+    "welding_metal_fabrication": "Welding & Metal Fabrication",
+    "welding-metal-fabrication": "Welding & Metal Fabrication",
+    "carpentry_woodwork": "Carpentry & Woodwork",
+    "boat_carpentry_woodwork": "Carpentry & Woodwork",
+    "boat-carpentry-woodwork": "Carpentry & Woodwork",
+    "riggers_masts": "Riggers & Masts",
+    "riggers-masts": "Riggers & Masts",
+    "jet_ski_repair": "Jet Ski Repair",
+    "jet-ski-repair": "Jet Ski Repair",
+    "canvas_upholstery": "Canvas & Upholstery",
+    "boat_canvas_upholstery": "Canvas & Upholstery",
+    "boat-canvas-upholstery": "Canvas & Upholstery",
+    "decking_flooring": "Decking & Flooring",
+    "boat_decking_yacht_flooring": "Decking & Flooring",
+    "boat-decking-yacht-flooring": "Decking & Flooring",
+    "yacht_restoration": "Yacht Restoration",
+    
+    # ===== BUYING OR SELLING A BOAT =====
+    "buy_sell": "Buying or Selling a Boat",
+    "buy-sell": "Buying or Selling a Boat",
+    "boat_dealers": "Boat Dealers",
+    "boat-dealers": "Boat Dealers",
+    "yacht_dealers": "Yacht Dealers",
+    "yacht-dealers": "Yacht Dealers",
+    "boat_surveyors": "Boat Surveyors",
+    "boat-surveyors": "Boat Surveyors",
+    "boat_financing": "Boat Financing",
+    "boat-financing": "Boat Financing",
+    "boat_builder": "Boat Builder",
+    "boat-builder": "Boat Builder",
+    "boat_broker": "Boat Brokers",
+    "boat-broker": "Boat Brokers",
+    "boat_brokers": "Boat Brokers",
+    "yacht_broker": "Yacht Brokers",
+    "yacht-broker": "Yacht Brokers",
+    "yacht_brokers": "Yacht Brokers",
+    "yacht_builder": "Yacht Builders",
+    "yacht-builder": "Yacht Builders",
+    "yacht_builders": "Yacht Builders",
+    
+    # ===== INSURANCE SERVICES =====
+    "boat_insurance": "Boat Insurance",
+    "boat-insurance": "Boat Insurance",
+    "yacht_insurance": "Yacht Insurance",
+    "yacht-insurance": "Yacht Insurance",
+    
+    # ===== ENGINES AND GENERATORS SERVICES =====
+    "engine_generators_sales_service": "Engines and Generators",
+    "engine-generators-sales-service": "Engines and Generators",
+    "generator_sales_service": "Generator Service",
+    "generator-sales-service": "Generator Service",
+    "generator_sales": "Generator Sales",
+    "generator-sales": "Generator Sales",
+    "generator_service": "Generator Service",
+    "generator-service": "Generator Service",
+    "engine_service_sales": "Engine Service",
+    "engine-service-sales": "Engine Service",
+    "engine_service": "Engine Service",
+    "engine-service": "Engine Service",
+    "engine_sales": "Engine Sales",
+    "engine-sales": "Engine Sales",
+    "diesel_engine_sales": "Diesel Engine Sales",
+    "diesel-engine-sales": "Diesel Engine Sales",
+    "diesel_engine_service": "Diesel Engine Service",
+    "outboard_engine_sales": "Outboard Engine Sales",
+    "outboard-engine-sales": "Outboard Engine Sales",
+    "outboard_engine_service": "Outboard Engine Service",
+    "inboard_engine_sales": "Inboard Engine Sales",
+    "inboard-engine-sales": "Inboard Engine Sales",
+    "inboard_engine_service": "Inboard Engine Service",
+    "marine_exhaust_systems_service": "Marine Exhaust Systems Service",
+    "marine-exhaust-systems-service": "Marine Exhaust Systems Service",
+    "marine-exhause-systems-service": "Marine Exhaust Systems Service",  # Handle typo from WordPress
+    
+    # ===== MARINE SYSTEMS SERVICES =====
+    "marine_systems_install_sales": "Marine Systems Install and Sales",
+    "marine-systems-install-sales": "Marine Systems Install and Sales",
+    "yacht_stabilizers_seakeepers": "Stabilizers or Seakeepers",
+    "yacht-stabilizers-seakeepers": "Stabilizers or Seakeepers",
+    "instrumental_panel_dashboard": "Instrument Panel and Dashboard",
+    "instrumental-panel-dashboard": "Instrument Panel and Dashboard",
+    "yacht_ac_sales": "Yacht AC Sales",
+    "yacht-ac-sales": "Yacht AC Sales",
+    "yacht_ac_service": "AC Service",
+    "yacht-ac-service": "AC Service",
+    "ac_service": "AC Service",
+    "boat_electrical_service": "Electrical Service",
+    "boat-electrical-service": "Electrical Service",
+    "boat_sound_systems": "Sound System",
+    "boat-sound-systems": "Sound System",
+    "yacht_plumbing": "Plumbing",
+    "yacht-plumbing": "Plumbing",
+    "boat_lighting": "Lighting",
+    "boat-lighting": "Lighting",
+    "yacht_refrigeration_watermakers": "Refrigeration or Watermakers",
+    "yacht-refrigeration-watermakers": "Refrigeration or Watermakers",
+    "marine_batteries_installation": "Marine Batteries Installation",
+    "marine-batteries-installation": "Marine Batteries Installation",
+    "yacht_mechanical_systems": "Yacht Mechanical Systems",
+    "yacht-mechanical-systems": "Yacht Mechanical Systems",
+    "marine_electronics": "Marine Electronics",
+    
+    # ===== DOCKS, SEAWALLS AND LIFTS =====
+    "dock_boat_lift_seawall": "Docks, Seawalls and Lifts",
+    "dock-boat-lift-seawall": "Docks, Seawalls and Lifts",
+    "boat_lift": "Boat Lift Installers",
+    "boat-lift": "Boat Lift Installers",
+    "boat_lift_installers": "Boat Lift Installers",
+    "floating_dock_sales": "Floating Dock Sales",
+    "floating-dock-sales": "Floating Dock Sales",
+    "seawall_construction": "Seawall Construction",
+    "seawall-construction": "Seawall Construction",
+    "seawall_repair": "Seawall Repair",
+    "davit_hydraulic_platform": "Davit and Hydraulic Platform",
+    "davit-hydraulic-platform": "Davit and Hydraulic Platform",
+    "dock_seawall_piling_cleaning": "Hull Dock Seawall or Piling Cleaning",
+    "dock-seawall-piling-cleaning": "Hull Dock Seawall or Piling Cleaning",
+    "hull_dock_seawall_piling_cleaning": "Hull Dock Seawall or Piling Cleaning",
+    "piling_cleaning": "Piling Cleaning",
+    "dock_seawall_builders_repair": "Dock and Seawall Builders or Repair",
+    "dock_builders": "Dock Builders",
+    
+    # ===== BOAT TOWING SERVICES =====
+    "emergency_towing": "Emergency Towing",
+    "emergency-towing": "Emergency Towing",
+    "emergency_tow": "Emergency Towing",
+    "towing_membership": "Towing Membership",
+    "towing-membership": "Towing Membership",
+    "on_water_assistance": "On-Water Assistance",
+    
+    # ===== BOAT CHARTERS AND RENTALS =====
+    "boat_charters_rentals": "Boat Charters and Rentals",
+    "boat-charters-rentals": "Boat Charters and Rentals",
+    "boat_clubs": "Boat Club",
+    "boat-clubs": "Boat Club",
+    "yacht_catamaran_charters": "Yacht and Catamaran Charters",
+    "yacht-catamaran-charters": "Yacht and Catamaran Charters",
+    "dive_equipment_services": "Dive Equipment and Services",
+    "dive-equipment-services": "Dive Equipment and Services",
+    "efoil_kiteboarding_wing_surfing": "eFoil, Kiteboarding or Wing Surfing Lessons",
+    "efoil-kiteboarding-wing-surfing": "eFoil, Kiteboarding or Wing Surfing Lessons",
+    "fishing_charters": "Fishing Charter",
+    "fishing-charters": "Fishing Charter",
+    "sailboat_charters": "Sailboat Charter",
+    "sailboat-charters": "Sailboat Charter",
+    "jetski_rental": "Jet Ski Rental",
+    "jetski-rental": "Jet Ski Rental",
+    "kayak_rental": "Kayak Rental",
+    "kayak-rental": "Kayak Rental",
+    "paddleboard_rental": "Paddleboard Rental",
+    "paddleboard-rental": "Paddleboard Rental",
+    "party_boat_charters": "Party Boat Charter",
+    "party-boat-charters": "Party Boat Charter",
+    "pontoon_boat_charter_rentals": "Pontoon Charter",
+    "pontoon-boat-charter-rentals": "Pontoon Charter",
+    "private_yacht_charters": "Daily Yacht or Catamaran Charter",
+    "private-yacht-charters": "Daily Yacht or Catamaran Charter",
+    
+    # ===== BOATER RESOURCES =====
+    "boat_resources": "Boater Resources",
+    "boat-resources": "Boater Resources",
+    "yacht_wifi": "Vessel WiFi or Communications",
+    "yacht-wifi": "Vessel WiFi or Communications",
+    "provisioning": "Provisioning",
+    "boat_yacht_parts": "Boat or Yacht Parts",
+    "boat-yacht-parts": "Boat or Yacht Parts",
+    "boat_salvage": "Boat Salvage",
+    "boat-salvage": "Boat Salvage",
+    "yacht_photography": "Photography or Videography",
+    "yacht-photography": "Photography or Videography",
+    "yacht_videography": "Photography or Videography",
+    "yacht-videography": "Photography or Videography",
+    "yacht_crew_placement": "Crew Management",
+    "yacht-crew-placement": "Crew Management",
+    "yacht_management_bookkeeping": "Account Management and Bookkeeping",
+    "yacht-management-bookkeeping": "Account Management and Bookkeeping",
+    "advertising_pr_webdesign": "Marketing or Web Design",
+    "advertising-pr-webdesign": "Marketing or Web Design",
+    "maritime_attorney": "Maritime Attorney",
+    "maritime-attorney": "Maritime Attorney",
+    
+    # ===== OTHER SERVICES =====
+    "fuel_delivery": "Fuel Delivery",
+    "fuel-delivery": "Fuel Delivery",
+    "waterfront_homes_for_sale": "Waterfront Homes for Sale",
+    "waterfront-homes-for-sale": "Waterfront Homes for Sale",
+    "waterfront_homes_sale": "Waterfront Homes for Sale",
+    "sell_waterfront_home": "Sell My Waterfront Home",
+    "sell-waterfront-home": "Sell My Waterfront Home",
+    "waterfront_new_developments": "New Waterfront Developments",
+    "waterfront-new-developments": "New Waterfront Developments",
+    "new_waterfront_developments": "New Waterfront Developments",
+    "maritime_education_training": "Maritime Education and Training",
+    "maritime-education-training": "Maritime Education and Training",
+    "maritime_certification": "Maritime Certification",
+    "maritime_academy": "Maritime Academy",
+    "sailing_schools": "Sailing Schools",
+    "yacht_training": "Yacht Training",
+    "dock_slip_rental": "Dock and Slip Rental",
+    "dock-slip-rental": "Dock and Slip Rental",
+    "rent_my_dock": "Rent My Dock",
+    "rent-my-dock": "Rent My Dock",
+    "yacht_management": "Yacht Management",
+    "yacht-management": "Yacht Management",
+    "wholesale_dealer_product_pricing": "Wholesale or Dealer Product Pricing",
+    "wholesale-dealer-product-pricing": "Wholesale or Dealer Product Pricing",
+    
+    # NOTE: This dictionary now includes ALL WordPress form identifiers with both hyphenated and underscore versions
+}
+
+def get_specific_service_from_form(form_identifier: str) -> str:
+    """
+    Get the specific service name from form identifier for vendor matching.
+    This returns the actual service name that vendors would have selected.
+    """
+    form_lower = form_identifier.lower()
+    
+    # Check direct mapping
+    if form_lower in FORM_TO_SPECIFIC_SERVICE:
+        service = FORM_TO_SPECIFIC_SERVICE[form_lower]
+        logger.info(f"🎯 Form '{form_identifier}' maps to specific service: '{service}'")
+        return service
+    
+    # If no specific mapping, return None (will use category instead)
+    return None
+
+
+def find_matching_service(specific_service_text: str) -> str:
+    """
+    Find the best matching service from the specific service text
+    This is used for vendor matching (specific service, not category)
+    """
+    if not specific_service_text:
+        return "boat_yacht_maintenance"  # Default fallback
+    
+    service_lower = specific_service_text.lower()
+    
+    # Direct service name matching
+    for service_key in DOCKSIDE_PROS_SERVICES.keys():
+        service_name = service_key.replace("_", " ")
+        if service_name in service_lower or service_key in service_lower:
+            logger.info(f"🎯 Direct service match: '{specific_service_text}' → {service_key}")
+            return service_key
+    
+    # Fallback to maintenance
+    logger.info(f"🎯 Service fallback: '{specific_service_text}' → boat_yacht_maintenance")
+    return "boat_yacht_maintenance"
 
 async def parse_webhook_payload(request: Request) -> Dict[str, Any]:
     """
@@ -378,20 +916,12 @@ def normalize_field_names(payload: Dict[str, Any]) -> Dict[str, Any]:
         "Service Zip Code": "zip_code_of_service",
         "Location": "zip_code_of_service",
         
-        # Service needed variations - comprehensive list
         "What Specific Service(s) Do You Request?": "specific_service_needed",
-        "What Specific Service(s) Do You Request? ": "specific_service_needed",  # With trailing space
-        "What Specific Service Do You Request?": "specific_service_needed",  # Without (s)
-        "What Specific Service Do You Request": "specific_service_needed",  # Without ?
-        "What Specific Services Do You Request?": "specific_service_needed",  # Services plural
         "What Specific Charter Do You Request?": "specific_service_needed",
         "What Specific service do you request?": "specific_service_needed",
-        "What Service Do You Need?": "specific_service_needed",
         "Service Needed": "specific_service_needed",
         "Service Request": "specific_service_needed",
         "Services": "specific_service_needed",
-        "Specific Service": "specific_service_needed",
-        "Service Type": "specific_service_needed",
         
         "Your Vessel Manufacturer? ": "vessel_make",
         "Vessel Make": "vessel_make",
@@ -614,30 +1144,15 @@ def normalize_field_names(payload: Dict[str, Any]) -> Dict[str, Any]:
     
     normalized_payload = {}
     
-    # Create a stripped version of field_mappings for fuzzy matching
-    stripped_mappings = {}
-    for key, value in field_mappings.items():
-        stripped_key = key.strip().lower()
-        stripped_mappings[stripped_key] = value
-    
-    # First pass: direct mapping with intelligent matching
+    # First pass: direct mapping
     for original_key, value in payload.items():
         # Skip empty values and system fields
         if not value or value == "" or original_key.startswith("No Label"):
             continue
             
-        # Try exact match first
-        if original_key in field_mappings:
-            normalized_payload[field_mappings[original_key]] = value
-        else:
-            # Try stripped/lowercase match for robustness
-            stripped_key = original_key.strip().lower()
-            if stripped_key in stripped_mappings:
-                normalized_payload[stripped_mappings[stripped_key]] = value
-                logger.debug(f"🔄 Fuzzy matched '{original_key}' → '{stripped_mappings[stripped_key]}' (stripped whitespace)")
-            else:
-                # Keep original key if no mapping found
-                normalized_payload[original_key] = value
+        # Check if we have a mapping for this field
+        mapped_key = field_mappings.get(original_key, original_key)
+        normalized_payload[mapped_key] = value
     
     # Log the normalization for debugging
     mapped_fields = []
@@ -651,32 +1166,6 @@ def normalize_field_names(payload: Dict[str, Any]) -> Dict[str, Any]:
             logger.info(f"   {mapping}")
     
     logger.info(f"📋 Normalized payload keys: {list(normalized_payload.keys())}")
-    
-    # Detect critical unmapped fields and warn
-    critical_patterns = [
-        ("service", "specific_service_needed"),
-        ("zip", "zip_code_of_service"),
-        ("email", "email"),
-        ("phone", "phone"),
-        ("name", "firstName or lastName")
-    ]
-    
-    unmapped_keys = [k for k in payload.keys() 
-                     if k not in field_mappings 
-                     and not k.startswith("No Label")
-                     and k.strip().lower() not in stripped_mappings]
-    
-    if unmapped_keys:
-        logger.warning(f"⚠️ Found {len(unmapped_keys)} unmapped fields: {unmapped_keys}")
-        for key in unmapped_keys:
-            key_lower = key.lower()
-            for pattern, expected_field in critical_patterns:
-                if pattern in key_lower:
-                    logger.warning(f"❗ Critical field '{key}' might need mapping to '{expected_field}'")
-                    # Auto-map obvious service fields
-                    if pattern == "service" and "specific" in key_lower and "specific_service_needed" not in normalized_payload:
-                        normalized_payload["specific_service_needed"] = payload[key]
-                        logger.info(f"🔧 Auto-mapped '{key}' to 'specific_service_needed' based on pattern match")
     
     return normalized_payload
 
@@ -1235,126 +1724,19 @@ async def debug_webhook_endpoint(form_identifier: str, request: Request):
 async def handle_clean_elementor_webhook(
     form_identifier: str, 
     request: Request,
-    background_tasks: BackgroundTasks  # Keep parameter for compatibility but don't use it
+    background_tasks: BackgroundTasks
 ):
     """
     Clean webhook handler for ALL Elementor form submissions.
-    Returns 200 OK immediately and processes in background.
     Direct processing only - NO AI interference.
     Preserves ALL form data exactly as received from WordPress.
     """
-    # Get the raw body - this is async but fast
-    body = await request.body()
-    content_type = request.headers.get("content-type", "")
-    
-    # Start a completely independent thread for processing
-    # This ensures the response is returned immediately
-    def run_async_task():
-        """Run the async task in a new event loop in a separate thread"""
-        try:
-            # Set up logging for this thread
-            logger.info(f"🚀 Starting background thread for webhook: {form_identifier}")
-            
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            try:
-                loop.run_until_complete(
-                    process_elementor_webhook_with_body(
-                        form_identifier,
-                        body,
-                        content_type
-                    )
-                )
-                logger.info(f"✅ Background thread completed for webhook: {form_identifier}")
-            except Exception as e:
-                logger.error(f"❌ Background thread error for {form_identifier}: {e}", exc_info=True)
-            finally:
-                loop.close()
-        except Exception as e:
-            logger.error(f"💥 Critical thread error for {form_identifier}: {e}", exc_info=True)
-    
-    # Start the thread - this returns immediately
-    thread = threading.Thread(target=run_async_task, daemon=True, name=f"webhook-{form_identifier}")
-    thread.start()
-    logger.info(f"📤 Returning immediate 200 OK for {form_identifier}, processing in thread: {thread.name}")
-    
-    # Return 200 OK immediately using JSONResponse for fastest response
-    return JSONResponse(
-        content={
-            "status": "accepted",
-            "message": "Webhook received and queued for processing",
-            "form_identifier": form_identifier
-        },
-        status_code=200
-    )
-
-
-async def process_elementor_webhook_with_body(
-    form_identifier: str,
-    body: bytes,
-    content_type: str
-):
-    """
-    Background task to process Elementor webhook from raw body.
-    This runs after returning 200 OK to WordPress.
-    """
     start_time = time.time()
     
     try:
-        logger.info(f"🔄 Background processing started for '{form_identifier}' - Content-Type: {content_type}")
-        
-        # Now parse the body in the background
-        if "application/json" in content_type:
-            elementor_payload = json.loads(body.decode('utf-8'))
-            logger.info(f"✅ Parsed JSON payload with {len(elementor_payload)} fields")
-        elif "application/x-www-form-urlencoded" in content_type or "multipart/form-data" in content_type:
-            from urllib.parse import parse_qs
-            body_str = body.decode('utf-8')
-            elementor_payload = {k: v[0] if len(v) == 1 else v for k, v in parse_qs(body_str).items()}
-            logger.info(f"✅ Parsed form-encoded payload with {len(elementor_payload)} fields")
-        else:
-            # Try JSON by default
-            elementor_payload = json.loads(body.decode('utf-8'))
-            logger.info(f"✅ Parsed payload as JSON (default) with {len(elementor_payload)} fields")
-        
-        # Normalize field names
-        elementor_payload = normalize_field_names(elementor_payload)
-        
-        logger.info(f"📥 Processing webhook in background for form '{form_identifier}': {json.dumps(elementor_payload, indent=2)}")
-        
-        # Now continue with the original processing
-        await process_elementor_webhook_async(form_identifier, elementor_payload)
-        
-        processing_time = time.time() - start_time
-        logger.info(f"✅ Background processing completed for '{form_identifier}' in {processing_time:.2f}s")
-        
-    except Exception as e:
-        processing_time = time.time() - start_time
-        logger.error(f"❌ Failed to process webhook body for form '{form_identifier}' after {processing_time:.2f}s: {e}", exc_info=True)
-        simple_db_instance.log_activity(
-            event_type="webhook_processing_error",
-            event_data={
-                "form": form_identifier,
-                "error": str(e),
-                "processing_time": processing_time
-            },
-            success=False,
-            error_message=str(e)
-        )
-
-
-async def process_elementor_webhook_async(
-    form_identifier: str,
-    elementor_payload: Dict[str, Any]
-):
-    """
-    Background task to process Elementor webhook data.
-    This runs after returning 200 OK to WordPress.
-    """
-    start_time = time.time()
-    
-    try:
-        logger.info(f"🔄 Starting background processing for form '{form_identifier}'")
+        # Parse incoming payload (supports both JSON and form-encoded data)
+        elementor_payload = await parse_webhook_payload(request)
+        logger.info(f"📥 Clean Elementor Webhook received for form '{form_identifier}': {json.dumps(elementor_payload, indent=2)}")
         
         # Debug logging for key vendor fields
         logger.info(f"📋 Key vendor fields in normalized payload:")
@@ -1915,25 +2297,33 @@ async def process_elementor_webhook_async(
                         else:
                             logger.warning(f"⚠️ No matching vendors found during pre-selection")
                 
-                # Trigger lead routing workflow directly (we're already in background)
-                await trigger_clean_lead_routing_workflow(
-                    ghl_contact_id=final_ghl_contact_id,
-                    form_identifier=form_identifier,
-                    form_config=form_config,
-                    form_data=elementor_payload,
-                    selected_vendor_id=selected_vendor_id if 'selected_vendor_id' in locals() else None,
-                    selected_vendor_ghl_user=selected_vendor_ghl_user if 'selected_vendor_ghl_user' in locals() else None
-                )
+                # Pass vendor selection to background task
+                background_tasks.add_task(
+                trigger_clean_lead_routing_workflow, 
+                ghl_contact_id=final_ghl_contact_id,
+                form_identifier=form_identifier,
+                form_config=form_config,
+                form_data=elementor_payload,
+                selected_vendor_id=selected_vendor_id if 'selected_vendor_id' in locals() else None,
+                selected_vendor_ghl_user=selected_vendor_ghl_user if 'selected_vendor_ghl_user' in locals() else None
+            )
 
             
             # NOTE: Opportunity creation now handled in background task for client leads
             logger.info("ℹ️ Opportunity creation will be handled by background task if needed")
-            
-            # Log successful processing in background
-            logger.info(f"✅ Background processing completed successfully for form '{form_identifier}'")
-            logger.info(f"   - GHL contact {final_ghl_contact_id} {action_taken}")
-            logger.info(f"   - Processing time: {processing_time}s")
-            logger.info(f"   - Custom fields processed: {len(final_ghl_payload.get('customFields', []))}")
+
+            return {
+                "status": "success", 
+                "message": f"Clean webhook processed successfully. GHL contact {final_ghl_contact_id} {action_taken}.",
+                "contact_id": final_ghl_contact_id,
+                "action": action_taken,
+                "form_type": form_config.get("form_type"),
+                "service_category": form_config.get("service_category"),
+                "processing_time_seconds": processing_time,
+                "validation_warnings": validation_result.get("warnings", []),
+                "custom_fields_processed": len(final_ghl_payload.get("customFields", [])),
+                "processing_method": "direct_only_no_ai"
+            }
         else:
             # Operation failed
             error_message = f"Failed to {action_taken} GHL contact for form '{form_identifier}'"
@@ -1953,11 +2343,28 @@ async def process_elementor_webhook_async(
                 error_message=f"GHL API interaction failed during contact {action_taken}"
             )
             
-            logger.error(f"❌ Background processing failed: GHL API interaction failed")
+            raise HTTPException(
+                status_code=502, 
+                detail=f"GHL API interaction failed. Could not {action_taken} contact. Details: {api_response_details}"
+            )
 
+    except json.JSONDecodeError:
+        logger.error(f"❌ Invalid JSON received for Elementor webhook form '{form_identifier}'")
+        simple_db_instance.log_activity(
+            event_type="clean_webhook_bad_json",
+            event_data={"form": form_identifier},
+            success=False,
+            error_message="Invalid JSON payload"
+        )
+        raise HTTPException(status_code=400, detail="Invalid JSON payload.")
+    
+    except HTTPException:
+        # Re-raise HTTPExceptions directly (don't wrap them)
+        raise
+    
     except Exception as e:
         processing_time = round(time.time() - start_time, 3)
-        logger.exception(f"💥 Critical error in background processing for form '{form_identifier}' after {processing_time}s: {e}")
+        logger.exception(f"💥 Critical error processing Clean Elementor webhook for form '{form_identifier}' after {processing_time}s: {e}")
         simple_db_instance.log_activity(
             event_type="clean_webhook_exception",
             event_data={
@@ -1968,7 +2375,7 @@ async def process_elementor_webhook_async(
             success=False,
             error_message=str(e)
         )
-        # Don't raise exceptions in background tasks - just log them
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 async def trigger_clean_lead_routing_workflow(
     ghl_contact_id: str, 

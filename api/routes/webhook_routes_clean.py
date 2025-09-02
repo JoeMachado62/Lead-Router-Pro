@@ -6,12 +6,9 @@ from typing import Dict, List, Any, Optional
 import time
 import uuid
 import re
-import asyncio
-import threading
 from urllib.parse import parse_qs
 
 from fastapi import APIRouter, Request, HTTPException, BackgroundTasks
-from fastapi.responses import JSONResponse
 
 # --- Core Service Imports - Direct Processing Only ---
 from config import AppConfig
@@ -235,6 +232,10 @@ async def create_lead_from_ghl_contact(
         logger.error(f"❌ Shared pipeline error for contact {ghl_contact_data.get('id', 'unknown')}: {e}")
         raise
 
+# Service mappings have been moved to api.services.service_mapper
+# The duplicate inline definitions have been removed for better modularity
+
+async def parse_webhook_payload(request: Request) -> Dict[str, Any]:
 
 # Service mappings have been moved to api.services.service_mapper
 # Duplicate definitions removed for better modularity
@@ -378,20 +379,12 @@ def normalize_field_names(payload: Dict[str, Any]) -> Dict[str, Any]:
         "Service Zip Code": "zip_code_of_service",
         "Location": "zip_code_of_service",
         
-        # Service needed variations - comprehensive list
         "What Specific Service(s) Do You Request?": "specific_service_needed",
-        "What Specific Service(s) Do You Request? ": "specific_service_needed",  # With trailing space
-        "What Specific Service Do You Request?": "specific_service_needed",  # Without (s)
-        "What Specific Service Do You Request": "specific_service_needed",  # Without ?
-        "What Specific Services Do You Request?": "specific_service_needed",  # Services plural
         "What Specific Charter Do You Request?": "specific_service_needed",
         "What Specific service do you request?": "specific_service_needed",
-        "What Service Do You Need?": "specific_service_needed",
         "Service Needed": "specific_service_needed",
         "Service Request": "specific_service_needed",
         "Services": "specific_service_needed",
-        "Specific Service": "specific_service_needed",
-        "Service Type": "specific_service_needed",
         
         "Your Vessel Manufacturer? ": "vessel_make",
         "Vessel Make": "vessel_make",
@@ -614,30 +607,15 @@ def normalize_field_names(payload: Dict[str, Any]) -> Dict[str, Any]:
     
     normalized_payload = {}
     
-    # Create a stripped version of field_mappings for fuzzy matching
-    stripped_mappings = {}
-    for key, value in field_mappings.items():
-        stripped_key = key.strip().lower()
-        stripped_mappings[stripped_key] = value
-    
-    # First pass: direct mapping with intelligent matching
+    # First pass: direct mapping
     for original_key, value in payload.items():
         # Skip empty values and system fields
         if not value or value == "" or original_key.startswith("No Label"):
             continue
             
-        # Try exact match first
-        if original_key in field_mappings:
-            normalized_payload[field_mappings[original_key]] = value
-        else:
-            # Try stripped/lowercase match for robustness
-            stripped_key = original_key.strip().lower()
-            if stripped_key in stripped_mappings:
-                normalized_payload[stripped_mappings[stripped_key]] = value
-                logger.debug(f"🔄 Fuzzy matched '{original_key}' → '{stripped_mappings[stripped_key]}' (stripped whitespace)")
-            else:
-                # Keep original key if no mapping found
-                normalized_payload[original_key] = value
+        # Check if we have a mapping for this field
+        mapped_key = field_mappings.get(original_key, original_key)
+        normalized_payload[mapped_key] = value
     
     # Log the normalization for debugging
     mapped_fields = []
@@ -651,32 +629,6 @@ def normalize_field_names(payload: Dict[str, Any]) -> Dict[str, Any]:
             logger.info(f"   {mapping}")
     
     logger.info(f"📋 Normalized payload keys: {list(normalized_payload.keys())}")
-    
-    # Detect critical unmapped fields and warn
-    critical_patterns = [
-        ("service", "specific_service_needed"),
-        ("zip", "zip_code_of_service"),
-        ("email", "email"),
-        ("phone", "phone"),
-        ("name", "firstName or lastName")
-    ]
-    
-    unmapped_keys = [k for k in payload.keys() 
-                     if k not in field_mappings 
-                     and not k.startswith("No Label")
-                     and k.strip().lower() not in stripped_mappings]
-    
-    if unmapped_keys:
-        logger.warning(f"⚠️ Found {len(unmapped_keys)} unmapped fields: {unmapped_keys}")
-        for key in unmapped_keys:
-            key_lower = key.lower()
-            for pattern, expected_field in critical_patterns:
-                if pattern in key_lower:
-                    logger.warning(f"❗ Critical field '{key}' might need mapping to '{expected_field}'")
-                    # Auto-map obvious service fields
-                    if pattern == "service" and "specific" in key_lower and "specific_service_needed" not in normalized_payload:
-                        normalized_payload["specific_service_needed"] = payload[key]
-                        logger.info(f"🔧 Auto-mapped '{key}' to 'specific_service_needed' based on pattern match")
     
     return normalized_payload
 
@@ -1235,126 +1187,19 @@ async def debug_webhook_endpoint(form_identifier: str, request: Request):
 async def handle_clean_elementor_webhook(
     form_identifier: str, 
     request: Request,
-    background_tasks: BackgroundTasks  # Keep parameter for compatibility but don't use it
+    background_tasks: BackgroundTasks
 ):
     """
     Clean webhook handler for ALL Elementor form submissions.
-    Returns 200 OK immediately and processes in background.
     Direct processing only - NO AI interference.
     Preserves ALL form data exactly as received from WordPress.
     """
-    # Get the raw body - this is async but fast
-    body = await request.body()
-    content_type = request.headers.get("content-type", "")
-    
-    # Start a completely independent thread for processing
-    # This ensures the response is returned immediately
-    def run_async_task():
-        """Run the async task in a new event loop in a separate thread"""
-        try:
-            # Set up logging for this thread
-            logger.info(f"🚀 Starting background thread for webhook: {form_identifier}")
-            
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            try:
-                loop.run_until_complete(
-                    process_elementor_webhook_with_body(
-                        form_identifier,
-                        body,
-                        content_type
-                    )
-                )
-                logger.info(f"✅ Background thread completed for webhook: {form_identifier}")
-            except Exception as e:
-                logger.error(f"❌ Background thread error for {form_identifier}: {e}", exc_info=True)
-            finally:
-                loop.close()
-        except Exception as e:
-            logger.error(f"💥 Critical thread error for {form_identifier}: {e}", exc_info=True)
-    
-    # Start the thread - this returns immediately
-    thread = threading.Thread(target=run_async_task, daemon=True, name=f"webhook-{form_identifier}")
-    thread.start()
-    logger.info(f"📤 Returning immediate 200 OK for {form_identifier}, processing in thread: {thread.name}")
-    
-    # Return 200 OK immediately using JSONResponse for fastest response
-    return JSONResponse(
-        content={
-            "status": "accepted",
-            "message": "Webhook received and queued for processing",
-            "form_identifier": form_identifier
-        },
-        status_code=200
-    )
-
-
-async def process_elementor_webhook_with_body(
-    form_identifier: str,
-    body: bytes,
-    content_type: str
-):
-    """
-    Background task to process Elementor webhook from raw body.
-    This runs after returning 200 OK to WordPress.
-    """
     start_time = time.time()
     
     try:
-        logger.info(f"🔄 Background processing started for '{form_identifier}' - Content-Type: {content_type}")
-        
-        # Now parse the body in the background
-        if "application/json" in content_type:
-            elementor_payload = json.loads(body.decode('utf-8'))
-            logger.info(f"✅ Parsed JSON payload with {len(elementor_payload)} fields")
-        elif "application/x-www-form-urlencoded" in content_type or "multipart/form-data" in content_type:
-            from urllib.parse import parse_qs
-            body_str = body.decode('utf-8')
-            elementor_payload = {k: v[0] if len(v) == 1 else v for k, v in parse_qs(body_str).items()}
-            logger.info(f"✅ Parsed form-encoded payload with {len(elementor_payload)} fields")
-        else:
-            # Try JSON by default
-            elementor_payload = json.loads(body.decode('utf-8'))
-            logger.info(f"✅ Parsed payload as JSON (default) with {len(elementor_payload)} fields")
-        
-        # Normalize field names
-        elementor_payload = normalize_field_names(elementor_payload)
-        
-        logger.info(f"📥 Processing webhook in background for form '{form_identifier}': {json.dumps(elementor_payload, indent=2)}")
-        
-        # Now continue with the original processing
-        await process_elementor_webhook_async(form_identifier, elementor_payload)
-        
-        processing_time = time.time() - start_time
-        logger.info(f"✅ Background processing completed for '{form_identifier}' in {processing_time:.2f}s")
-        
-    except Exception as e:
-        processing_time = time.time() - start_time
-        logger.error(f"❌ Failed to process webhook body for form '{form_identifier}' after {processing_time:.2f}s: {e}", exc_info=True)
-        simple_db_instance.log_activity(
-            event_type="webhook_processing_error",
-            event_data={
-                "form": form_identifier,
-                "error": str(e),
-                "processing_time": processing_time
-            },
-            success=False,
-            error_message=str(e)
-        )
-
-
-async def process_elementor_webhook_async(
-    form_identifier: str,
-    elementor_payload: Dict[str, Any]
-):
-    """
-    Background task to process Elementor webhook data.
-    This runs after returning 200 OK to WordPress.
-    """
-    start_time = time.time()
-    
-    try:
-        logger.info(f"🔄 Starting background processing for form '{form_identifier}'")
+        # Parse incoming payload (supports both JSON and form-encoded data)
+        elementor_payload = await parse_webhook_payload(request)
+        logger.info(f"📥 Clean Elementor Webhook received for form '{form_identifier}': {json.dumps(elementor_payload, indent=2)}")
         
         # Debug logging for key vendor fields
         logger.info(f"📋 Key vendor fields in normalized payload:")
@@ -1915,25 +1760,33 @@ async def process_elementor_webhook_async(
                         else:
                             logger.warning(f"⚠️ No matching vendors found during pre-selection")
                 
-                # Trigger lead routing workflow directly (we're already in background)
-                await trigger_clean_lead_routing_workflow(
-                    ghl_contact_id=final_ghl_contact_id,
-                    form_identifier=form_identifier,
-                    form_config=form_config,
-                    form_data=elementor_payload,
-                    selected_vendor_id=selected_vendor_id if 'selected_vendor_id' in locals() else None,
-                    selected_vendor_ghl_user=selected_vendor_ghl_user if 'selected_vendor_ghl_user' in locals() else None
-                )
+                # Pass vendor selection to background task
+                background_tasks.add_task(
+                trigger_clean_lead_routing_workflow, 
+                ghl_contact_id=final_ghl_contact_id,
+                form_identifier=form_identifier,
+                form_config=form_config,
+                form_data=elementor_payload,
+                selected_vendor_id=selected_vendor_id if 'selected_vendor_id' in locals() else None,
+                selected_vendor_ghl_user=selected_vendor_ghl_user if 'selected_vendor_ghl_user' in locals() else None
+            )
 
             
             # NOTE: Opportunity creation now handled in background task for client leads
             logger.info("ℹ️ Opportunity creation will be handled by background task if needed")
-            
-            # Log successful processing in background
-            logger.info(f"✅ Background processing completed successfully for form '{form_identifier}'")
-            logger.info(f"   - GHL contact {final_ghl_contact_id} {action_taken}")
-            logger.info(f"   - Processing time: {processing_time}s")
-            logger.info(f"   - Custom fields processed: {len(final_ghl_payload.get('customFields', []))}")
+
+            return {
+                "status": "success", 
+                "message": f"Clean webhook processed successfully. GHL contact {final_ghl_contact_id} {action_taken}.",
+                "contact_id": final_ghl_contact_id,
+                "action": action_taken,
+                "form_type": form_config.get("form_type"),
+                "service_category": form_config.get("service_category"),
+                "processing_time_seconds": processing_time,
+                "validation_warnings": validation_result.get("warnings", []),
+                "custom_fields_processed": len(final_ghl_payload.get("customFields", [])),
+                "processing_method": "direct_only_no_ai"
+            }
         else:
             # Operation failed
             error_message = f"Failed to {action_taken} GHL contact for form '{form_identifier}'"
@@ -1953,11 +1806,28 @@ async def process_elementor_webhook_async(
                 error_message=f"GHL API interaction failed during contact {action_taken}"
             )
             
-            logger.error(f"❌ Background processing failed: GHL API interaction failed")
+            raise HTTPException(
+                status_code=502, 
+                detail=f"GHL API interaction failed. Could not {action_taken} contact. Details: {api_response_details}"
+            )
 
+    except json.JSONDecodeError:
+        logger.error(f"❌ Invalid JSON received for Elementor webhook form '{form_identifier}'")
+        simple_db_instance.log_activity(
+            event_type="clean_webhook_bad_json",
+            event_data={"form": form_identifier},
+            success=False,
+            error_message="Invalid JSON payload"
+        )
+        raise HTTPException(status_code=400, detail="Invalid JSON payload.")
+    
+    except HTTPException:
+        # Re-raise HTTPExceptions directly (don't wrap them)
+        raise
+    
     except Exception as e:
         processing_time = round(time.time() - start_time, 3)
-        logger.exception(f"💥 Critical error in background processing for form '{form_identifier}' after {processing_time}s: {e}")
+        logger.exception(f"💥 Critical error processing Clean Elementor webhook for form '{form_identifier}' after {processing_time}s: {e}")
         simple_db_instance.log_activity(
             event_type="clean_webhook_exception",
             event_data={
@@ -1968,7 +1838,7 @@ async def process_elementor_webhook_async(
             success=False,
             error_message=str(e)
         )
-        # Don't raise exceptions in background tasks - just log them
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 async def trigger_clean_lead_routing_workflow(
     ghl_contact_id: str, 
