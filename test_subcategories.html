@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Test Subcategories Display</title>
+    <style>
+        body { padding: 20px; font-family: Arial, sans-serif; }
+        .test-section { margin: 20px 0; padding: 15px; background: #f5f5f5; border-radius: 8px; }
+        iframe { width: 100%; height: 700px; border: 2px solid #ddd; }
+        .console { background: #1e1e1e; color: #d4d4d4; padding: 10px; border-radius: 4px; font-family: monospace; font-size: 12px; max-height: 300px; overflow-y: auto; }
+        button { margin: 5px; padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        .success { color: #28a745; }
+        .error { color: #dc3545; }
+        .info { color: #17a2b8; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Debug: Subcategories Display Issue</h1>
+    
+    <div class="test-section">
+        <h2>Quick Tests</h2>
+        <button onclick="checkDataLoaded()">1. Check Data Loaded</button>
+        <button onclick="checkDropdown()">2. Check Dropdown</button>
+        <button onclick="selectBoatMaintenance()">3. Select Boat Maintenance</button>
+        <button onclick="checkSubcategories()">4. Check Subcategories</button>
+        <button onclick="clearConsole()">Clear</button>
+    </div>
+    
+    <div class="test-section">
+        <h2>Console Output</h2>
+        <div id="console" class="console">Ready...</div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Vendor Application (API Version)</h2>
+        <iframe id="app" src="http://localhost:8000/vendor-application-api"></iframe>
+    </div>
+    
+    <script>
+        const consoleDiv = document.getElementById('console');
+        let appWindow = null;
+        
+        window.onload = function() {
+            setTimeout(() => {
+                appWindow = document.getElementById('app').contentWindow;
+                log('Page loaded. Ready for testing.', 'info');
+                
+                // Capture console logs from iframe
+                if (appWindow && appWindow.console) {
+                    const origLog = appWindow.console.log;
+                    appWindow.console.log = function(...args) {
+                        origLog.apply(appWindow.console, args);
+                        log('IFRAME: ' + args.join(' '), 'info');
+                    };
+                }
+            }, 2000);
+        };
+        
+        function log(message, type = 'info') {
+            const time = new Date().toLocaleTimeString();
+            const span = document.createElement('div');
+            span.className = type;
+            span.textContent = `[${time}] ${message}`;
+            consoleDiv.appendChild(span);
+            consoleDiv.scrollTop = consoleDiv.scrollHeight;
+        }
+        
+        function clearConsole() {
+            consoleDiv.innerHTML = 'Cleared...';
+        }
+        
+        function checkDataLoaded() {
+            try {
+                const hasData = appWindow.SERVICE_CATEGORIES && Object.keys(appWindow.SERVICE_CATEGORIES).length > 0;
+                if (hasData) {
+                    const count = Object.keys(appWindow.SERVICE_CATEGORIES).length;
+                    log(`✅ SERVICE_CATEGORIES loaded: ${count} categories`, 'success');
+                    
+                    // Check structure
+                    const boatMaint = appWindow.SERVICE_CATEGORIES['Boat Maintenance'];
+                    if (boatMaint) {
+                        log(`Boat Maintenance: ${boatMaint.subcategories ? boatMaint.subcategories.length : 0} subcategories`, 'info');
+                    }
+                } else {
+                    log('❌ SERVICE_CATEGORIES not loaded or empty', 'error');
+                }
+            } catch (e) {
+                log('❌ Error: ' + e.message, 'error');
+            }
+        }
+        
+        function checkDropdown() {
+            try {
+                const dropdown = appWindow.document.getElementById('primary_service_category');
+                if (dropdown) {
+                    const options = dropdown.options.length - 1; // exclude placeholder
+                    log(`✅ Dropdown found: ${options} options`, 'success');
+                    
+                    // List some options
+                    const sampleOptions = Array.from(dropdown.options).slice(1, 5).map(o => o.value);
+                    log(`Sample options: ${sampleOptions.join(', ')}`, 'info');
+                } else {
+                    log('❌ Dropdown not found', 'error');
+                }
+            } catch (e) {
+                log('❌ Error: ' + e.message, 'error');
+            }
+        }
+        
+        function selectBoatMaintenance() {
+            try {
+                const dropdown = appWindow.document.getElementById('primary_service_category');
+                if (dropdown) {
+                    // Find the Boat Maintenance option
+                    let found = false;
+                    for (let i = 0; i < dropdown.options.length; i++) {
+                        if (dropdown.options[i].value === 'Boat Maintenance') {
+                            dropdown.selectedIndex = i;
+                            found = true;
+                            break;
+                        }
+                    }
+                    
+                    if (found) {
+                        // Trigger change event
+                        const event = new Event('change', { bubbles: true });
+                        dropdown.dispatchEvent(event);
+                        log('✅ Selected Boat Maintenance and triggered change event', 'success');
+                        
+                        // Wait and check what happened
+                        setTimeout(() => checkSubcategories(), 500);
+                    } else {
+                        log('❌ Boat Maintenance option not found in dropdown', 'error');
+                    }
+                } else {
+                    log('❌ Dropdown not found', 'error');
+                }
+            } catch (e) {
+                log('❌ Error: ' + e.message, 'error');
+            }
+        }
+        
+        function checkSubcategories() {
+            try {
+                // Check if services section is visible
+                const section = appWindow.document.getElementById('primary-services-section');
+                if (section) {
+                    const isVisible = section.style.display !== 'none';
+                    log(`Services section visible: ${isVisible}`, isVisible ? 'success' : 'error');
+                    
+                    if (isVisible) {
+                        // Check container content
+                        const container = appWindow.document.getElementById('primary-services-container');
+                        if (container) {
+                            const tags = container.querySelectorAll('.service-tag');
+                            log(`✅ Found ${tags.length} service tags`, tags.length > 0 ? 'success' : 'error');
+                            
+                            if (tags.length > 0) {
+                                const samples = Array.from(tags).slice(0, 3).map(t => t.textContent);
+                                log(`First 3 tags: ${samples.join(', ')}`, 'info');
+                            } else {
+                                // Check innerHTML
+                                log(`Container innerHTML: ${container.innerHTML.substring(0, 100)}`, 'info');
+                            }
+                        } else {
+                            log('❌ Services container not found', 'error');
+                        }
+                    }
+                } else {
+                    log('❌ Services section not found', 'error');
+                }
+            } catch (e) {
+                log('❌ Error: ' + e.message, 'error');
+            }
+        }
+    </script>
+</body>
+</html>

@@ -396,6 +396,275 @@ LEVEL_3_SERVICES = {
             "Boat Lift",
             "Seawall or Piling Cleaning"
         ]
+    },
+    "Boat Maintenance": {
+        "Ceramic Coating": ["Ceramic Coating"],
+        "Boat Detailing": ["Boat Detailing"],
+        "Bottom Painting": ["Bottom Painting"],
+        "Boat and Yacht Maintenance": [
+            "Ceramic Coating",
+            "Boat Detailing",
+            "Bottom Painting",
+            "Oil Change",
+            "Bilge Cleaning",
+            "Jet Ski Maintenance",
+            "Barnacle Cleaning",
+            "Fire and Safety Equipment and Services",
+            "Boat Wrapping or Marine Protection Film",
+            "Other"
+        ],
+        "Boat Oil Change": ["Oil Change"],
+        "Bilge Cleaning": ["Bilge Cleaning"],
+        "Jet Ski Maintenance": ["Jet Ski Maintenance"],
+        "Barnacle Cleaning": ["Barnacle Cleaning"],
+        "Fire and Safety Equipment and Services": ["Fire and Safety Equipment and Services"],
+        "Boat Wrapping and Marine Protection Film": ["Boat Wrapping or Marine Protection Film"]
+    },
+    "Boat Towing": {
+        "Get Emergency Tow": [],
+        "Get Towing Membership": []
+    },
+    "Boater Resources": {
+        "Boater Resources": [
+            "Boat or Yacht Parts",
+            "Vessel WiFi or Communications",
+            "Provisioning",
+            "Boat Salvage",
+            "Photography or Videography",
+            "Crew Management",
+            "Account Management and Bookkeeping",
+            "Marketing or Web Design",
+            "Vessel Management",
+            "Maritime Attorney",
+            "Other"
+        ],
+        "Yacht WiFi": [
+            "New WiFi",
+            "WiFi Diagnostics or Troubleshooting",
+            "Boat Network",
+            "Satellite",
+            "Cellular",
+            "Marina Connections"
+        ],
+        "Provisioning": [
+            "Food & Beverage Provisioning",
+            "Galley & Kitchen Supplies",
+            "Crew Provisioning",
+            "Cabin & Guest Comfort Supplies",
+            "Medical & First Aid Provisioning",
+            "Cleaning & Maintenance Supplies",
+            "Floral & Décor Provisioning",
+            "Custom Orders & Luxury Concierge Items",
+            "Fishing, Dive or Watersports Supplies"
+        ],
+        "Boat and Yacht Parts": [
+            "Engine & Propulsion Parts",
+            "Electrical & Battery Systems Parts",
+            "Steering & Control Systems Parts",
+            "Navigation & Electronics Parts",
+            "Plumbing & Water Systems Parts",
+            "Hull, Deck & Hardware Parts",
+            "Safety Equipment and Emergency Gear",
+            "AC, Refrigeration or Watermaker Parts",
+            "Canvas, Covers or Upholstery Parts",
+            "Paint, Maintenance or Cleaning Supplies",
+            "Trailer or Towing Components",
+            "Anchoring or Mooring Gear Parts",
+            "Other"
+        ],
+        "Yacht Photography": [
+            "Listing Photography or Videography (Brokerage & Sales)",
+            "Lifestyle & Charter Photography or Videography",
+            "Drone & Aerial Photography or Videography",
+            "Virtual Tours/3D Walkthroughs",
+            "Refit or Restoration Progress Documentation",
+            "Underwater Photography or Videography",
+            "Event Coverage",
+            "Social Media Reels/Short-Form Content"
+        ],
+        "Yacht Videography": [
+            "Listing Photography or Videography (Brokerage & Sales)",
+            "Lifestyle & Charter Photography or Videography",
+            "Drone & Aerial Photography or Videography",
+            "Virtual Tours/3D Walkthroughs",
+            "Refit or Restoration Progress Documentation",
+            "Underwater Photography or Videography",
+            "Event Coverage",
+            "Social Media Reels/Short-Form Content"
+        ],
+        "Maritime Advertising, PR and Web Design": [
+            "Search Engine Optimization (SEO)",
+            "Web Design",
+            "PR, Influencer or Affiliate Marketing",
+            "Podcasts",
+            "Sponsorships",
+            "Paid Ads Management",
+            "Social Media Marketing",
+            "Email Marketing & Automation",
+            "Content Marketing and Blogging",
+            "Other"
+        ],
+        "Yacht Crew Placement": [
+            "Captain Placement",
+            "Chief Stew Placement",
+            "Crew Placement (Rotational)",
+            "Crew Placement (Freelance)",
+            "Crew Placement (Permanent)",
+            "Crew Training & Certification",
+            "Other"
+        ],
+        "Yacht Account Management and Bookkeeping": [
+            "Yacht Expense Tracking & Budget Management",
+            "Yacht Bookkeeping & Financial Reporting",
+            "Tax Preparation (Sales, Use, Cruising Permit)",
+            "Payroll & Crew Expense Management",
+            "Charter Revenue Management",
+            "Refit & Project Financial Oversight",
+            "Insurance Claim & Documentation Support",
+            "Regulatory Compliance Reporting",
+            "Other"
+        ],
+        "Boat Salvage": ["Boat Salvage"],
+        "Maritime Attorney": ["Maritime Attorney"]
+    },
+    "Buying or Selling a Boat": {
+        "Buying or Selling a Boat or Yacht": ["Buy", "Sell", "Trade"],
+        "Boat Insurance": [
+            "I Just Bought the Vessel",
+            "New Vessel Policy",
+            "Looking For Quotes Before Purchasing Vessel"
+        ],
+        "Yacht Insurance": [
+            "I Just Bought the Vessel",
+            "New Vessel Policy",
+            "Looking For Quotes Before Purchasing Vessel"
+        ],
+        "Yacht Builder": [],
+        "Yacht Broker": [
+            "Buy a New Yacht",
+            "Buy a Pre-Owned Yacht",
+            "Sell a Pre-Owned Yacht",
+            "Trade My Yacht",
+            "Looking to Charter My Yacht",
+            "Looking for Yacht Management"
+        ],
+        "Boat Broker": [
+            "Buy a New Yacht",
+            "Buy a Pre-Owned Yacht",
+            "Sell a Pre-Owned Yacht",
+            "Trade My Yacht",
+            "Looking to Charter My Yacht",
+            "Looking for Yacht Management"
+        ],
+        "Boat Builder": [],
+        "Boat Financing": [
+            "New Boat Financing",
+            "Used Boat Financing",
+            "Refinancing"
+        ],
+        "Boat Surveyors": [
+            "Hull & Engine(s)",
+            "Thermal Imaging",
+            "Insurance/Damage",
+            "Hull Only",
+            "Engine(s) Only"
+        ],
+        "Yacht Dealers": [
+            "Buy a New Yacht",
+            "Buy a Pre-Owned Yacht",
+            "Sell a Pre-Owned Yacht",
+            "Trade My Yacht",
+            "Looking to Charter My Yacht",
+            "Looking for Yacht Management"
+        ],
+        "Boat Dealers": [
+            "Buy a New Boat",
+            "Buy a Pre-Owned Boat",
+            "Sell a Pre-Owned Boat",
+            "Trade My Boat",
+            "Looking to Charter My Boat",
+            "Looking for Boat Management"
+        ]
+    },
+    "Dock and Slip Rental": {
+        "Dock and Slip Rental": [
+            "Private Dock",
+            "Boat Slip",
+            "Marina",
+            "Mooring Ball"
+        ],
+        "Rent My Dock": [
+            "Private Dock",
+            "Boat Slip",
+            "Marina",
+            "Mooring Ball"
+        ]
+    },
+    "Fuel Delivery": {
+        "Fuel Delivery": [
+            "Dyed Diesel Fuel (For Boats)",
+            "Regular Diesel Fuel (Landside Business)",
+            "Rec 90 (Ethanol Free Gas)"
+        ]
+    },
+    "Boat Hauling and Yacht Delivery": {
+        "Yacht Delivery": [],
+        "Boat Hauling and Transport": []
+    },
+    "Maritime Education and Training": {
+        "Maritime Education and Training": [
+            "Yacht, Sailboat or Catamaran On Water Training",
+            "Interested In Buying a Boat or Insurance Sign Off",
+            "Maritime Academy",
+            "Sailing Schools",
+            "Captains License"
+        ]
+    },
+    "Yacht Management": {
+        "Yacht Management": [
+            "Full Service Vessel Management",
+            "Technical Management (Maintenance, Repairs, Upgrades, etc)",
+            "Crew Management",
+            "Accounting & Financial Management",
+            "Insurance & Risk Management",
+            "Regulatory Compliance",
+            "Maintenance & Refit Management",
+            "Logistical Support (Transportation, Provisioning, Fuel or Dockage)",
+            "Wash Downs and Systems Checks"
+        ]
+    },
+    "Waterfront Property": {
+        "Waterfront Homes For Sale": [
+            "Buy a Waterfront Home or Condo",
+            "Sell a Waterfront Home or Condo",
+            "Buy a Waterfront New Development",
+            "Rent a Waterfront Property"
+        ],
+        "Sell Your Waterfront Home": [
+            "Buy a Waterfront Home or Condo",
+            "Sell a Waterfront Home or Condo",
+            "Buy a Waterfront New Development",
+            "Rent a Waterfront Property"
+        ],
+        "Waterfront New Developments": [
+            "Buy a Waterfront Home or Condo",
+            "Sell a Waterfront Home or Condo",
+            "Buy a Waterfront New Development",
+            "Rent a Waterfront Property"
+        ]
+    },
+    "Wholesale or Dealer Product Pricing": {
+        "Wholesale or Dealer Product Pricing": [
+            "Apparel",
+            "Boat Accessories",
+            "Boat Maintenance & Cleaning Products",
+            "Boat Safety Products",
+            "Diving Equipment",
+            "Dock Accessories",
+            "Fishing Gear",
+            "Personal Watercraft",
+            "Other"
+        ]
     }
 }
 
@@ -988,6 +1257,139 @@ def get_level3_services(category: str, subcategory: str) -> List[str]:
     """Get Level 3 services for a specific subcategory"""
     return service_manager.get_level3_services(category, subcategory)
 
+# ============================================================================
+# BACKWARD COMPATIBILITY FUNCTIONS
+# These functions provide compatibility with the old service_mapper.py module
+# ============================================================================
+
+# Create form identifier mappings (same as service_mapper.py DOCKSIDE_PROS_SERVICES)
+FORM_TO_CATEGORY_MAPPINGS = {}
+
+# Build mappings from SERVICE_CATEGORIES
+for category, services in SERVICE_CATEGORIES.items():
+    # Map category name to itself (with underscores)
+    category_key = category.lower().replace(' ', '_').replace(',', '').replace('&', 'and')
+    FORM_TO_CATEGORY_MAPPINGS[category_key] = category
+    
+    # Map each service to its parent category
+    for service in services:
+        if isinstance(service, str):
+            service_key = service.lower().replace(' ', '_').replace(',', '').replace('&', 'and')
+            # Don't override if already exists (some services appear in multiple categories)
+            if service_key not in FORM_TO_CATEGORY_MAPPINGS:
+                FORM_TO_CATEGORY_MAPPINGS[service_key] = category
+
+# Add specific form endpoint mappings (from service_mapper.py)
+FORM_TO_CATEGORY_MAPPINGS.update({
+    "engines_generators": "Engines and Generators",
+    "boat_and_yacht_repair": "Boat and Yacht Repair",
+    "boat_yacht_repair": "Boat and Yacht Repair",
+    "fiberglass_repair": "Boat and Yacht Repair",
+    "welding_metal_fabrication": "Boat and Yacht Repair",
+    "welding_fabrication": "Boat and Yacht Repair",
+    "carpentry_woodwork": "Boat and Yacht Repair",
+    "riggers_masts": "Boat and Yacht Repair",
+    "jet_ski_repair": "Boat and Yacht Repair",
+    "boat_canvas_upholstery": "Boat and Yacht Repair",
+    "boat_decking_yacht_flooring": "Boat and Yacht Repair",
+    "boat_maintenance": "Boat Maintenance",
+    "boat_detailing": "Boat Maintenance",
+    "bottom_painting": "Boat Maintenance",
+    "ceramic_coating": "Boat Maintenance",
+    "boat_oil_change": "Boat Maintenance",
+    "oil_change": "Boat Maintenance",
+    "bilge_cleaning": "Boat Maintenance",
+    "barnacle_cleaning": "Boat Maintenance",
+    "yacht_fire_detection": "Boat Maintenance",
+    "boat_wrapping_marine_protection": "Boat Maintenance",
+    "boat_towing": "Boat Towing",
+    "boat_towing_service": "Boat Towing",
+    "emergency_towing": "Boat Towing",
+    "salvage_services": "Boat Towing",
+})
+
+def get_direct_service_category(form_identifier: str) -> str:
+    """
+    Backward compatibility function matching service_mapper.get_service_category()
+    Maps form identifiers to service categories.
+    
+    Args:
+        form_identifier: The form identifier from the webhook
+        
+    Returns:
+        The mapped service category
+    """
+    form_lower = form_identifier.lower()
+    
+    # Direct exact matches first
+    if form_lower in FORM_TO_CATEGORY_MAPPINGS:
+        category = FORM_TO_CATEGORY_MAPPINGS[form_lower]
+        logger.info(f"🎯 Direct service mapping: {form_identifier} → {category}")
+        return category
+    
+    # Keyword matching for partial matches
+    for service_key, category in FORM_TO_CATEGORY_MAPPINGS.items():
+        if service_key.replace("_", "") in form_lower.replace("_", ""):
+            logger.info(f"🎯 Keyword service mapping: {form_identifier} → {category} (matched: {service_key})")
+            return category
+    
+    # No fallback - return "Uncategorized" to highlight data issues
+    default_category = "Uncategorized"
+    logger.warning(f"⚠️ No service mapping found for: {form_identifier} → {default_category}")
+    return default_category
+
+# Alias for compatibility
+get_service_category = get_direct_service_category
+
+def get_specific_service(form_identifier: str) -> str:
+    """
+    Backward compatibility function matching service_mapper.get_specific_service()
+    Returns the specific service name from a form identifier.
+    """
+    # Try to find in Level 2 services
+    form_lower = form_identifier.lower().replace('_', ' ')
+    
+    for category, services in SERVICE_CATEGORIES.items():
+        for service in services:
+            if service.lower() == form_lower:
+                return service
+    
+    # Try Level 3 services
+    for category, subcategories in LEVEL_3_SERVICES.items():
+        for subcategory, level3_list in subcategories.items():
+            for level3 in level3_list:
+                if level3.lower() == form_lower:
+                    return level3
+    
+    # Return the form identifier with proper capitalization
+    return form_identifier.replace('_', ' ').title()
+
+def find_matching_service(text: str, category: str = None) -> Optional[str]:
+    """
+    Backward compatibility function matching service_mapper.find_matching_service()
+    Finds a matching service in the given category or all categories.
+    """
+    text_lower = text.lower()
+    
+    if category:
+        # Search within specific category
+        if category in SERVICE_CATEGORIES:
+            for service in SERVICE_CATEGORIES[category]:
+                if service.lower() in text_lower or text_lower in service.lower():
+                    return service
+    else:
+        # Search all categories
+        for cat, services in SERVICE_CATEGORIES.items():
+            for service in services:
+                if service.lower() in text_lower or text_lower in service.lower():
+                    return service
+    
+    return None
+
+# Export backward compatibility constants
+DOCKSIDE_PROS_CATEGORIES = list(SERVICE_CATEGORIES.keys())
+DOCKSIDE_PROS_SERVICES = FORM_TO_CATEGORY_MAPPINGS
+
 # Export key data structures for external use
 __all__ = [
     'SERVICE_CATEGORIES',
@@ -1001,5 +1403,12 @@ __all__ = [
     'vendor_matches_service_exact',
     'vendor_matches_service_fuzzy',
     'normalize_service_name',
-    'get_level3_services'
+    'get_level3_services',
+    # Backward compatibility exports
+    'get_direct_service_category',
+    'get_service_category',
+    'get_specific_service',
+    'find_matching_service',
+    'DOCKSIDE_PROS_CATEGORIES',
+    'DOCKSIDE_PROS_SERVICES'
 ]

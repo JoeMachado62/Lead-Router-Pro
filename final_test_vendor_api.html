@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Final Test - Vendor API Version</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover { background: #0056b3; }
+        iframe {
+            width: 100%;
+            height: 600px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+        }
+        .test-results {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: monospace;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🧪 Final Test: Vendor Application API Version</h1>
+        
+        <div class="test-section">
+            <h2>Test Controls</h2>
+            <button onclick="testAPIEndpoint()">1. Test API Endpoint</button>
+            <button onclick="testPageLoad()">2. Test Page Load</button>
+            <button onclick="testCategoryDropdown()">3. Test Category Dropdown</button>
+            <button onclick="testBoatMaintenance()">4. Test Boat Maintenance (No L3)</button>
+            <button onclick="testBoatRepair()">5. Test Boat Repair (Has L3)</button>
+            <button onclick="runAllTests()">🚀 Run All Tests</button>
+            <button onclick="clearResults()">Clear Results</button>
+        </div>
+        
+        <div class="test-section">
+            <h2>Test Results</h2>
+            <div id="results" class="test-results">Ready to test...</div>
+        </div>
+        
+        <div class="test-section">
+            <h2>Live Widget</h2>
+            <iframe id="vendor-frame" src="http://localhost:8000/vendor-application-api"></iframe>
+        </div>
+    </div>
+    
+    <script>
+        const resultsDiv = document.getElementById('results');
+        let vendorWindow = null;
+        let testsPassed = 0;
+        let testsTotal = 0;
+        
+        window.onload = function() {
+            vendorWindow = document.getElementById('vendor-frame').contentWindow;
+            addResult('Page loaded. Ready for testing.', 'info');
+        };
+        
+        function addResult(message, type = 'info') {
+            const time = new Date().toLocaleTimeString();
+            const symbol = type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️';
+            resultsDiv.innerHTML += `[${time}] ${symbol} ${message}\n`;
+            resultsDiv.scrollTop = resultsDiv.scrollHeight;
+        }
+        
+        function clearResults() {
+            resultsDiv.innerHTML = 'Ready to test...\n';
+            testsPassed = 0;
+            testsTotal = 0;
+        }
+        
+        async function testAPIEndpoint() {
+            addResult('Testing API endpoint...', 'info');
+            try {
+                const response = await fetch('http://localhost:8000/api/v1/services/hierarchy');
+                const data = await response.json();
+                
+                if (data.success) {
+                    addResult(`API Success: ${data.stats.total_categories} categories loaded`, 'success');
+                    
+                    // Check specific category
+                    if (data.data['Boat Maintenance']) {
+                        const bm = data.data['Boat Maintenance'];
+                        addResult(`Boat Maintenance: ${bm.subcategories.length} subcategories`, 'success');
+                    }
+                    
+                    if (data.data['Boat and Yacht Repair']) {
+                        const br = data.data['Boat and Yacht Repair'];
+                        const l3Count = Object.keys(br.level3Services || {}).length;
+                        addResult(`Boat Repair: ${l3Count} services with Level 3`, 'success');
+                    }
+                    
+                    testsPassed++;
+                } else {
+                    addResult('API returned success=false', 'error');
+                }
+            } catch (e) {
+                addResult(`API Error: ${e.message}`, 'error');
+            }
+            testsTotal++;
+        }
+        
+        async function testPageLoad() {
+            addResult('Testing page load and data initialization...', 'info');
+            
+            // Wait a moment for iframe to fully load
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            try {
+                // Check if SERVICE_CATEGORIES is loaded
+                const categoriesLoaded = vendorWindow.SERVICE_CATEGORIES && 
+                                        Object.keys(vendorWindow.SERVICE_CATEGORIES).length > 0;
+                
+                if (categoriesLoaded) {
+                    const count = Object.keys(vendorWindow.SERVICE_CATEGORIES).length;
+                    addResult(`SERVICE_CATEGORIES loaded: ${count} categories`, 'success');
+                    testsPassed++;
+                } else {
+                    addResult('SERVICE_CATEGORIES not loaded or empty', 'error');
+                }
+            } catch (e) {
+                addResult(`Error accessing iframe: ${e.message}`, 'error');
+            }
+            testsTotal++;
+        }
+        
+        async function testCategoryDropdown() {
+            addResult('Testing category dropdown population...', 'info');
+            
+            try {
+                const dropdown = vendorWindow.document.getElementById('primary_service_category');
+                if (dropdown) {
+                    const optionCount = dropdown.options.length - 1; // Exclude placeholder
+                    addResult(`Dropdown populated: ${optionCount} categories`, 'success');
+                    
+                    // List first few options
+                    const options = Array.from(dropdown.options).slice(1, 4).map(o => o.text);
+                    addResult(`Sample options: ${options.join(', ')}`, 'info');
+                    testsPassed++;
+                } else {
+                    addResult('Dropdown element not found', 'error');
+                }
+            } catch (e) {
+                addResult(`Error testing dropdown: ${e.message}`, 'error');
+            }
+            testsTotal++;
+        }
+        
+        async function testBoatMaintenance() {
+            addResult('Testing Boat Maintenance (no Level 3)...', 'info');
+            
+            try {
+                // Select Boat Maintenance
+                const dropdown = vendorWindow.document.getElementById('primary_service_category');
+                dropdown.value = 'Boat Maintenance';
+                dropdown.dispatchEvent(new Event('change'));
+                
+                // Wait for render
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                // Check services rendered
+                const servicesSection = vendorWindow.document.getElementById('primary-services-section');
+                const isVisible = servicesSection && servicesSection.style.display !== 'none';
+                
+                if (isVisible) {
+                    addResult('Services section is visible', 'success');
+                    
+                    const container = vendorWindow.document.getElementById('primary-services-container');
+                    const services = container.querySelectorAll('.service-tag');
+                    
+                    if (services.length > 0) {
+                        addResult(`Rendered ${services.length} subcategory tags`, 'success');
+                        const sampleServices = Array.from(services).slice(0, 3).map(s => s.textContent);
+                        addResult(`First 3: ${sampleServices.join(', ')}`, 'info');
+                        testsPassed++;
+                    } else {
+                        addResult('No service tags rendered', 'error');
+                    }
+                } else {
+                    addResult('Services section not visible', 'error');
+                }
+            } catch (e) {
+                addResult(`Error testing Boat Maintenance: ${e.message}`, 'error');
+            }
+            testsTotal++;
+        }
+        
+        async function testBoatRepair() {
+            addResult('Testing Boat and Yacht Repair (has Level 3)...', 'info');
+            
+            try {
+                // Select Boat and Yacht Repair
+                const dropdown = vendorWindow.document.getElementById('primary_service_category');
+                dropdown.value = 'Boat and Yacht Repair';
+                dropdown.dispatchEvent(new Event('change'));
+                
+                // Wait for render
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                // Check services rendered
+                const container = vendorWindow.document.getElementById('primary-services-container');
+                const services = container.querySelectorAll('.service-tag');
+                const badges = container.querySelectorAll('.service-count-badge');
+                
+                if (services.length > 0) {
+                    addResult(`Rendered ${services.length} service tags`, 'success');
+                    addResult(`Found ${badges.length} badges (Level 3 indicators)`, badges.length > 0 ? 'success' : 'info');
+                    
+                    // Check for Fiberglass Repair
+                    const fiberglassTag = Array.from(services).find(s => s.textContent.includes('Fiberglass'));
+                    if (fiberglassTag) {
+                        const hasLevel3 = fiberglassTag.getAttribute('data-has-level3') === 'true';
+                        const level3Count = fiberglassTag.getAttribute('data-level3-count');
+                        addResult(`Fiberglass Repair: hasLevel3=${hasLevel3}, count=${level3Count}`, 'info');
+                    }
+                    testsPassed++;
+                } else {
+                    addResult('No service tags rendered', 'error');
+                }
+            } catch (e) {
+                addResult(`Error testing Boat Repair: ${e.message}`, 'error');
+            }
+            testsTotal++;
+        }
+        
+        async function runAllTests() {
+            clearResults();
+            addResult('Starting comprehensive test suite...', 'info');
+            
+            await testAPIEndpoint();
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            await testPageLoad();
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            await testCategoryDropdown();
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            await testBoatMaintenance();
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            await testBoatRepair();
+            
+            // Summary
+            addResult('=====================================', 'info');
+            const passRate = Math.round((testsPassed / testsTotal) * 100);
+            const summaryType = passRate === 100 ? 'success' : passRate >= 80 ? 'info' : 'error';
+            addResult(`TEST SUMMARY: ${testsPassed}/${testsTotal} tests passed (${passRate}%)`, summaryType);
+            
+            if (passRate === 100) {
+                addResult('🎉 All tests passed! The API version is working correctly.', 'success');
+            } else if (passRate >= 80) {
+                addResult('⚠️ Most tests passed, but some issues remain.', 'info');
+            } else {
+                addResult('❌ Multiple tests failed. Please review the errors.', 'error');
+            }
+        }
+    </script>
+</body>
+</html>

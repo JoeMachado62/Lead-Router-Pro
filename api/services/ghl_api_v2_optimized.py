@@ -7,9 +7,9 @@ Only falls back to v1 for vendor user creation
 
 import requests
 import logging
+import json
 from typing import Dict, List, Optional, Any
 from datetime import datetime
-import json
 
 logger = logging.getLogger(__name__)
 
@@ -195,11 +195,8 @@ class OptimizedGoHighLevelAPI:
             # V2 endpoint
             url = f"{self.v2_base_url}/opportunities/"
             
-            # Ensure required fields
-            payload = {
-                "locationId": self.location_id,
-                **opportunity_data
-            }
+            # Don't include locationId in payload - it's already set correctly in the data
+            payload = opportunity_data.copy()
             
             logger.info(f"🎯 Creating opportunity with v2 API")
             
@@ -212,6 +209,8 @@ class OptimizedGoHighLevelAPI:
                 return data
             else:
                 logger.error(f"❌ v2 opportunity creation failed: {response.status_code}")
+                logger.error(f"   Request payload: {json.dumps(payload, indent=2)}")
+                logger.error(f"   Response: {response.text[:500]}")  # Log error details
                 return None
                 
         except Exception as e:
@@ -224,10 +223,24 @@ class OptimizedGoHighLevelAPI:
             # V2 API endpoint for searching opportunities
             url = f"{self.v2_base_url}/opportunities/search"
             
+            # Log the location_id to debug
+            logger.info(f"🔍 Getting opportunities for contact {contact_id}")
+            logger.info(f"   Location ID from self: {self.location_id}")
+            
+            # FIXED: Ensure location_id is not None
+            if not self.location_id:
+                logger.error("❌ Location ID is not set!")
+                return []
+            
+            # Use underscore format for this endpoint
             params = {
-                "locationId": self.location_id,
-                "contact_id": contact_id
+                "location_id": str(self.location_id),  # This endpoint uses underscore
+                "contact_id": str(contact_id),         # This endpoint uses underscore
+                "limit": 20
             }
+            
+            logger.info(f"   Request URL: {url}")
+            logger.info(f"   Request params: {json.dumps(params, indent=2)}")
             
             response = requests.get(url, headers=self.v2_headers, params=params, timeout=10)
             
@@ -238,6 +251,7 @@ class OptimizedGoHighLevelAPI:
                 return opportunities
             else:
                 logger.error(f"❌ Failed to get opportunities: {response.status_code}")
+                logger.error(f"   Response: {response.text[:500]}")  # Log error details
                 return []
                 
         except Exception as e:
@@ -251,6 +265,7 @@ class OptimizedGoHighLevelAPI:
             url = f"{self.v2_base_url}/opportunities/{opportunity_id}"
             
             logger.info(f"📝 Updating opportunity {opportunity_id} with v2 API")
+            logger.info(f"   Update data: {json.dumps(update_data, indent=2)}")
             
             response = requests.put(url, headers=self.v2_headers, json=update_data, timeout=15)
             
@@ -259,6 +274,7 @@ class OptimizedGoHighLevelAPI:
                 return True
             else:
                 logger.error(f"❌ v2 opportunity update failed: {response.status_code}")
+                logger.error(f"   Response: {response.text[:500]}")
                 return False
                 
         except Exception as e:

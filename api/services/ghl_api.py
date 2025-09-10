@@ -602,7 +602,7 @@ class GoHighLevelAPI:
             logger.error("=" * 80)
             
             # Make V2 API request
-            logger.error("🚀 SENDING V2 API REQUEST...")
+            logger.info("🚀 SENDING V2 API REQUEST...")
             response = requests.post(url, headers=v2_headers, json=payload, timeout=30)
             
             # 🔍 ULTRA-DETAILED V2 API RESPONSE DEBUGGING
@@ -628,14 +628,14 @@ class GoHighLevelAPI:
             if response.status_code == 201:
                 data = response.json()
                 user_id = data.get('id')
-                logger.error(f"✅ V2 API SUCCESS! Created user: {user_id}")
-                logger.error(f"🔒 Applied restrictive scopes: {vendor_scopes}")
+                logger.info(f"✅ V2 API SUCCESS! Created user: {user_id}")
+                logger.info(f"🔒 Applied restrictive scopes: {vendor_scopes}")
                 return data
             elif response.status_code == 200:
                 # Some APIs return 200 instead of 201
                 data = response.json()
                 user_id = data.get('id')
-                logger.error(f"✅ V2 API SUCCESS! (200 response) Created user: {user_id}")
+                logger.info(f"✅ V2 API SUCCESS! (200 response) Created user: {user_id}")
                 return data
             else:
                 logger.error(f"❌ V2 API FAILED: {response.status_code}")

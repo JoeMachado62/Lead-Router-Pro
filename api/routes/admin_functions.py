@@ -23,20 +23,20 @@ router = APIRouter(prefix="/api/v1/admin", tags=["Admin Functions"])
 @router.post("/sync-database")
 async def sync_database():
     """
-    Enhanced database sync endpoint that updates existing records
-    with current data from GoHighLevel
+    Enhanced V2 database sync endpoint with bi-directional sync capabilities
     
     This function now:
-    1. Updates existing vendor and lead records with specific fields from GHL
-    2. Only syncs records that have GHL contact IDs
-    3. Provides detailed statistics about the sync operation
-    4. Handles errors gracefully with comprehensive logging
+    1. Fetches ALL contacts from GHL to discover new vendors/leads
+    2. Updates existing vendor and lead records with ALL fields from GHL
+    3. Creates new local records for GHL contacts not in database
+    4. Detects and handles deleted GHL records
+    5. Provides comprehensive statistics about the sync operation
     """
     try:
         logger.info("🔄 Database sync initiated from admin dashboard")
         
-        # Import the enhanced sync module from services
-        from api.services.enhanced_db_sync import EnhancedDatabaseSync
+        # Import the enhanced sync V2 module (bi-directional) from services
+        from api.services.enhanced_db_sync_v2 import EnhancedDatabaseSync
         
         # Initialize the sync service
         sync_service = EnhancedDatabaseSync()
@@ -49,22 +49,28 @@ async def sync_database():
             logger.info(f"✅ Sync completed: {results['message']}")
             
             return {
+                "status": "success",  # Frontend expects 'status' not 'success'
                 "success": True,
                 "message": results['message'],
+                # Frontend expects these at root level
+                "vendors": {
+                    "checked": results['stats'].get('vendors_checked', 0),
+                    "updated": results['stats'].get('vendors_updated', 0),
+                    "added": results['stats'].get('vendors_created', 0),  # Frontend expects 'added' not 'created'
+                    "deleted": results['stats'].get('vendors_deactivated', 0),  # Using deactivated count
+                    "created": results['stats'].get('vendors_created', 0),
+                    "deactivated": results['stats'].get('vendors_deactivated', 0)
+                },
+                "leads": {
+                    "checked": results['stats'].get('leads_checked', 0),
+                    "updated": results['stats'].get('leads_updated', 0),
+                    "added": results['stats'].get('leads_created', 0),  # Frontend expects 'added' not 'created'
+                    "deleted": results['stats'].get('leads_deleted', 0),
+                    "created": results['stats'].get('leads_created', 0)
+                },
                 "stats": {
-                    "vendors": {
-                        "checked": results['stats']['vendors_checked'],
-                        "updated": results['stats']['vendors_updated'],
-                        "skipped": results['stats']['vendors_skipped'],
-                        "errors": results['stats']['vendors_errors']
-                    },
-                    "leads": {
-                        "checked": results['stats']['leads_checked'],
-                        "updated": results['stats']['leads_updated'],
-                        "skipped": results['stats']['leads_skipped'],
-                        "errors": results['stats']['leads_errors']
-                    },
-                    "fields_updated": results['stats']['fields_updated'],
+                    "ghl_contacts_fetched": results['stats'].get('ghl_contacts_fetched', 0),
+                    "errors": len(results['stats'].get('errors', [])),
                     "duration": results.get('duration', 0)
                 },
                 "timestamp": datetime.now().isoformat()
@@ -74,8 +80,11 @@ async def sync_database():
             logger.error(f"❌ Sync failed: {error_msg}")
             
             return {
+                "status": "error",  # Frontend expects 'status'
                 "success": False,
                 "message": f"Sync failed: {error_msg}",
+                "vendors": {"updated": 0, "added": 0, "deleted": 0},
+                "leads": {"updated": 0, "added": 0, "deleted": 0},
                 "stats": results.get('stats', {}),
                 "timestamp": datetime.now().isoformat()
             }
@@ -83,8 +92,11 @@ async def sync_database():
     except ImportError as e:
         logger.error(f"❌ Failed to import enhanced sync module: {e}")
         return {
+            "status": "error",
             "success": False,
-            "message": "Enhanced sync module not found. Please ensure enhanced_db_sync.py is in api/services/.",
+            "message": "Enhanced sync module not found. Please ensure enhanced_db_sync_v2.py is in api/services/.",
+            "vendors": {"updated": 0, "added": 0, "deleted": 0},
+            "leads": {"updated": 0, "added": 0, "deleted": 0},
             "error": str(e),
             "timestamp": datetime.now().isoformat()
         }
@@ -92,8 +104,11 @@ async def sync_database():
     except Exception as e:
         logger.error(f"❌ Unexpected error during sync: {e}")
         return {
+            "status": "error",
             "success": False,
             "message": f"Unexpected error: {str(e)}",
+            "vendors": {"updated": 0, "added": 0, "deleted": 0},
+            "leads": {"updated": 0, "added": 0, "deleted": 0},
             "error": str(e),
             "timestamp": datetime.now().isoformat()
         }

@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Vendor Application UI</title>
+    <style>
+        .container {
+            display: flex;
+            gap: 20px;
+            padding: 20px;
+        }
+        .frame-container {
+            flex: 1;
+            border: 2px solid #ccc;
+            border-radius: 8px;
+            padding: 10px;
+        }
+        iframe {
+            width: 100%;
+            height: 800px;
+            border: none;
+        }
+        h2 {
+            margin: 0 0 10px 0;
+            color: #333;
+        }
+        .status {
+            background: #f0f0f0;
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Side-by-Side Comparison: Original vs API Version</h1>
+    
+    <div class="container">
+        <div class="frame-container">
+            <h2>Original (Hardcoded)</h2>
+            <iframe id="original" src="http://localhost:8000/vendor-application"></iframe>
+            <div class="status" id="original-status">Waiting for messages...</div>
+        </div>
+        
+        <div class="frame-container">
+            <h2>API Version</h2>
+            <iframe id="api-version" src="http://localhost:8000/vendor-application-api"></iframe>
+            <div class="status" id="api-status">Waiting for messages...</div>
+        </div>
+    </div>
+    
+    <script>
+        // Listen for messages from both iframes
+        window.addEventListener('message', function(e) {
+            if (e.source === document.getElementById('original').contentWindow) {
+                document.getElementById('original-status').innerHTML += '<br>' + JSON.stringify(e.data);
+            } else if (e.source === document.getElementById('api-version').contentWindow) {
+                document.getElementById('api-status').innerHTML += '<br>' + JSON.stringify(e.data);
+            }
+        });
+        
+        // Test both versions after loading
+        setTimeout(() => {
+            console.log('Testing category selection...');
+            
+            // Try to access the iframe content for debugging
+            try {
+                const origWin = document.getElementById('original').contentWindow;
+                const apiWin = document.getElementById('api-version').contentWindow;
+                
+                // Check if SERVICE_CATEGORIES is loaded in API version
+                if (apiWin.SERVICE_CATEGORIES) {
+                    console.log('API VERSION - SERVICE_CATEGORIES loaded:', Object.keys(apiWin.SERVICE_CATEGORIES).length);
+                    
+                    // Check structure
+                    const boatMaint = apiWin.SERVICE_CATEGORIES['Boat Maintenance'];
+                    if (boatMaint) {
+                        console.log('API VERSION - Boat Maintenance structure:', {
+                            subcategories: boatMaint.subcategories ? boatMaint.subcategories.length : 0,
+                            level3Services: boatMaint.level3Services ? Object.keys(boatMaint.level3Services).length : 0
+                        });
+                    }
+                }
+            } catch (e) {
+                console.log('Cannot access iframe content:', e.message);
+            }
+        }, 3000);
+    </script>
+</body>
+</html>

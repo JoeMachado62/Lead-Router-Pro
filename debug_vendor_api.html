@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Vendor API</title>
+    <style>
+        .debug-container {
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .iframe-container {
+            border: 2px solid #ccc;
+            border-radius: 8px;
+            padding: 10px;
+            margin: 20px 0;
+        }
+        iframe {
+            width: 100%;
+            height: 800px;
+            border: none;
+        }
+        .console-output {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        .console-line {
+            margin: 2px 0;
+        }
+        .console-info { color: #4fc1ff; }
+        .console-warn { color: #ffcc00; }
+        .console-error { color: #ff6b6b; }
+        .console-log { color: #d4d4d4; }
+        button {
+            margin: 5px;
+            padding: 10px 20px;
+            background: #4573a8;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #356090;
+        }
+    </style>
+</head>
+<body>
+    <div class="debug-container">
+        <h1>Debug Vendor Application API Version</h1>
+        
+        <div>
+            <button onclick="testBoatMaintenance()">Test Boat Maintenance (No Level 3)</button>
+            <button onclick="testBoatRepair()">Test Boat Repair (Has Level 3)</button>
+            <button onclick="checkDataStructure()">Check Data Structure</button>
+            <button onclick="clearConsole()">Clear Console</button>
+        </div>
+        
+        <h2>Console Output:</h2>
+        <div id="console" class="console-output"></div>
+        
+        <div class="iframe-container">
+            <h2>Vendor Application (API Version)</h2>
+            <iframe id="vendor-frame" src="http://localhost:8000/vendor-application-api"></iframe>
+        </div>
+    </div>
+    
+    <script>
+        const consoleDiv = document.getElementById('console');
+        let vendorWindow = null;
+        
+        // Intercept console messages from iframe
+        const originalLog = console.log;
+        const originalWarn = console.warn;
+        const originalError = console.error;
+        
+        function addToConsole(message, type = 'log') {
+            const line = document.createElement('div');
+            line.className = `console-line console-${type}`;
+            line.textContent = `[${type.toUpperCase()}] ${message}`;
+            consoleDiv.appendChild(line);
+            consoleDiv.scrollTop = consoleDiv.scrollHeight;
+        }
+        
+        // Override console methods
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            addToConsole(args.map(a => JSON.stringify(a)).join(' '), 'log');
+        };
+        
+        console.warn = function(...args) {
+            originalWarn.apply(console, args);
+            addToConsole(args.map(a => JSON.stringify(a)).join(' '), 'warn');
+        };
+        
+        console.error = function(...args) {
+            originalError.apply(console, args);
+            addToConsole(args.map(a => JSON.stringify(a)).join(' '), 'error');
+        };
+        
+        // Wait for iframe to load
+        window.addEventListener('load', function() {
+            vendorWindow = document.getElementById('vendor-frame').contentWindow;
+            
+            // Listen for messages from iframe
+            window.addEventListener('message', function(e) {
+                if (e.source === vendorWindow) {
+                    addToConsole('Message from iframe: ' + JSON.stringify(e.data), 'info');
+                }
+            });
+            
+            setTimeout(() => {
+                addToConsole('Page loaded. Checking if SERVICE_CATEGORIES is available...', 'info');
+                checkDataStructure();
+            }, 2000);
+        });
+        
+        function testBoatMaintenance() {
+            addToConsole('Testing Boat Maintenance category...', 'info');
+            try {
+                if (vendorWindow && vendorWindow.selectPrimaryCategory) {
+                    vendorWindow.selectPrimaryCategory('Boat Maintenance');
+                    addToConsole('Called selectPrimaryCategory("Boat Maintenance")', 'log');
+                    
+                    // Check what was rendered
+                    setTimeout(() => {
+                        const container = vendorWindow.document.getElementById('primary-services-container');
+                        if (container) {
+                            addToConsole(`Services rendered: ${container.children.length} items`, 'info');
+                            addToConsole(`First 3 services: ${Array.from(container.children).slice(0, 3).map(el => el.textContent).join(', ')}`, 'log');
+                        }
+                    }, 500);
+                } else {
+                    addToConsole('selectPrimaryCategory function not found', 'error');
+                }
+            } catch (e) {
+                addToConsole('Error: ' + e.message, 'error');
+            }
+        }
+        
+        function testBoatRepair() {
+            addToConsole('Testing Boat and Yacht Repair category...', 'info');
+            try {
+                if (vendorWindow && vendorWindow.selectPrimaryCategory) {
+                    vendorWindow.selectPrimaryCategory('Boat and Yacht Repair');
+                    addToConsole('Called selectPrimaryCategory("Boat and Yacht Repair")', 'log');
+                    
+                    // Check what was rendered
+                    setTimeout(() => {
+                        const container = vendorWindow.document.getElementById('primary-services-container');
+                        if (container) {
+                            addToConsole(`Services rendered: ${container.children.length} items`, 'info');
+                            addToConsole(`First 3 services: ${Array.from(container.children).slice(0, 3).map(el => el.textContent).join(', ')}`, 'log');
+                            
+                            // Check for badges
+                            const badges = container.querySelectorAll('.service-count-badge');
+                            addToConsole(`Badges found: ${badges.length}`, 'info');
+                        }
+                    }, 500);
+                } else {
+                    addToConsole('selectPrimaryCategory function not found', 'error');
+                }
+            } catch (e) {
+                addToConsole('Error: ' + e.message, 'error');
+            }
+        }
+        
+        function checkDataStructure() {
+            addToConsole('Checking data structure...', 'info');
+            try {
+                if (vendorWindow && vendorWindow.SERVICE_CATEGORIES) {
+                    const categories = Object.keys(vendorWindow.SERVICE_CATEGORIES);
+                    addToConsole(`Categories loaded: ${categories.length}`, 'info');
+                    
+                    // Check Boat Maintenance
+                    const boatMaint = vendorWindow.SERVICE_CATEGORIES['Boat Maintenance'];
+                    if (boatMaint) {
+                        addToConsole('Boat Maintenance structure:', 'log');
+                        addToConsole(`  - subcategories: ${boatMaint.subcategories ? boatMaint.subcategories.length : 0}`, 'log');
+                        addToConsole(`  - level3Services: ${boatMaint.level3Services ? Object.keys(boatMaint.level3Services).length : 0}`, 'log');
+                        if (boatMaint.subcategories) {
+                            addToConsole(`  - First 3 subcategories: ${boatMaint.subcategories.slice(0, 3).join(', ')}`, 'log');
+                        }
+                    }
+                    
+                    // Check Boat and Yacht Repair
+                    const boatRepair = vendorWindow.SERVICE_CATEGORIES['Boat and Yacht Repair'];
+                    if (boatRepair) {
+                        addToConsole('Boat and Yacht Repair structure:', 'log');
+                        addToConsole(`  - subcategories: ${boatRepair.subcategories ? boatRepair.subcategories.length : 0}`, 'log');
+                        addToConsole(`  - level3Services: ${boatRepair.level3Services ? Object.keys(boatRepair.level3Services).length : 0}`, 'log');
+                        
+                        // Check Fiberglass Repair Level 3
+                        if (boatRepair.level3Services && boatRepair.level3Services['Fiberglass Repair']) {
+                            const fiberglassL3 = boatRepair.level3Services['Fiberglass Repair'];
+                            addToConsole(`  - Fiberglass Repair has ${fiberglassL3.length} Level 3 services`, 'info');
+                            addToConsole(`    First 3: ${fiberglassL3.slice(0, 3).join(', ')}`, 'log');
+                        }
+                    }
+                } else {
+                    addToConsole('SERVICE_CATEGORIES not found. Data may still be loading...', 'warn');
+                }
+            } catch (e) {
+                addToConsole('Error checking structure: ' + e.message, 'error');
+            }
+        }
+        
+        function clearConsole() {
+            consoleDiv.innerHTML = '';
+            addToConsole('Console cleared', 'info');
+        }
+    </script>
+</body>
+</html>

@@ -32,11 +32,9 @@ from api.routes.auth_routes import router as auth_router
 from api.routes.routing_admin import router as routing_admin_router
 from api.routes.vendor_toggle import router as vendor_toggle_router
 from api.routes.lead_reassignment import router as lead_reassignment_router
-# from api.routes.lead_reassignment_fixed import router as lead_reassignment_fixed_router  # Temporarily disabled
 from api.routes.admin_functions import router as admin_functions_router
 from api.routes.vendor_matching_enhanced import router as vendor_matching_router
 from api.routes.service_dictionary_routes import router as service_dictionary_router
-from api.routes.services_api import router as services_api_router
 
 # Import security middleware
 from api.security.middleware import IPSecurityMiddleware, SecurityCleanupMiddleware
@@ -120,11 +118,9 @@ app.include_router(auth_router)
 app.include_router(routing_admin_router)
 app.include_router(vendor_toggle_router)
 app.include_router(lead_reassignment_router)
-# app.include_router(lead_reassignment_fixed_router)  # Fixed endpoints with proper flow - temporarily disabled for debugging
 app.include_router(admin_functions_router)
 app.include_router(vendor_matching_router, prefix="/api/v1/vendor-matching", tags=["vendor-matching"])
 app.include_router(service_dictionary_router)
-app.include_router(services_api_router)
 
 # Create static and templates directories if they don't exist relative to BASE_DIR
 static_dir = BASE_DIR / "static"
@@ -371,30 +367,6 @@ async def vendor_application_new():
     """Serve the NEW enhanced vendor application with Level 3 services - for GUI approval"""
     vendor_app_new_path = BASE_DIR / "vendor_application_new.html"
     return HTMLResponse(content=read_html_file(vendor_app_new_path))
-
-@app.get("/vendor-application-api", response_class=HTMLResponse)
-async def vendor_application_api():
-    """Serve the API-driven vendor application - fetches data from services API"""
-    vendor_app_api_path = BASE_DIR / "vendor_application_api.html"
-    return HTMLResponse(content=read_html_file(vendor_app_api_path))
-
-@app.get("/vendor-application-api-fixed", response_class=HTMLResponse)
-async def vendor_application_api_fixed():
-    """Serve the FIXED API-driven vendor application"""
-    vendor_app_fixed_path = BASE_DIR / "vendor_application_api_fixed.html"
-    return HTMLResponse(content=read_html_file(vendor_app_fixed_path))
-
-@app.get("/vendor-application-api-v2", response_class=HTMLResponse)
-async def vendor_application_api_v2():
-    """Serve the V2 API-driven vendor application - complete working version"""
-    vendor_app_v2_path = BASE_DIR / "vendor_application_api_v2.html"
-    return HTMLResponse(content=read_html_file(vendor_app_v2_path))
-
-@app.get("/vendor-application-working", response_class=HTMLResponse)
-async def vendor_application_working():
-    """Serve the WORKING vendor application with all fixes"""
-    vendor_app_working_path = BASE_DIR / "vendor_application_working.html"
-    return HTMLResponse(content=read_html_file(vendor_app_working_path))
 
 # Health check endpoint
 @app.get("/health")

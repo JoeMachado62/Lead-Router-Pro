@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Test Fixed Version</title>
+    <style>
+        .container { display: flex; gap: 20px; padding: 20px; }
+        .frame-container { flex: 1; }
+        iframe { width: 100%; height: 700px; border: 2px solid #ccc; border-radius: 8px; }
+        h2 { margin: 0 0 10px 0; }
+        .info { padding: 10px; background: #e8f4f8; border-radius: 4px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <h1>Compare Original vs Fixed API Version</h1>
+    
+    <div class="info">
+        <strong>Instructions:</strong>
+        <ol>
+            <li>The left side shows the original API version (broken)</li>
+            <li>The right side shows the FIXED API version</li>
+            <li>Select "Boat Maintenance" from the dropdown in both</li>
+            <li>The fixed version should show subcategories, the original won't</li>
+            <li>Check the debug info at the bottom of each frame</li>
+        </ol>
+    </div>
+    
+    <div class="container">
+        <div class="frame-container">
+            <h2>Original API Version (Broken)</h2>
+            <iframe src="http://localhost:8000/vendor-application-api"></iframe>
+        </div>
+        
+        <div class="frame-container">
+            <h2>Fixed API Version</h2>
+            <iframe src="http://localhost:8000/vendor-application-api-fixed"></iframe>
+        </div>
+    </div>
+</body>
+</html>

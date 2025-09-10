@@ -86,7 +86,6 @@ class EnhancedDatabaseSync:
                 location_id=os.getenv('GHL_LOCATION_ID') or AppConfig.GHL_LOCATION_ID,
                 agency_api_key=os.getenv('GHL_AGENCY_API_KEY') or AppConfig.GHL_AGENCY_API_KEY,
                 location_api_key=os.getenv('GHL_LOCATION_API') or AppConfig.GHL_LOCATION_API  # Keep for fallback
-                company_id=os.getenv('GHL_COMPANY_ID') or AppConfig.GHL_COMPANY_ID
             )
             
             # Track sync statistics
@@ -251,19 +250,33 @@ class EnhancedDatabaseSync:
             vendors = simple_db_instance.get_vendors()
             logger.info(f"Found {len(vendors)} vendors in database")
             
+            # Filter to only active vendors with GHL User IDs
+            active_vendors = []
             for vendor in vendors:
+                if vendor.get('ghl_user_id'):
+                    active_vendors.append(vendor)
+                else:
+                    logger.debug(f"⏭️ Skipping inactive vendor {vendor.get('name', 'Unknown')} - no GHL User ID")
+            
+            logger.info(f"🎯 Processing {len(active_vendors)} active vendors (with GHL User IDs)")
+            
+            for vendor in active_vendors:
                 self.stats['vendors_checked'] += 1
                 
-                # Skip if no GHL contact ID
+                # Must have GHL contact ID to sync
                 ghl_contact_id = vendor.get('ghl_contact_id')
                 if not ghl_contact_id:
-                    logger.debug(f"⚠️ Vendor {vendor.get('name', 'Unknown')} has no GHL contact ID")
+                    logger.warning(f"⚠️ Active vendor {vendor.get('name', 'Unknown')} has GHL User ID but no GHL contact ID")
                     self.stats['vendors_skipped'] += 1
                     continue
                 
                 try:
                     # Get contact from GHL
-                    logger.debug(f"Fetching GHL data for vendor: {vendor.get('name', 'Unknown')}")
+                    logger.info(f"📊 Processing vendor: {vendor.get('name', 'Unknown')} (Company: {vendor.get('company_name', 'N/A')})")
+                    logger.debug(f"   GHL Contact ID: {ghl_contact_id}")
+                    logger.debug(f"   Current status: {vendor.get('status')}")
+                    logger.debug(f"   Current coverage: {vendor.get('coverage_type')}")
+                    
                     ghl_contact = self.ghl_api.get_contact_by_id(ghl_contact_id)
                     
                     if not ghl_contact:
@@ -398,6 +411,19 @@ class EnhancedDatabaseSync:
             if field_id:
                 custom_fields[field_id] = field_value
         
+        # CRITICAL: Check for GHL User ID and activate vendor if found
+        ghl_user_id_from_contact = custom_fields.get('HXVNT4y8OynNokWAfO2D', '').strip()
+        if ghl_user_id_from_contact:
+            # If vendor has a GHL user ID in GHL but not in DB, update it
+            if not vendor.get('ghl_user_id'):
+                updates['ghl_user_id'] = ghl_user_id_from_contact
+                logger.info(f"   ✅ Found GHL User ID in contact: {ghl_user_id_from_contact}")
+            
+            # If vendor has GHL user ID but status is not active, activate them
+            if vendor.get('status') != 'active':
+                updates['status'] = 'active'
+                logger.info(f"   ✅ Activating vendor - GHL User ID present: {ghl_user_id_from_contact}")
+        
         # Process service_zip_codes to derive coverage fields
         service_zip_codes_value = custom_fields.get('yDcN0FmwI3xacyxAuTWs', '').strip()
         derived_coverage_type = None
@@ -405,39 +431,78 @@ class EnhancedDatabaseSync:
         derived_coverage_counties = None
         
         if service_zip_codes_value:
-            logger.debug(f"   Processing service_zip_codes: {service_zip_codes_value}")
+            logger.info(f"   📍 Processing service_zip_codes: {service_zip_codes_value[:100]}...")
+            
+            # Normalize the value for comparison
+            normalized_value = service_zip_codes_value.upper().strip()
             
             # Determine coverage type based on the format of service_zip_codes
-            if service_zip_codes_value.upper() in ['GLOBAL', 'GLOBAL COVERAGE']:
+            if 'GLOBAL' in normalized_value:
                 derived_coverage_type = 'global'
                 derived_coverage_states = []
                 derived_coverage_counties = []
-            elif service_zip_codes_value.upper() in ['NATIONAL', 'NATIONAL COVERAGE', 'USA', 'NATIONAL COVERAGE (USA)']:
+                logger.info(f"   🌍 Detected GLOBAL coverage")
+            elif 'NATIONAL' in normalized_value or normalized_value in ['USA', 'UNITED STATES']:
                 derived_coverage_type = 'national'
                 derived_coverage_states = []
                 derived_coverage_counties = []
-            elif ',' in service_zip_codes_value and any(state in service_zip_codes_value for state in [', FL', ', GA', ', TX', ', NY', ', CA']):
-                # Contains county format like "Broward, FL" or "Miami-Dade, FL"
-                derived_coverage_type = 'county'
-                derived_coverage_counties = [s.strip() for s in service_zip_codes_value.split(';') if s.strip()]
-                # Extract unique states from counties
-                states_set = set()
-                for county in derived_coverage_counties:
-                    if ', ' in county:
-                        state = county.split(', ')[-1]
-                        states_set.add(state)
-                derived_coverage_states = list(states_set)
-            elif all(len(s.strip()) == 2 and s.strip().isupper() for s in service_zip_codes_value.split(',')):
-                # Contains only state codes like "FL, GA, TX"
-                derived_coverage_type = 'state'
-                derived_coverage_states = [s.strip() for s in service_zip_codes_value.split(',') if s.strip()]
-                derived_coverage_counties = []
-            else:
-                # Could be ZIP codes or other format - preserve as is
-                logger.debug(f"   Could not determine coverage type from: {service_zip_codes_value}")
+                logger.info(f"   🇺🇸 Detected NATIONAL coverage")
+            elif ';' in service_zip_codes_value:
+                # Semi-colon separated list - likely counties
+                items = [s.strip() for s in service_zip_codes_value.split(';') if s.strip()]
+                
+                # Check if items look like counties (contain comma and state code)
+                if items and ', ' in items[0]:
+                    derived_coverage_type = 'county'
+                    derived_coverage_counties = items
+                    
+                    # Extract unique states from counties
+                    states_set = set()
+                    for county in derived_coverage_counties:
+                        if ', ' in county:
+                            state_part = county.split(', ')[-1].strip()
+                            # Validate it's a 2-letter state code
+                            if len(state_part) == 2 and state_part.isupper():
+                                states_set.add(state_part)
+                    derived_coverage_states = sorted(list(states_set))
+                    logger.info(f"   📍 Detected COUNTY coverage: {len(derived_coverage_counties)} counties in {len(derived_coverage_states)} states")
+            elif ',' in service_zip_codes_value:
+                # Comma separated - could be states or counties
+                items = [s.strip() for s in service_zip_codes_value.split(',') if s.strip()]
+                
+                # Check if all items are 2-letter state codes
+                if all(len(item) == 2 and item.isupper() for item in items):
+                    derived_coverage_type = 'state'
+                    derived_coverage_states = items
+                    derived_coverage_counties = []
+                    logger.info(f"   📍 Detected STATE coverage: {len(derived_coverage_states)} states")
+                # Check if items contain state suffixes (like "Broward County, FL")
+                elif any(', ' in item for item in items):
+                    derived_coverage_type = 'county'
+                    derived_coverage_counties = items
+                    
+                    # Extract states
+                    states_set = set()
+                    for county in items:
+                        if ', ' in county:
+                            state_part = county.split(', ')[-1].strip()
+                            if len(state_part) == 2 and state_part.isupper():
+                                states_set.add(state_part)
+                    derived_coverage_states = sorted(list(states_set))
+                    logger.info(f"   📍 Detected COUNTY coverage: {len(derived_coverage_counties)} counties")
+                else:
+                    # Could be ZIP codes - check if they're numeric
+                    if all(item.isdigit() and len(item) == 5 for item in items[:3] if item):
+                        logger.info(f"   📍 Detected ZIP codes - preserving as-is")
+                    else:
+                        logger.debug(f"   ❓ Could not determine coverage type from: {service_zip_codes_value[:50]}...")
         
         # Check each mapped field
         for db_field, ghl_field in self.VENDOR_GHL_FIELDS.items():
+            # Skip fields that are handled separately (like service_zip_codes which becomes coverage fields)
+            if db_field == 'service_zip_codes':
+                continue
+                
             current_value = vendor.get(db_field)
             new_value = None
             
@@ -458,24 +523,33 @@ class EnhancedDatabaseSync:
                     temp_value = custom_fields.get(field_id, '').strip()
                     if temp_value:
                         new_value = temp_value
-                        logger.debug(f"   Found {db_field} in field ID {field_id}")
+                        logger.info(f"   📋 Found {db_field} in field ID {field_id}: {temp_value[:50]}...")
                         break
+                if not new_value:
+                    logger.debug(f"   ⚠️ No value found for {db_field} in any of the field IDs: {ghl_field}")
             else:
                 # Custom field (single field ID)
                 new_value = custom_fields.get(ghl_field, '').strip()
+                if new_value:
+                    logger.debug(f"   📋 Found {db_field}: {new_value[:50]}...")
             
-            # Skip if GHL has no value - UNLESS we have derived coverage data
-            if not new_value and db_field not in ['lead_close_percentage']:
-                logger.debug(f"   Skipping {db_field}: GHL has no direct value, preserving existing")
+            # Skip if GHL has no value for optional fields
+            if not new_value and db_field not in ['lead_close_percentage', 'service_categories', 'services_offered']:
+                logger.debug(f"   Skipping {db_field}: No value in GHL")
                 continue
             
             # Special handling for certain fields
             if db_field in ['service_categories', 'services_offered']:
                 # Convert comma-separated to JSON array
                 if new_value:
-                    new_value = json.dumps([s.strip() for s in new_value.split(',') if s.strip()])
+                    # Parse the comma-separated values into a list
+                    parsed_list = [s.strip() for s in new_value.split(',') if s.strip()]
+                    new_value = json.dumps(parsed_list)
+                    logger.info(f"   🔄 Parsed {db_field}: {len(parsed_list)} items")
                 else:
-                    continue  # Don't update if no value
+                    # For empty values, set as empty array
+                    new_value = json.dumps([])
+                    logger.debug(f"   🔄 Setting {db_field} to empty array")
             
             elif db_field == 'lead_close_percentage':
                 # Convert percentage to float
@@ -488,32 +562,55 @@ class EnhancedDatabaseSync:
                     new_value = 0.0
             
             elif db_field == 'taking_new_work':
-                # Normalize Yes/No values
+                # Normalize Yes/No values to boolean
                 if new_value:
-                    new_value = new_value.strip().title()  # "Yes" or "No"
+                    normalized = new_value.strip().lower()
+                    if normalized in ['yes', 'true', '1']:
+                        new_value = 'Yes'
+                    elif normalized in ['no', 'false', '0']:
+                        new_value = 'No'
+                    else:
+                        new_value = new_value.strip().title()
+            
+            elif db_field == 'primary_service_category':
+                # Keep as string - it's a single category
+                if new_value:
+                    logger.info(f"   🎯 Primary service category: {new_value}")
+            
+            elif db_field == 'last_lead_assigned':
+                # Keep timestamp as-is from GHL
+                if new_value:
+                    logger.debug(f"   📅 Last lead assigned: {new_value}")
             
             # Compare and add to updates if different
             if new_value is not None and self._values_differ(current_value, new_value, db_field):
                 updates[db_field] = new_value
                 logger.debug(f"   {db_field}: '{current_value}' → '{new_value}'")
         
-        # Add derived coverage fields if we determined them from service_zip_codes
-        if derived_coverage_type and not vendor.get('coverage_type'):
-            # Only update coverage_type if it's currently empty
-            updates['coverage_type'] = derived_coverage_type
-            logger.info(f"   Derived coverage_type: {derived_coverage_type}")
-        
-        if derived_coverage_states is not None:
-            states_json = json.dumps(derived_coverage_states)
-            if self._values_differ(vendor.get('coverage_states'), states_json, 'coverage_states'):
-                updates['coverage_states'] = states_json
-                logger.info(f"   Derived coverage_states: {derived_coverage_states}")
-        
-        if derived_coverage_counties is not None:
-            counties_json = json.dumps(derived_coverage_counties)
-            if self._values_differ(vendor.get('coverage_counties'), counties_json, 'coverage_counties'):
-                updates['coverage_counties'] = counties_json
-                logger.info(f"   Derived coverage_counties: {len(derived_coverage_counties)} counties")
+        # Add derived coverage fields ONLY if we successfully determined them
+        if derived_coverage_type:
+            # Update coverage_type if different or empty
+            if vendor.get('coverage_type') != derived_coverage_type:
+                updates['coverage_type'] = derived_coverage_type
+                logger.info(f"   ✅ Updated coverage_type: {vendor.get('coverage_type')} → {derived_coverage_type}")
+            
+            # Update states if we have them
+            if derived_coverage_states is not None:
+                states_json = json.dumps(derived_coverage_states)
+                if self._values_differ(vendor.get('coverage_states'), states_json, 'coverage_states'):
+                    updates['coverage_states'] = states_json
+                    logger.info(f"   ✅ Updated coverage_states: {len(derived_coverage_states)} states")
+            
+            # Update counties if we have them  
+            if derived_coverage_counties is not None:
+                counties_json = json.dumps(derived_coverage_counties)
+                if self._values_differ(vendor.get('coverage_counties'), counties_json, 'coverage_counties'):
+                    updates['coverage_counties'] = counties_json
+                    logger.info(f"   ✅ Updated coverage_counties: {len(derived_coverage_counties)} counties")
+        else:
+            # No valid coverage type determined - log but don't update
+            if service_zip_codes_value:
+                logger.debug(f"   ⚠️ Could not parse coverage from service_zip_codes, keeping existing values")
         
         return updates
     

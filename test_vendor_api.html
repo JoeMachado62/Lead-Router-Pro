@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Vendor Application API Version</title>
+</head>
+<body>
+    <h1>Testing Vendor Application API Version</h1>
+    <p>Check the browser console for loading messages</p>
+    
+    <iframe 
+        src="http://localhost:8000/vendor-application-api" 
+        width="100%" 
+        height="800px" 
+        style="border: 2px solid #ccc; border-radius: 8px;">
+    </iframe>
+    
+    <div id="status"></div>
+    
+    <script>
+        // Log any messages from the iframe
+        window.addEventListener('message', function(e) {
+            console.log('Message from iframe:', e.data);
+            document.getElementById('status').innerHTML += '<p>Message: ' + JSON.stringify(e.data) + '</p>';
+        });
+    </script>
+</body>
+</html>
